@@ -106,17 +106,15 @@ export async function getInstanceStatus(
 }
 
 // ---------------- QR Code ----------------
+// Confirmado empiricamente: a UAZAPI não expõe um endpoint GET dedicado de
+// QR code — é o próprio POST /instance/connect que devolve o qrcode (dentro
+// de `instance.qrcode`) quando a instância ainda não está conectada.
 export async function getQrCode(config: UazapiConfig): Promise<string | null> {
-  // Tenta os endpoints mais comuns entre versões da UAZAPI
-  for (const path of [`/instance/qrcode`, `/instance/connect`]) {
-    const res = await uazapiFetch(config, path, { method: "GET" });
-    if (res.ok) {
-      const d = res.data as Record<string, any> | null;
-      const qr = d?.qrcode ?? d?.qr ?? d?.base64 ?? d?.instance?.qrcode ?? null;
-      if (qr) return String(qr);
-    }
-  }
-  return null;
+  const res = await uazapiFetch(config, `/instance/connect`, { method: "POST" });
+  if (!res.ok) return null;
+  const d = res.data as Record<string, any> | null;
+  const qr = d?.instance?.qrcode ?? d?.qrcode ?? d?.qr ?? d?.base64 ?? null;
+  return qr ? String(qr) : null;
 }
 
 // ---------------- Conectar / Reiniciar ----------------
