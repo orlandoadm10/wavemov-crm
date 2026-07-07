@@ -27,7 +27,8 @@ export async function getSessionContext(): Promise<SessionContext> {
     .from("organization_members")
     .select("*, organization:organizations(*)")
     .eq("profile_id", profile.id)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .order("created_at");
 
   let organizations: Organization[] =
     (memberships ?? [])
@@ -48,8 +49,13 @@ export async function getSessionContext(): Promise<SessionContext> {
 
   const cookieStore = await cookies();
   const activeOrgId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
+  // Prioridade: cookie → organização mais antiga onde é membro → primeira visível
+  const firstMembershipOrgId = ((memberships ?? []) as OrganizationMember[])[0]
+    ?.organization_id;
   const organization =
-    organizations.find((o) => o.id === activeOrgId) ?? organizations[0];
+    organizations.find((o) => o.id === activeOrgId) ??
+    organizations.find((o) => o.id === firstMembershipOrgId) ??
+    organizations[0];
 
   const membership =
     ((memberships ?? []) as OrganizationMember[]).find(

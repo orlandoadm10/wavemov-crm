@@ -7,6 +7,9 @@ import type { WhatsAppInstance } from "@/types";
 export async function getInstanceForOrg(
   organizationId: string
 ): Promise<WhatsAppInstance | null> {
+  // Sem service role configurada, a área de WhatsApp fica desabilitada
+  // (instância "desconectada") em vez de quebrar a página.
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
   const admin = createAdminClient();
   const { data } = await admin
     .from("whatsapp_instances")
