@@ -53,7 +53,6 @@ export async function POST(request: Request) {
       organization_id,
       name: c.name,
       base_url: c.base_url,
-      instance_id: c.instance_id,
       token_encrypted: keepToken ? instance!.token_encrypted : c.token,
     };
     if (instance) {
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
   const uazapiConfig = resolveConfig(instance);
   if (!uazapiConfig) {
     return NextResponse.json(
-      { error: "Configure a URL base, o token e o Instance ID primeiro." },
+      { error: "Configure a URL base e o token primeiro." },
       { status: 400 }
     );
   }
@@ -81,13 +80,21 @@ export async function POST(request: Request) {
         .update({
           status: status.status,
           qr_code: status.qrCode ?? null,
+          // instance_id é só informativo — preenchido automaticamente
+          // a partir da resposta da própria API, nunca digitado pelo usuário
+          ...(status.instanceId ? { instance_id: status.instanceId } : {}),
           ...(status.status === "connected"
             ? { last_connected_at: new Date().toISOString() }
             : {}),
         })
         .eq("id", instance.id);
     }
-    return NextResponse.json({ ok: true, status: status.status, qr: status.qrCode ?? null });
+    return NextResponse.json({
+      ok: true,
+      status: status.status,
+      qr: status.qrCode ?? null,
+      instanceId: status.instanceId ?? null,
+    });
   }
 
   if (action === "qr") {

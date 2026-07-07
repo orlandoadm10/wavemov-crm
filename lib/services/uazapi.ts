@@ -7,15 +7,19 @@
 // USO EXCLUSIVO NO SERVIDOR (route handlers / server actions).
 // ============================================================
 
+// A UAZAPI identifica a instância unicamente pelo token — não existe um
+// "Instance ID" separado para configurar (o id da instância, quando existe,
+// é apenas informativo e vem DE volta nas respostas da API, ex.: status()).
 export interface UazapiConfig {
   baseUrl: string;
   token: string;
-  instanceId: string;
 }
 
 export interface UazapiInstanceStatus {
   status: "disconnected" | "connecting" | "qr" | "connected" | "error";
   qrCode?: string | null;
+  // Id da instância informado pela própria API (apenas informativo)
+  instanceId?: string | null;
   raw?: unknown;
 }
 
@@ -35,9 +39,8 @@ export interface NormalizedInboundMessage {
 export function getEnvConfig(): UazapiConfig | null {
   const baseUrl = process.env.UAZAPI_BASE_URL;
   const token = process.env.UAZAPI_TOKEN;
-  const instanceId = process.env.UAZAPI_INSTANCE_ID;
-  if (!baseUrl || !token || !instanceId) return null;
-  return { baseUrl, token, instanceId };
+  if (!baseUrl || !token) return null;
+  return { baseUrl, token };
 }
 
 async function uazapiFetch(
@@ -74,20 +77,32 @@ export async function getInstanceStatus(
   if (!res.ok) return { status: "error", raw: res.data };
 
   const d = res.data as Record<string, any> | null;
+  const instanceId: string | null = d?.instance?.id ?? null;
+
+  // Algumas versões da UAZAPI retornam `status` como OBJETO
+  // (ex.: { connected: true, loggedIn: true, ... }), não como string.
+  // Esse sinal booleano é o mais confiável quando presente.
+  if (d?.status && typeof d.status === "object") {
+    if (d.status.connected === true || d.status.loggedIn === true) {
+      return { status: "connected", instanceId, raw: d };
+    }
+  }
+
+  // Fallback: status como string, priorizando instance.status (mais estável)
   const rawStatus = String(
-    d?.status ?? d?.instance?.status ?? d?.state ?? ""
+    d?.instance?.status ?? (typeof d?.status === "string" ? d.status : "") ?? d?.state ?? ""
   ).toLowerCase();
 
   if (["connected", "open", "online"].includes(rawStatus)) {
-    return { status: "connected", raw: d };
+    return { status: "connected", instanceId, raw: d };
   }
   if (["qr", "qrcode", "scan"].includes(rawStatus)) {
-    return { status: "qr", qrCode: d?.qrcode ?? d?.qr ?? null, raw: d };
+    return { status: "qr", qrCode: d?.qrcode ?? d?.qr ?? null, instanceId, raw: d };
   }
   if (["connecting", "loading", "starting"].includes(rawStatus)) {
-    return { status: "connecting", raw: d };
+    return { status: "connecting", instanceId, raw: d };
   }
-  return { status: "disconnected", raw: d };
+  return { status: "disconnected", instanceId, raw: d };
 }
 
 // ---------------- QR Code ----------------

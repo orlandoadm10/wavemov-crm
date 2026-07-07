@@ -91,8 +91,11 @@ automaticamente.
 | `NEXT_PUBLIC_APP_URL` | ✅ | URL pública do app (links de formulário e webhook) |
 | `UAZAPI_BASE_URL` | opcional | URL base da sua instância UAZAPI |
 | `UAZAPI_TOKEN` | opcional | Token da UAZAPI (fallback — pode ser salvo pela UI) |
-| `UAZAPI_INSTANCE_ID` | opcional | ID da instância |
 | `UAZAPI_WEBHOOK_SECRET` | ✅ p/ WhatsApp | Segredo que valida o webhook de mensagens |
+
+> A UAZAPI identifica a instância só pelo **token** — não existe um "Instance
+> ID" para você configurar em lugar nenhum. Se a API retornar um id da
+> instância (informativo), o app salva automaticamente ao testar a conexão.
 
 **Nunca commite `.env.local`** — o `.gitignore` já bloqueia.
 
@@ -101,7 +104,7 @@ automaticamente.
 ## 4. Integração WhatsApp (UAZAPI)
 
 1. Acesse **Atendimento → Conexão e configurações**.
-2. Preencha URL base, Instance ID e Token → **Salvar**.
+2. Preencha URL base e Token → **Salvar**.
 3. **Testar conexão** / **Gerar QR Code** → escaneie com o WhatsApp.
 4. Copie a **URL do webhook** exibida na tela e configure na UAZAPI
    (webhook de mensagens recebidas).

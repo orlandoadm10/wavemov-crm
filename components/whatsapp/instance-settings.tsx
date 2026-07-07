@@ -21,6 +21,9 @@ export function InstanceSettings({
   const router = useRouter();
   const [name, setName] = useState(instance?.name ?? "Principal");
   const [baseUrl, setBaseUrl] = useState(instance?.base_url ?? "");
+  // Id da instância: apenas informativo, preenchido automaticamente pela
+  // API ao testar a conexão — a UAZAPI não exige (nem expõe) esse campo
+  // como algo a ser digitado; o token já identifica a instância.
   const [instanceId, setInstanceId] = useState(instance?.instance_id ?? "");
   const [token, setToken] = useState("");
   const [qr, setQr] = useState<string | null>(instance?.qr_code ?? null);
@@ -48,14 +51,13 @@ export function InstanceSettings({
   }
 
   async function save() {
-    if (!baseUrl || !instanceId || (!token && !instance?.has_token)) {
-      setMessage({ type: "error", text: "Preencha URL base, Instance ID e Token." });
+    if (!baseUrl || (!token && !instance?.has_token)) {
+      setMessage({ type: "error", text: "Preencha URL base e Token." });
       return;
     }
     const body = await callAction("save", {
       name,
       base_url: baseUrl,
-      instance_id: instanceId,
       token: token || "__unchanged__",
     });
     if (body?.ok) {
@@ -70,6 +72,7 @@ export function InstanceSettings({
     if (body?.ok) {
       setStatus(body.status);
       if (body.qr) setQr(body.qr);
+      if (body.instanceId) setInstanceId(body.instanceId);
       setMessage({
         type: body.status === "connected" ? "ok" : "error",
         text:
@@ -128,13 +131,6 @@ export function InstanceSettings({
               onChange={(e) => setBaseUrl(e.target.value)}
             />
           </Field>
-          <Field label="Instance ID">
-            <Input
-              placeholder="ID da instância"
-              value={instanceId}
-              onChange={(e) => setInstanceId(e.target.value)}
-            />
-          </Field>
           <Field label={instance?.has_token ? "Token (deixe vazio para manter o atual)" : "Token"}>
             <Input
               type="password"
@@ -143,6 +139,11 @@ export function InstanceSettings({
               onChange={(e) => setToken(e.target.value)}
             />
           </Field>
+          <p className="text-xs text-ink-faint">
+            Não existe "Instance ID" para configurar — o token já identifica
+            sua instância. Depois de salvar, use <b>Testar conexão</b> para
+            confirmar que os dados estão corretos.
+          </p>
 
           {message && (
             <p
@@ -168,6 +169,7 @@ export function InstanceSettings({
         <Card>
           <CardHeader
             title="Status da instância"
+            subtitle={instanceId ? `ID informado pela API: ${instanceId}` : undefined}
             action={<Badge tone={st.tone} dot>{st.label}</Badge>}
           />
           <div className="grid grid-cols-2 gap-2 p-5">

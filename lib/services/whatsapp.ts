@@ -24,12 +24,8 @@ export async function getInstanceForOrg(
 // Resolve a configuração UAZAPI: dados da instância no banco,
 // com fallback para variáveis de ambiente.
 export function resolveConfig(instance: WhatsAppInstance | null): UazapiConfig | null {
-  if (instance?.base_url && instance.token_encrypted && instance.instance_id) {
-    return {
-      baseUrl: instance.base_url,
-      token: instance.token_encrypted,
-      instanceId: instance.instance_id,
-    };
+  if (instance?.base_url && instance.token_encrypted) {
+    return { baseUrl: instance.base_url, token: instance.token_encrypted };
   }
   return getEnvConfig();
 }

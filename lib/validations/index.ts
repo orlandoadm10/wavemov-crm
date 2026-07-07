@@ -105,10 +105,12 @@ export const publicSubmissionSchema = z.record(
 );
 
 // ---------------- WhatsApp ----------------
+// Não existe um "Instance ID" para configurar na UAZAPI — o token já
+// identifica a instância unicamente. Quando a API retorna um id (apenas
+// informativo), ele é salvo automaticamente após o teste de conexão.
 export const whatsappInstanceSchema = z.object({
   name: z.string().min(1).default("Principal"),
   base_url: z.string().url("URL inválida"),
-  instance_id: z.string().min(1, "Instance ID obrigatório"),
   token: z.string().min(1, "Token obrigatório"),
 });
 
