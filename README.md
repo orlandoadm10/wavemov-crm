@@ -182,6 +182,7 @@ docs/             inventário de funcionalidades, changelog e squad
 
 | Arquivo | Conteúdo |
 |---|---|
+| `docs/HANDOFF.md` | **Comece por aqui** — passagem de serviço: estado, regras, armadilhas e próximos passos |
 | `docs/FUNCIONALIDADES.md` | Inventário de telas, rotas, dados e regras de negócio |
 | `docs/CHANGELOG.md` | Histórico de entregas |
 | `docs/SQUAD.md` | Agentes de desenvolvimento e quando acionar cada um |

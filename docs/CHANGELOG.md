@@ -2,6 +2,30 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-26
+
+### Adicionado
+
+- `docs/HANDOFF.md` — passagem de serviço para a próxima sessão / outro agente:
+  estado atual, regras invioláveis, armadilhas já pagas, mapa do código, como
+  validar, próximos passos e débitos técnicos.
+
+### Alterado
+
+- Versão para `0.2.0`.
+- `.gitignore` passa a ignorar logs temporários de ferramentas locais,
+  `.tmp_remote_schema.sql` e `.claude/settings.local.json` (os agentes em
+  `.claude/agents/` continuam versionados), com exceção explícita para
+  `.env.example`.
+
+### Notas
+
+- Migration `0009_reporting.sql` **aplicada** no projeto `crmjidbr`. Verificado
+  por SQL: as duas views existem com `security_invoker = on` e os três índices
+  foram criados.
+
+---
+
 ## 2026-08-25
 
 ### Adicionado
