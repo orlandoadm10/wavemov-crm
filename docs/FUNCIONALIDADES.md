@@ -122,6 +122,8 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0007_reload_postgrest_schema.sql` | Recarrega o cache de schema do PostgREST |
 | `0008_expose_public_schema.sql` | Exposição do schema `public` |
 | `0009_reporting.sql` | **Views agregadas e índices de relatório** |
+| `0010_webhook_secret_por_instancia.sql` | Segredo de webhook por instância |
+| `0011_visibilidade_leads_conversas.sql` | Visibilidade por responsável e conversa por instância |
 
 ### `0009_reporting.sql`
 
@@ -150,13 +152,16 @@ consulta — sem isso vazariam dados entre empresas):
 |---|---|---|---|
 | Admin global | todas as organizações | sim | sim |
 | `org_admin` | sua organização | sim | sim |
-| `seller` | sua organização | sim | só tarefas |
-| `agent` | sua organização | sim | só tarefas |
+| `seller` | somente seus leads, conversas e interações | sim | só tarefas |
+| `agent` | somente seus leads, conversas e interações | sim | só tarefas |
 | `viewer` | sua organização | não | não |
 
 Aplicado no banco por `has_org_access` / `has_org_write` / `is_org_admin`
-(`0003_rls.sql`) e refletido na UI (por exemplo, `viewer` não vê os controles de
-edição em `/funis`).
+(`0003_rls.sql`) e por `has_full_lead_visibility` / `can_access_deal` /
+`can_access_conversation` (`0011`). O `viewer` conserva a visão completa da
+organização, porém sem escrita; `org_admin` e admin global têm visão gerencial
+de todas as conversas vinculadas ao lead, inclusive quando vieram de instâncias
+e atendentes diferentes.
 
 ---
 

@@ -71,6 +71,8 @@ No **SQL Editor** do Supabase, execute os arquivos na ordem:
 7. `supabase/migrations/0007_reload_postgrest_schema.sql` — recarrega o cache de schema
 8. `supabase/migrations/0008_expose_public_schema.sql` — exposição do schema `public`
 9. `supabase/migrations/0009_reporting.sql` — views agregadas e índices de relatório
+10. `supabase/migrations/0010_webhook_secret_por_instancia.sql` — segredo do webhook por instância
+11. `supabase/migrations/0011_visibilidade_leads_conversas.sql` — leads e conversas por responsável
 
 > A `0009` é obrigatória para `/funis`, `/empresas` e `/empresas/[id]`: elas leem
 > as views `organization_deal_stats` e `pipeline_stage_stats`. É aditiva — cria
@@ -101,7 +103,6 @@ automaticamente.
 | `NEXT_PUBLIC_APP_URL` | ✅ | URL pública do app (links de formulário e webhook) |
 | `UAZAPI_BASE_URL` | opcional | URL base da sua instância UAZAPI |
 | `UAZAPI_TOKEN` | opcional | Token da UAZAPI (fallback — pode ser salvo pela UI) |
-| `UAZAPI_WEBHOOK_SECRET` | ✅ p/ WhatsApp | Segredo que valida o webhook de mensagens — **um só para toda a instalação**, não por empresa |
 
 > A UAZAPI identifica a instância só pelo **token** — não existe um "Instance
 > ID" para você configurar em lugar nenhum. Se a API retornar um id da
@@ -118,21 +119,16 @@ automaticamente.
 3. **Testar conexão** / **Gerar QR Code** → escaneie com o WhatsApp.
 4. Copie a **URL do webhook** exibida na tela e configure na UAZAPI
    (webhook de mensagens recebidas).
-5. Defina `UAZAPI_WEBHOOK_SECRET` no `.env.local` com o mesmo segredo da URL.
 
 Cada mensagem recebida: cria/atualiza o contato → cria a conversa → salva a
 mensagem → cria lead automático na primeira etapa do funil → registra no
 histórico do lead. O adaptador (`lib/services/uazapi.ts`) normaliza formatos
 de payload de diferentes versões da UAZAPI.
 
-> **Qual organização recebe a mensagem.** A rota identifica a instância pelo
-> token/`instance_id` do próprio payload e só aceita quando ele resolve para uma
-> única instância. O `?org=` da URL precisa ser um UUID e precisa bater com essa
-> instância — se divergirem, a resposta é **403**, porque
-> `UAZAPI_WEBHOOK_SECRET` é o mesmo segredo para todas as empresas e a URL
-> sozinha não prova origem. Só existindo exatamente uma instância cadastrada é
-> que a rota cai nela por padrão; nos demais casos devolve **400** em vez de
-> escolher uma organização.
+> **Qual organização e instância recebem a mensagem.** Cada instância tem seu
+> próprio segredo, criado pela migration `0010`. O segredo autentica a chamada,
+> identifica a instância e precisa conferir com o `?org=` da URL. A migration
+> `0011` mantém uma conversa separada por instância/número e telefone do lead.
 
 ---
 
@@ -200,6 +196,9 @@ docs/             inventário de funcionalidades, changelog e squad
 ### Segurança
 - **RLS em todas as tabelas** — isolamento por organização com funções
   `has_org_access` / `has_org_write` / `is_org_admin` (SECURITY DEFINER).
+- `seller` e `agent` leem somente leads sob sua responsabilidade e as conversas,
+  mensagens, tarefas e interações desses leads; `org_admin`, admin global e
+  `viewer` têm visão completa, sendo `viewer` somente leitura.
 - `service_role` usada **apenas** em rotas de servidor (`lib/supabase/admin.ts`).
 - Token UAZAPI inacessível ao cliente (REVOKE em nível de banco + API própria).
 - Webhook validado por segredo; payloads sanitizados; inputs validados com Zod.
@@ -214,9 +213,6 @@ docs/             inventário de funcionalidades, changelog e squad
 
 ## 7. Próximos passos sugeridos
 
-- Segredo de webhook por organização (hoje `UAZAPI_WEBHOOK_SECRET` é único para
-  toda a instalação e fica visível na URL montada em
-  `/atendimento/configuracoes`)
 - Upload de logo/avatar via Supabase Storage (estrutura já aceita URLs)
 - Campos personalizados na UI (tabelas `custom_fields` já criadas)
 - Arrastar para reordenar as etapas em `/funis` (hoje é por setas ↑/↓)

@@ -6,10 +6,11 @@
 > (o que existe), `DESIGN_GUIDE.md` (contrato visual).
 
 **Última atualização:** 2026-08-26
-**Versão:** `0.2.0` (sem bump na rodada de correções) · `main` no commit `b7a4e86`
+**Versão:** `0.2.0` (sem bump na rodada de correções)
 **Repositório:** `https://github.com/orlandoadm10/wavemov-crm`
-**Supabase:** projeto `crmjidbr` (`qzdcxyhvvikmtupouzlm`) — migrations `0001`…`0009` **aplicadas**
-**Deploy:** Vercel, a partir de `main`
+**Supabase:** projeto `crmjidbr` (`qzdcxyhvvikmtupouzlm`) — migrations
+`0001`…`0011` **aplicadas** (confirmação do cliente em 2026-08-26)
+**Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`
 
 ---
 
@@ -94,7 +95,12 @@ commite. O `.gitignore` cobre `.env*` com exceção de `.env.example`.
 
 Variáveis obrigatórias: `NEXT_PUBLIC_SUPABASE_URL`,
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-`NEXT_PUBLIC_APP_URL`. Para WhatsApp: `UAZAPI_WEBHOOK_SECRET`.
+`NEXT_PUBLIC_APP_URL`.
+
+`UAZAPI_WEBHOOK_SECRET` **não existe mais**. Desde a `0010` cada instância tem
+o próprio segredo em `whatsapp_instances.webhook_secret` e a URL do webhook sai
+pronta em `/atendimento/configuracoes` (visível só para `org_admin`). Nenhum
+código lê a variável; se ela ainda estiver no ambiente, pode ser apagada.
 
 ---
 
@@ -112,7 +118,7 @@ Quebrar qualquer uma destas é considerado defeito grave neste projeto.
    `app/api/**` e server actions, sempre com validação Zod da entrada. Nunca em
    componente cliente.
 4. **Migration aplicada é imutável.** `0001`…`0009` já rodaram em produção.
-   Correção vira `0010_*.sql`, nunca edição de arquivo existente.
+   Correção vira migration nova, nunca edição de arquivo existente.
 5. **Reutilize `components/ui/`** (Button, Input, Select, Field, Card,
    CardHeader, StatCard, Badge, DataTable, Modal, Dropdown, Avatar, Switch,
    Skeleton, EmptyState). Criar um segundo botão é erro de revisão.
@@ -142,10 +148,14 @@ Cada item abaixo foi um bug real encontrado neste projeto.
 | Recharts sem guard de montagem | Erro de hidratação | Use o `useHasMounted` de `dashboard-charts.tsx` |
 | Excluir etapa com negociações | `deals.stage_id` é `on delete restrict` — o banco recusa | Cheque o volume antes e explique ao usuário |
 | Fallback de organização sem filtro em rota com `service_role` | `.limit(1)` numa tabela multiempresa pega a primeira linha de qualquer empresa e grava os dados na organização errada — RLS não protege | Resolva a organização a partir do payload, exija resultado único (`count === 1`) e recuse em vez de adivinhar |
+| Guardar segredo em tabela que o cliente lê | `organizations` é legível por todo membro via RLS, vem de `select *` em `getSessionContext()` e viaja como prop até `top-nav.tsx` — uma coluna de segredo ali chega ao navegador de qualquer `viewer` | Segredo mora em tabela revogada de `anon`/`authenticated` (`whatsapp_instances`, ver `0005`) e é removido em `toPublicInstance()` |
+| Comparar segredo com `===` | O compare sai no primeiro byte diferente: o tempo de resposta vira oráculo e o segredo é descoberto caractere a caractere | `secretsMatch()` — `crypto.timingSafeEqual` sobre o SHA-256 dos dois lados (comprimento igual, sem `throw`) |
+| Calcular a URL secreta e "esconder" no cliente | Prop de Server Component vai no payload mesmo sem ser desenhada — o segredo está no HTML | Decida o papel **antes**: sem `org_admin`, a URL nem é montada (`webhookUrl: string \| null`) |
 | Confiar só no `?org=` da URL do webhook | `UAZAPI_WEBHOOK_SECRET` é o mesmo segredo para todas as empresas; a URL sozinha não prova origem | Cruze com a instância do payload e devolva 403 quando divergirem |
 | Mostrar `err.message` do PostgREST ao usuário | Texto em inglês com jargão de banco ("violates not-null constraint") e detalhe de schema na tela | `describeWriteError(err, "mensagem em pt-BR")` — usuário lê português, `console.error` recebe `code`/`details`/`hint` |
 | Delete + insert sem transação | Se o insert falha, os campos já foram apagados: o formulário público continua ativo e vira um form vazio que gera lead sem dados | Diga na tela o que de fato ficou no banco e `router.refresh()` para não exibir o que não existe mais |
 | Resetar campo obrigatório para `""` contando com fallback no submit | `stage_id` é `z.string().uuid()` no `dealSchema`: o `parse()` estoura antes, e `parsed.stage_id \|\| stages[0]?.id` é código morto | Ao trocar o funil, `setValue("stage_id", primeiraEtapaAberta)` — reposicione o valor, não o limpe |
+| `position: fixed` dentro de ancestral com `transform` | O elemento fixo usa o ancestral como containing block: overlay e popup ficam relativos à página longa, não à viewport | O `Modal` compartilhado renderiza via portal em `document.body`; não crie overlays diretamente dentro de `.animate-fade-up` |
 
 ---
 
@@ -182,9 +192,21 @@ docs/                este arquivo, FUNCIONALIDADES, CHANGELOG, SQUAD
   `wavemov-active-org` → organização mais antiga onde o usuário é membro →
   primeira visível. Admin global enxerga todas.
 - **Papéis:** `org_admin`, `seller`, `agent`, `viewer`. `viewer` é somente
-  leitura; exclusões (exceto tarefas) exigem `org_admin`.
+  leitura; exclusões (exceto tarefas) exigem `org_admin`. Desde a `0011`,
+  `seller`/`agent` leem somente leads sob sua responsabilidade e as respectivas
+  conversas/interações; `org_admin`, admin global e `viewer` leem tudo da
+  organização.
 - **Views agregadas:** `organization_deal_stats` (por empresa) e
   `pipeline_stage_stats` (por etapa). Tipadas em `types/index.ts`.
+- **Segredo do webhook é por instância** (`whatsapp_instances.webhook_secret`,
+  migration `0010`). Ele autentica a requisição **e** identifica qual instância
+  recebeu a mensagem — por isso a conversa consegue guardar `instance_id` e a
+  resposta sai pelo mesmo número. Nunca chega ao navegador:
+  `toPublicInstance()` remove o campo e a URL só é montada para `org_admin`.
+  Comparação com `secretsMatch()` (`crypto.timingSafeEqual` sobre SHA-256),
+  nunca `===`. Rotação em
+  `app/(dashboard)/atendimento/configuracoes/actions.ts`, sempre com a
+  organização vinda de `getSessionContext()`.
 - **Webhook da UAZAPI** resolve a organização nesta ordem: instância
   identificada pelo token/`instance_id` do payload (`extractInstanceRefs()` em
   `lib/services/uazapi.ts`, aceita só com `count === 1`, porque
@@ -240,20 +262,33 @@ garantida por tipos, build e revisão. Ver débitos 1 e 6.
 
 ## 9. Próximos passos sugeridos (em ordem)
 
-1. **Segredo do webhook por organização.** Hoje `UAZAPI_WEBHOOK_SECRET` é único
-   para toda a base — ver débito 7. É o que sobrou da correção de vazamento
-   desta rodada e o único item da lista com impacto de segurança.
-2. **Decidir o modal "Configurar Visualização do CRM"** (5ª tela de referência).
+1. **Smoke test de produção das migrations `0010/0011`.** Receber e responder
+   pela mesma instância; transferir responsável; confirmar isolamento de
+   `seller`/`agent` e visão consolidada de `org_admin`.
+2. **Interface multi-instância.** A configuração ainda gerencia somente a
+   instância mais antiga; listar instâncias, status e URL/segredo individual.
+3. **Frente A — criação de funis por `org_admin`.** Próxima migration é a
+   `0012`: `pipelines.is_default`, índice único parcial, backfill, RLS e fluxo
+   de criação que também funcione quando a organização ainda não tem funil.
+4. **Frente B — ingestão externa de leads.** Endpoint genérico chamado pelo
+   n8n, com segredo por organização, `forms.external_id` globalmente único,
+   origem, idempotência por evento e mapeamento explícito de funil/etapa.
+   Decisões fechadas: id do formulário é colado manualmente; funil novo não
+   vira padrão; formulário ausente ou inativo responde 404; a resposta não
+   inclui `deal_url`; erro de id duplicado nunca revela a empresa proprietária.
+5. **Testes de integração de RLS + CI.** Cobrir dois usuários/organizações e
+   papéis distintos; rodar `tsc` e build em todo push.
+6. **Decidir o modal "Configurar Visualização do CRM"** (5ª tela de referência).
    Precisa de uma tabela de preferências por usuário; confirmar com o cliente se
    vale o peso antes de construir.
-3. **Arrastar para reordenar em `/funis`.** Hoje é por setas ↑/↓. `@dnd-kit` já
+7. **Arrastar para reordenar em `/funis`.** Hoje é por setas ↑/↓. `@dnd-kit` já
    é dependência do projeto (usado no Kanban), então é custo baixo.
-4. **Paginação em `/relatorios`.** Hoje mostra os 100 leads mais recentes do
+8. **Paginação em `/relatorios`.** Hoje mostra os 100 leads mais recentes do
    período e avisa quando trunca.
-5. **Campos personalizados na UI.** As tabelas `custom_fields` e
+9. **Campos personalizados na UI.** As tabelas `custom_fields` e
    `custom_field_values` existem desde a `0001` e nunca ganharam interface.
-6. **Upload de logo/avatar via Supabase Storage.** O schema já aceita URLs.
-7. **Exportação CSV** dos relatórios.
+10. **Upload de logo/avatar via Supabase Storage.** O schema já aceita URLs.
+11. **Exportação CSV** dos relatórios.
 
 ---
 
@@ -275,16 +310,27 @@ garantida por tipos, build e revisão. Ver débitos 1 e 6.
    horário de verão), mas frágil se o produto for internacionalizado.
 6. **Sem CI.** Nenhum workflow roda `tsc`/`build` no push. Um GitHub Action de
    ~15 linhas evitaria que um commit quebrado chegue à Vercel.
-7. **`UAZAPI_WEBHOOK_SECRET` é um segredo global.** É o mesmo valor para todas
-   as empresas da base e aparece montado na URL do webhook em
-   `/atendimento/configuracoes` (`app/(dashboard)/atendimento/configuracoes/page.tsx`),
-   sem guarda de papel — qualquer membro que abra a tela lê o segredo que vale
-   para o CRM inteiro. A rota do webhook já não confia só na URL (valida o
-   `?org=` contra a instância do payload e devolve 403 na divergência), mas isso
-   contém o dano, não resolve a causa. A correção completa é um token por
-   organização: coluna de segredo em `whatsapp_instances`, comparação por
-   instância e restrição da tela a `org_admin`. Exige migration e rotação do
-   segredo atual.
+7. ~~`UAZAPI_WEBHOOK_SECRET` é um segredo global.~~ **Resolvido pela `0010`**
+   (segredo por instância, guarda de `org_admin` na tela, comparação
+   timing-safe, rotação por empresa). Corte limpo: o valor global não é mais
+   aceito. Migration e deploy foram concluídos; a URL nova deve permanecer
+   configurada no painel da UAZAPI — passo a passo no `docs/CHANGELOG.md`.
+8. ~~`unique (organization_id, phone)` misturava instâncias.~~ **Resolvido pela
+   `0011`**: a unicidade passou a `(organization_id, instance_id, phone)`.
+   Cada número mantém sua conversa; todas podem apontar para o mesmo `deal_id`,
+   dando ao gerente/admin a visão consolidada de todas as interações do lead.
+9. **A tela de configurações gerencia uma instância só.** `getInstanceForOrg()`
+   devolve a mais antiga da empresa; salvar credenciais sempre atualiza essa
+   linha. Para o multi-instância virar realidade de UI, a tela precisa listar
+   instâncias, com uma URL de webhook por instância. Nada disso bloqueia o
+   backend: a coluna, a rota e a rotação já são por instância.
+10. **O fallback "instância única na base" no webhook virou letra morta.**
+   `app/api/webhooks/uazapi/route.ts` ainda resolve a organização por
+   `extractInstanceRefs()` e por `count === 1` na tabela inteira. Com o segredo
+   por instância, `tokenOrganizationId` já é a resposta — e com a segunda
+   instância cadastrada aquele `count === 1` nunca mais é verdade. Falha
+   fechado, então não é perigoso; é código morto esperando remoção. Não foi
+   removido nesta entrega porque o bloco acabou de ser auditado.
 
 ---
 
@@ -313,5 +359,6 @@ garantida por tipos, build e revisão. Ver débitos 1 e 6.
 > toda view nova nasce com `security_invoker = on` e rota com `service_role`
 > recusa em vez de adivinhar a organização. Antes de entregar:
 > `npx tsc --noEmit` e `npm run build`, sempre. Pendências no topo da fila:
-> segredo de webhook por organização (débito 7) e a decisão do cliente sobre o
-> modal de configuração de visualização do Kanban.
+> validar em produção o webhook/isolamento da `0010/0011`, implementar a UI
+> multi-instância e então seguir as frentes de criação de funis e ingestão
+> externa de leads.

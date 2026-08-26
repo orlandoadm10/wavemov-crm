@@ -1,22 +1,40 @@
 "use client";
 
+import { rotateWebhookSecretAction } from "@/app/(dashboard)/atendimento/configuracoes/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
 import type { PublicInstance } from "@/lib/services/whatsapp";
-import { Check, Copy, Plug, PlugZap, Power, QrCode, RefreshCw, Save } from "lucide-react";
+import {
+  Check,
+  Copy,
+  KeyRound,
+  Lock,
+  Plug,
+  PlugZap,
+  Power,
+  QrCode,
+  RefreshCw,
+  Save,
+  ShieldAlert,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 export function InstanceSettings({
   organizationId,
   instance,
   webhookUrl,
+  canManageWebhook,
 }: {
   organizationId: string;
   instance: PublicInstance;
-  webhookUrl: string;
+  // `null` quando quem abriu a tela não é administrador da empresa ou quando
+  // a instância ainda não tem segredo: a URL carrega o segredo do webhook e
+  // nunca é montada "só para esconder no CSS".
+  webhookUrl: string | null;
+  canManageWebhook: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState(instance?.name ?? "Principal");
@@ -31,6 +49,11 @@ export function InstanceSettings({
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [confirmRotate, setConfirmRotate] = useState(false);
+  const [webhookMessage, setWebhookMessage] = useState<
+    { type: "ok" | "error"; text: string } | null
+  >(null);
+  const [rotating, startRotate] = useTransition();
 
   async function callAction(action: string, config?: Record<string, string>) {
     setBusy(action);
@@ -98,9 +121,26 @@ export function InstanceSettings({
   }
 
   async function copyWebhook() {
+    if (!webhookUrl) return;
     await navigator.clipboard.writeText(webhookUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  // A organização vai pela sessão do servidor dentro da action — nada de
+  // `organization_id` saindo do navegador para uma operação de segredo.
+  function rotateSecret() {
+    setConfirmRotate(false);
+    setWebhookMessage(null);
+    startRotate(async () => {
+      const result = await rotateWebhookSecretAction();
+      if (result.error) {
+        setWebhookMessage({ type: "error", text: result.error });
+        return;
+      }
+      setWebhookMessage({ type: "ok", text: result.success ?? "Segredo gerado." });
+      router.refresh();
+    });
   }
 
   const statusMeta: Record<string, { label: string; tone: "green" | "amber" | "red" | "slate" }> = {
@@ -224,25 +264,95 @@ export function InstanceSettings({
             title="Webhook de mensagens"
             subtitle="Configure esta URL na sua instância UAZAPI"
           />
-          <div className="p-5">
-            <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-ink-soft ring-1 ring-line">
-                {webhookUrl}
-              </code>
-              <Button variant="outline" size="icon" onClick={copyWebhook} aria-label="Copiar">
-                {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
-            <ol className="mt-4 list-decimal space-y-1.5 pl-4 text-xs text-ink-soft">
-              <li>No painel da UAZAPI, acesse as configurações de <b>Webhook</b> da instância.</li>
-              <li>Cole a URL acima no campo de webhook de <b>mensagens recebidas</b>.</li>
-              <li>
-                Defina <code className="rounded bg-slate-100 px-1">UAZAPI_WEBHOOK_SECRET</code> no
-                seu <code className="rounded bg-slate-100 px-1">.env.local</code> com o mesmo
-                segredo usado na URL.
-              </li>
-              <li>Envie uma mensagem de teste para o número conectado — a conversa aparece em Atendimento.</li>
-            </ol>
+          <div className="space-y-4 p-5">
+            {!canManageWebhook ? (
+              <div className="flex gap-3 rounded-lg bg-slate-50 p-4 ring-1 ring-line">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
+                <p className="text-xs leading-relaxed text-ink-soft">
+                  A URL do webhook carrega o <b>segredo que autentica as mensagens
+                  desta instância</b> — quem tem o segredo consegue criar contatos e
+                  leads aqui dentro. Por isso ela fica restrita ao administrador da
+                  empresa. Peça a ele para configurar a UAZAPI.
+                </p>
+              </div>
+            ) : !webhookUrl ? (
+              <>
+                <div className="flex gap-3 rounded-lg bg-amber-50 p-4">
+                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <p className="text-xs leading-relaxed text-amber-800">
+                    Esta empresa ainda não tem segredo próprio de webhook. Gere um
+                    para receber mensagens com uma URL exclusiva desta conta.
+                  </p>
+                </div>
+                <Button onClick={rotateSecret} loading={rotating} className="w-full">
+                  <KeyRound className="h-4 w-4" />
+                  Gerar URL do webhook
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-ink-soft ring-1 ring-line">
+                    {webhookUrl}
+                  </code>
+                  <Button variant="outline" size="icon" onClick={copyWebhook} aria-label="Copiar">
+                    {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <ol className="list-decimal space-y-1.5 pl-4 text-xs text-ink-soft">
+                  <li>No painel da UAZAPI, acesse as configurações de <b>Webhook</b> da instância.</li>
+                  <li>Cole a URL acima no campo de webhook de <b>mensagens recebidas</b>.</li>
+                  <li>
+                    O segredo já vem na URL e vale <b>só para esta instância</b> — não
+                    precisa configurar nada no <code className="rounded bg-slate-100 px-1">.env</code>.
+                    Trate a URL como senha.
+                  </li>
+                  <li>Envie uma mensagem de teste para o número conectado — a conversa aparece em Atendimento.</li>
+                </ol>
+
+                <div className="border-t border-line pt-4">
+                  {confirmRotate ? (
+                    <div className="rounded-lg bg-rose-50 p-3">
+                      <p className="text-xs leading-relaxed text-rose-700">
+                        Gerar um segredo novo <b>invalida a URL atual na hora</b>. As
+                        mensagens param de chegar até você colar a URL nova no painel
+                        da UAZAPI. Continuar?
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <Button size="sm" onClick={rotateSecret} loading={rotating}>
+                          Sim, gerar novo segredo
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setConfirmRotate(false)}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setConfirmRotate(true)}
+                      disabled={rotating}
+                    >
+                      <KeyRound className="h-4 w-4 text-ink-soft" />
+                      Gerar novo segredo
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {webhookMessage && (
+              <p
+                className={
+                  webhookMessage.type === "ok"
+                    ? "rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+                    : "rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                }
+              >
+                {webhookMessage.text}
+              </p>
+            )}
           </div>
         </Card>
       </div>

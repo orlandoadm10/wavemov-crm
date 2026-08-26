@@ -212,6 +212,9 @@ export interface WhatsAppInstance {
   base_url: string | null;
   instance_id: string | null;
   token_encrypted: string | null;
+  // Segredo do webhook desta instância (migration 0010). Server-only:
+  // `toPublicInstance()` remove antes de qualquer prop de cliente.
+  webhook_secret: string;
   status: InstanceStatus;
   qr_code: string | null;
   last_connected_at: string | null;

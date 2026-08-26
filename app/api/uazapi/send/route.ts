@@ -1,5 +1,6 @@
 import { sendTextMessage } from "@/lib/services/uazapi";
-import { getInstanceForOrg, resolveConfig } from "@/lib/services/whatsapp";
+import { getInstanceById, getInstanceForOrg, resolveConfig } from "@/lib/services/whatsapp";
+import { getSessionContext } from "@/lib/services/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { sendMessageSchema } from "@/lib/validations";
@@ -17,28 +18,31 @@ export async function POST(request: Request) {
   }
   const { conversation_id, content } = parsed.data;
 
-  // Conversa acessível ao usuário? (RLS aplica o isolamento por org)
+  const session = await getSessionContext();
+
+  // Organização explícita + RLS por responsável. Mesmo conhecendo um UUID de
+  // outra conversa, seller/agent recebe 404 e não consegue enviar por ela.
   const supabase = await createClient();
   const { data: conversation } = await supabase
     .from("whatsapp_conversations")
     .select("*")
     .eq("id", conversation_id)
+    .eq("organization_id", session.organization.id)
     .maybeSingle();
 
   if (!conversation) {
     return NextResponse.json({ error: "Conversa não encontrada." }, { status: 404 });
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("auth_user_id", user!.id)
-    .single();
-
-  const instance = await getInstanceForOrg(conversation.organization_id);
+  // Responde pela MESMA instância que recebeu a conversa. Uma empresa pode
+  // ter mais de um atendente conectado (mais de um número): cair direto no
+  // `getInstanceForOrg()`, que devolve a instância mais antiga, faria a
+  // resposta sair pelo número errado. O fallback continua para conversas
+  // antigas, criadas antes de a conversa passar a guardar a instância.
+  const instance = conversation.instance_id
+    ? ((await getInstanceById(conversation.organization_id, conversation.instance_id)) ??
+      (await getInstanceForOrg(conversation.organization_id)))
+    : await getInstanceForOrg(conversation.organization_id);
   const config = resolveConfig(instance);
   if (!config) {
     return NextResponse.json(
@@ -66,7 +70,7 @@ export async function POST(request: Request) {
       message_type: "text",
       content,
       receiver_phone: conversation.phone,
-      sent_by: profile?.id ?? null,
+      sent_by: session.profile.id,
       raw_payload: (result.raw as Record<string, unknown>) ?? {},
     })
     .select("*")
@@ -79,12 +83,13 @@ export async function POST(request: Request) {
       last_message_at: new Date().toISOString(),
       status: conversation.status === "resolved" ? "open" : conversation.status,
     })
-    .eq("id", conversation_id);
+    .eq("id", conversation_id)
+    .eq("organization_id", conversation.organization_id);
 
   if (conversation.deal_id) {
     await admin.from("activity_logs").insert({
       organization_id: conversation.organization_id,
-      actor_id: profile?.id ?? null,
+      actor_id: session.profile.id,
       deal_id: conversation.deal_id,
       type: "whatsapp_outbound",
       title: "Mensagem WhatsApp enviada",
