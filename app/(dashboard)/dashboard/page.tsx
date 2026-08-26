@@ -41,7 +41,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     await Promise.all([
       dealsQuery,
       supabase.from("tasks").select("id,status,due_at").eq("organization_id", orgId),
-      supabase.from("pipelines").select("*").eq("organization_id", orgId).order("name"),
+      supabase.from("pipelines").select("*").eq("organization_id", orgId).order("created_at"),
       supabase
         .from("organization_members")
         .select("profile:profiles(*)")

@@ -101,7 +101,7 @@ automaticamente.
 | `NEXT_PUBLIC_APP_URL` | ✅ | URL pública do app (links de formulário e webhook) |
 | `UAZAPI_BASE_URL` | opcional | URL base da sua instância UAZAPI |
 | `UAZAPI_TOKEN` | opcional | Token da UAZAPI (fallback — pode ser salvo pela UI) |
-| `UAZAPI_WEBHOOK_SECRET` | ✅ p/ WhatsApp | Segredo que valida o webhook de mensagens |
+| `UAZAPI_WEBHOOK_SECRET` | ✅ p/ WhatsApp | Segredo que valida o webhook de mensagens — **um só para toda a instalação**, não por empresa |
 
 > A UAZAPI identifica a instância só pelo **token** — não existe um "Instance
 > ID" para você configurar em lugar nenhum. Se a API retornar um id da
@@ -124,6 +124,15 @@ Cada mensagem recebida: cria/atualiza o contato → cria a conversa → salva a
 mensagem → cria lead automático na primeira etapa do funil → registra no
 histórico do lead. O adaptador (`lib/services/uazapi.ts`) normaliza formatos
 de payload de diferentes versões da UAZAPI.
+
+> **Qual organização recebe a mensagem.** A rota identifica a instância pelo
+> token/`instance_id` do próprio payload e só aceita quando ele resolve para uma
+> única instância. O `?org=` da URL precisa ser um UUID e precisa bater com essa
+> instância — se divergirem, a resposta é **403**, porque
+> `UAZAPI_WEBHOOK_SECRET` é o mesmo segredo para todas as empresas e a URL
+> sozinha não prova origem. Só existindo exatamente uma instância cadastrada é
+> que a rota cai nela por padrão; nos demais casos devolve **400** em vez de
+> escolher uma organização.
 
 ---
 
@@ -194,11 +203,20 @@ docs/             inventário de funcionalidades, changelog e squad
 - `service_role` usada **apenas** em rotas de servidor (`lib/supabase/admin.ts`).
 - Token UAZAPI inacessível ao cliente (REVOKE em nível de banco + API própria).
 - Webhook validado por segredo; payloads sanitizados; inputs validados com Zod.
+- Organização do webhook resolvida pela instância do payload, com recusa
+  explícita (400/403) quando é ambígua ou divergente — nunca "a primeira
+  instância da tabela".
+- Erros de escrita chegam ao usuário por `describeWriteError()`
+  (`lib/utils/index.ts`): mensagem em português na tela, detalhe do Postgres só
+  no log do servidor.
 
 ---
 
 ## 7. Próximos passos sugeridos
 
+- Segredo de webhook por organização (hoje `UAZAPI_WEBHOOK_SECRET` é único para
+  toda a instalação e fica visível na URL montada em
+  `/atendimento/configuracoes`)
 - Upload de logo/avatar via Supabase Storage (estrutura já aceita URLs)
 - Campos personalizados na UI (tabelas `custom_fields` já criadas)
 - Arrastar para reordenar as etapas em `/funis` (hoje é por setas ↑/↓)

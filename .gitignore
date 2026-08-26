@@ -44,3 +44,6 @@ next-env.d.ts
 
 # configurações pessoais do Claude Code (os agentes em .claude/agents são versionados)
 .claude/settings.local.json
+
+# referências visuais de desenvolvimento (prints, mockups) — não versionadas
+/referenciasdev

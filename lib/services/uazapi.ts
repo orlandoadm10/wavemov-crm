@@ -202,3 +202,43 @@ export function normalizeWebhookMessage(
     timestamp: msg.messageTimestamp ?? msg.timestamp ?? null,
   };
 }
+
+/**
+ * Extrai do payload do webhook as referências plausíveis da instância.
+ *
+ * Serve para resolver a organização dona da mensagem sem depender do `?org=`
+ * da URL. Os nomes variam entre versões da UAZAPI, por isso a lista de chaves —
+ * e por isso devolve TODAS as candidatas em vez da primeira: `owner`, por
+ * exemplo, é o telefone da instância na UAZAPI, e se parasse nele o token real
+ * aninhado nunca seria consultado.
+ *
+ * A ordem vai da mais específica para a menos: token e apikey identificam a
+ * instância sem ambiguidade; `data.id` costuma ser o id da mensagem e só entra
+ * como último recurso.
+ */
+export function extractInstanceRefs(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object") return [];
+  const p = payload as Record<string, unknown>;
+  const nested = (p.instance ?? p.data ?? {}) as Record<string, unknown>;
+
+  const candidates = [
+    p.token,
+    p.apikey,
+    p.apiKey,
+    p.instanceId,
+    p.instance_id,
+    typeof p.instance === "string" ? p.instance : undefined,
+    nested.token,
+    nested.instanceId,
+    nested.instance_id,
+    nested.id,
+  ];
+
+  const refs: string[] = [];
+  for (const value of candidates) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed && !refs.includes(trimmed)) refs.push(trimmed);
+  }
+  return refs;
+}

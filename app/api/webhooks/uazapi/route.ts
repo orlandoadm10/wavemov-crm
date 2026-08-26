@@ -1,4 +1,4 @@
-import { normalizeWebhookMessage } from "@/lib/services/uazapi";
+import { extractInstanceRefs, normalizeWebhookMessage } from "@/lib/services/uazapi";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
@@ -33,21 +33,85 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // Organização alvo: query param `org` OU única instância cadastrada
-  let organizationId = url.searchParams.get("org");
-  if (!organizationId) {
-    const { data: instance } = await admin
-      .from("whatsapp_instances")
-      .select("organization_id")
-      .limit(1)
-      .maybeSingle();
-    organizationId = instance?.organization_id ?? null;
+  // ------------------------------------------------------------
+  // Organização alvo — resolvida sempre de forma determinística.
+  //
+  // O fallback antigo pegava a primeira linha de `whatsapp_instances` da
+  // tabela inteira, sem filtro de organização: numa base multiempresa isso
+  // gravava contato, conversa e lead de uma empresa dentro da organização
+  // de outra. Agora: identifica a instância pelo token/id do próprio payload,
+  // confere contra o `?org=` da URL (divergência = 403, porque o segredo do
+  // webhook é o mesmo para todas as empresas) e só cai na instância existente
+  // quando há exatamente uma — o único caso em que "a primeira" não é ambíguo.
+  // ------------------------------------------------------------
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  // `?org=` inválido não pode seguir adiante: as queries devolveriam 22P02 e a
+  // cadeia degradaria até um 500 genérico, que a UAZAPI reenviaria em loop.
+  const orgParam = url.searchParams.get("org");
+  if (orgParam && !UUID_RE.test(orgParam)) {
+    return NextResponse.json({ error: "Parâmetro `org` inválido." }, { status: 400 });
   }
+
+  // Organização identificada pelo token/instance_id do próprio payload.
+  // Só vale quando resolve para UMA instância: `whatsapp_instances` não tem
+  // índice único nessas colunas, e escolher "a primeira" seria repetir o bug.
+  let refOrganizationId: string | null = null;
+  const instanceRefs = extractInstanceRefs(payload);
+  for (const ref of instanceRefs) {
+    for (const column of ["token_encrypted", "instance_id"] as const) {
+      const { data, count } = await admin
+        .from("whatsapp_instances")
+        .select("organization_id", { count: "exact" })
+        .eq(column, ref)
+        .limit(2);
+      if (count === 1 && data?.[0]) {
+        refOrganizationId = data[0].organization_id as string;
+        break;
+      }
+    }
+    if (refOrganizationId) break;
+  }
+
+  // Quando as duas fontes existem e discordam, a URL não vence: `?org=` é
+  // controlado por quem chama e o segredo do webhook é o mesmo para todas as
+  // empresas, então confiar nela permitiria escrever na organização alheia.
+  if (orgParam && refOrganizationId && orgParam !== refOrganizationId) {
+    console.error("[uazapi-webhook] `org` da URL diverge da instância do payload", {
+      orgParam,
+      refOrganizationId,
+    });
+    return NextResponse.json({ error: "Organização não confere." }, { status: 403 });
+  }
+
+  let organizationId = orgParam ?? refOrganizationId;
+
   if (!organizationId) {
-    return NextResponse.json(
-      { error: "Organização não identificada. Use ?org=<id> na URL do webhook." },
-      { status: 400 }
-    );
+    // Último recurso: só é seguro quando existe exatamente uma instância.
+    const { count } = await admin
+      .from("whatsapp_instances")
+      .select("id", { count: "exact", head: true });
+
+    if (count === 1) {
+      const { data: onlyInstance } = await admin
+        .from("whatsapp_instances")
+        .select("organization_id")
+        .limit(1)
+        .maybeSingle();
+      organizationId = onlyInstance?.organization_id ?? null;
+    }
+
+    if (!organizationId) {
+      console.error("[uazapi-webhook] organização não resolvida", {
+        hasOrgParam: Boolean(orgParam),
+        instanceRefs: instanceRefs.length,
+        instanceCount: count,
+      });
+      return NextResponse.json(
+        { error: "Organização não identificada. Use ?org=<id> na URL do webhook." },
+        { status: 400 }
+      );
+    }
   }
 
   const msg = normalizeWebhookMessage(payload as Record<string, never>);
