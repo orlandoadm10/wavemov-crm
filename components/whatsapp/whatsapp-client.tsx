@@ -8,7 +8,14 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import type { PublicInstance } from "@/lib/services/whatsapp";
 import { createClient } from "@/lib/supabase/client";
-import { cn, formatCurrency, formatDateTime, fullName, normalizePhone } from "@/lib/utils";
+import {
+  cn,
+  describeWriteError,
+  formatCurrency,
+  formatDateTime,
+  fullName,
+  normalizePhone,
+} from "@/lib/utils";
 import type {
   Contact,
   Deal,
@@ -43,6 +50,7 @@ type Filter = "all" | "unread" | "open" | "mine" | "unassigned";
 interface Props {
   organizationId: string;
   profileId: string;
+  canViewAllConversations: boolean;
   instance: PublicInstance;
   conversations: WhatsAppConversation[];
   quickReplies: QuickReply[];
@@ -55,6 +63,7 @@ interface Props {
 export function WhatsAppClient({
   organizationId,
   profileId,
+  canViewAllConversations,
   instance,
   conversations,
   quickReplies,
@@ -86,6 +95,8 @@ export function WhatsAppClient({
   const [note, setNote] = useState("");
   const [linkDealId, setLinkDealId] = useState("");
   const [transferTo, setTransferTo] = useState("");
+  const [transferring, setTransferring] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "chat" | "info">(
     selectedId ? "chat" : "list"
   );
@@ -105,6 +116,12 @@ export function WhatsAppClient({
     });
   }, [conversations, search, filter, profileId]);
 
+  useEffect(() => {
+    if (!canViewAllConversations && (filter === "mine" || filter === "unassigned")) {
+      setFilter("all");
+    }
+  }, [canViewAllConversations, filter]);
+
   // Carrega mensagens da conversa selecionada
   const loadMessages = useCallback(
     async (conversationId: string) => {
@@ -112,6 +129,7 @@ export function WhatsAppClient({
       const { data } = await supabase
         .from("whatsapp_messages")
         .select("*")
+        .eq("organization_id", organizationId)
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true })
         .limit(500);
@@ -121,9 +139,10 @@ export function WhatsAppClient({
       await supabase
         .from("whatsapp_conversations")
         .update({ unread_count: 0 })
-        .eq("id", conversationId);
+        .eq("id", conversationId)
+        .eq("organization_id", organizationId);
     },
-    [supabase]
+    [organizationId, supabase]
   );
 
   useEffect(() => {
@@ -193,7 +212,8 @@ export function WhatsAppClient({
     await supabase
       .from("whatsapp_conversations")
       .update({ deal_id: linkDealId })
-      .eq("id", selected.id);
+      .eq("id", selected.id)
+      .eq("organization_id", organizationId);
     setLinkOpen(false);
     router.refresh();
   }
@@ -232,17 +252,42 @@ export function WhatsAppClient({
       await supabase
         .from("whatsapp_conversations")
         .update({ deal_id: deal.id })
-        .eq("id", selected.id);
+        .eq("id", selected.id)
+        .eq("organization_id", organizationId);
       router.push(`/negociacoes/${deal.id}`);
     }
   }
 
   async function transfer() {
     if (!selected || !transferTo) return;
-    await supabase
-      .from("whatsapp_conversations")
-      .update({ assigned_to: transferTo })
-      .eq("id", selected.id);
+    setTransferring(true);
+    setTransferError(null);
+    let error = null;
+    if (selected.deal_id) {
+      // A migration 0011 sincroniza todas as conversas do lead pelo trigger.
+      // Transferir só uma conversa deixaria o antigo responsável enxergando o
+      // lead e produziria donos divergentes no atendimento.
+      const result = await supabase
+        .from("deals")
+        .update({ responsible_id: transferTo })
+        .eq("id", selected.deal_id)
+        .eq("organization_id", organizationId);
+      error = result.error;
+    } else {
+      const result = await supabase
+        .from("whatsapp_conversations")
+        .update({ assigned_to: transferTo })
+        .eq("id", selected.id)
+        .eq("organization_id", organizationId);
+      error = result.error;
+    }
+    setTransferring(false);
+    if (error) {
+      setTransferError(
+        describeWriteError(error, "Não foi possível transferir o atendimento.")
+      );
+      return;
+    }
     setTransferOpen(false);
     router.refresh();
   }
@@ -252,7 +297,8 @@ export function WhatsAppClient({
     await supabase
       .from("whatsapp_conversations")
       .update({ status: selected.status === "resolved" ? "open" : "resolved" })
-      .eq("id", selected.id);
+      .eq("id", selected.id)
+      .eq("organization_id", organizationId);
     router.refresh();
   }
 
@@ -337,11 +383,12 @@ export function WhatsAppClient({
             <div className="mt-2 flex gap-1 overflow-x-auto">
               {(
                 [
-                  ["all", "Todas"],
+                  ["all", canViewAllConversations ? "Todas" : "Minhas"],
                   ["unread", "Não lidas"],
                   ["open", "Abertas"],
-                  ["mine", "Minhas"],
-                  ["unassigned", "Sem resp."],
+                  ...(canViewAllConversations
+                    ? [["mine", "Minhas"], ["unassigned", "Sem resp."]]
+                    : []),
                 ] as [Filter, string][]
               ).map(([key, label]) => (
                 <button
@@ -744,11 +791,16 @@ export function WhatsAppClient({
             </option>
           ))}
         </Select>
+        {transferError && (
+          <p role="alert" className="mt-2 text-xs text-rose-600">
+            {transferError}
+          </p>
+        )}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setTransferOpen(false)}>
             Cancelar
           </Button>
-          <Button onClick={transfer} disabled={!transferTo}>
+          <Button onClick={transfer} disabled={!transferTo} loading={transferring}>
             Transferir
           </Button>
         </div>

@@ -1,10 +1,11 @@
 "use client";
 
+
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
-import { fullName } from "@/lib/utils";
+import { describeWriteError, fullName } from "@/lib/utils";
 import { taskSchema } from "@/lib/validations";
 import type { Contact, Deal, Profile, Task } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -84,14 +85,14 @@ export function TaskModal({
 
     if (task) {
       const { error: err } = await supabase.from("tasks").update(payload).eq("id", task.id);
-      if (err) return setError(err.message);
+      if (err) return setError(describeWriteError(err, "Não foi possível salvar a tarefa."));
     } else {
       const { error: err } = await supabase.from("tasks").insert({
         ...payload,
         organization_id: organizationId,
         created_by: profileId,
       });
-      if (err) return setError(err.message);
+      if (err) return setError(describeWriteError(err, "Não foi possível criar a tarefa."));
 
       if (payload.deal_id) {
         await supabase.from("activity_logs").insert({

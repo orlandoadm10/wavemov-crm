@@ -1,5 +1,6 @@
 "use client";
 
+
 import { Avatar } from "@/components/ui/avatar";
 import { DealStatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { DataTable, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
-import { formatCurrency, formatDate, normalizePhone } from "@/lib/utils";
+import { describeWriteError, formatCurrency, formatDate, normalizePhone } from "@/lib/utils";
 import { contactSchema } from "@/lib/validations";
 import type { Contact, Deal } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -106,12 +107,12 @@ export function ContactsClient({
 
     if (editing) {
       const { error: err } = await supabase.from("contacts").update(payload).eq("id", editing.id);
-      if (err) return setError(err.message);
+      if (err) return setError(describeWriteError(err, "Não foi possível salvar o contato."));
     } else {
       const { error: err } = await supabase
         .from("contacts")
         .insert({ ...payload, organization_id: organizationId });
-      if (err) return setError(err.message);
+      if (err) return setError(describeWriteError(err, "Não foi possível criar o contato."));
     }
     closeModal();
     router.refresh();

@@ -1,10 +1,11 @@
 "use client";
 
+
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
-import { fullName } from "@/lib/utils";
+import { describeWriteError, fullName } from "@/lib/utils";
 import { dealSchema } from "@/lib/validations";
 import type { Contact, Deal, Pipeline, Profile } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,6 +43,7 @@ export function DealModal({
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(dealSchema),
@@ -81,6 +83,14 @@ export function DealModal({
     (s) => !s.is_won_stage && !s.is_lost_stage
   );
 
+  function firstOpenStageId(pipelineId: string) {
+    const target = pipelines.find((p) => p.id === pipelineId);
+    const open = (target?.stages ?? [])
+      .filter((s) => !s.is_won_stage && !s.is_lost_stage)
+      .sort((a, b) => a.order_index - b.order_index);
+    return open[0]?.id ?? "";
+  }
+
   async function onSubmit(data: FormData) {
     setError(null);
     const parsed = dealSchema.parse(data);
@@ -101,14 +111,14 @@ export function DealModal({
 
     if (deal) {
       const { error: err } = await supabase.from("deals").update(payload).eq("id", deal.id);
-      if (err) return setError(err.message);
+      if (err) return setError(describeWriteError(err, "Não foi possível salvar a negociação."));
     } else {
       const { data: created, error: err } = await supabase
         .from("deals")
         .insert({ ...payload, organization_id: organizationId })
         .select("id")
         .single();
-      if (err) return setError(err.message);
+      if (err) return setError(describeWriteError(err, "Não foi possível criar a negociação."));
 
       await supabase.from("activity_logs").insert({
         organization_id: organizationId,
@@ -139,7 +149,20 @@ export function DealModal({
             <Input type="number" step="0.01" min="0" {...register("value")} />
           </Field>
           <Field label="Funil" error={errors.pipeline_id?.message}>
-            <Select {...register("pipeline_id")}>
+            {/* Trocar o funil precisa reposicionar a etapa: sem isso o stage_id do
+                funil anterior era gravado junto com o pipeline_id novo e o card
+                sumia dos dois Kanbans (o de origem filtra por funil, o de destino
+                não tem coluna com aquele id). Cai na primeira etapa aberta do
+                funil escolhido — `stage_id` é uuid obrigatório no dealSchema, então
+                deixar vazio travaria o salvamento em vez de resolver. */}
+            <Select
+              {...register("pipeline_id", {
+                onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setValue("stage_id", firstOpenStageId(e.target.value), {
+                    shouldValidate: true,
+                  }),
+              })}
+            >
               {pipelines.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}

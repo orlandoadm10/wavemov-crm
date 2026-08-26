@@ -1,5 +1,6 @@
 "use client";
 
+
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { DataTable, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { createClient } from "@/lib/supabase/client";
-import { formatDate } from "@/lib/utils";
+import { describeWriteError, formatDate } from "@/lib/utils";
 import { organizationSchema } from "@/lib/validations";
 import type { Organization } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -93,14 +94,14 @@ export function CompaniesClient({
         .from("organizations")
         .update(payload)
         .eq("id", editing.id);
-      if (err) return setError(err.message);
+      if (err) return setError(describeWriteError(err, "Não foi possível salvar a empresa."));
     } else {
       const { error: err } = await supabase.from("organizations").insert(payload);
       if (err)
         return setError(
           err.message.includes("policy")
             ? "Apenas o admin global pode criar novas empresas."
-            : err.message
+            : describeWriteError(err, "Não foi possível criar a empresa.")
         );
     }
     closeModal();

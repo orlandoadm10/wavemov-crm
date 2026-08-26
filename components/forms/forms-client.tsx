@@ -1,12 +1,13 @@
 "use client";
 
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
-import { formatDateTime, fullName, slugify } from "@/lib/utils";
+import { describeWriteError, formatDateTime, fullName, slugify } from "@/lib/utils";
 import type { Form, FormField, Pipeline, Profile } from "@/types";
 import {
   ArrowDown,
@@ -158,7 +159,7 @@ export function FormsClient({
       const { error: err } = await supabase.from("forms").update(payload).eq("id", editing.id);
       if (err) {
         setSaving(false);
-        return setError(err.message);
+        return setError(describeWriteError(err, "Não foi possível salvar o formulário."));
       }
     } else {
       const slug = `${slugify(name)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -169,7 +170,7 @@ export function FormsClient({
         .single();
       if (err || !created) {
         setSaving(false);
-        return setError(err?.message ?? "Erro ao criar formulário.");
+        return setError(describeWriteError(err, "Não foi possível criar o formulário."));
       }
       formId = created.id;
     }
@@ -190,7 +191,13 @@ export function FormsClient({
       );
       if (fieldsError) {
         setSaving(false);
-        return setError(fieldsError.message);
+        router.refresh();
+        return setError(
+          describeWriteError(
+            fieldsError,
+            "Os campos foram removidos e não puderam ser regravados — o formulário está sem campos agora. Salve novamente antes de divulgar o link."
+          )
+        );
       }
     }
 

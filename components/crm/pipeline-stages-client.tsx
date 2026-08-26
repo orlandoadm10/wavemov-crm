@@ -64,8 +64,13 @@ export function PipelineStagesClient({
   const [savedId, setSavedId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Ressincroniza quando o servidor devolve outro funil ou dados atualizados
-  const serverKey = serverStages.map((s) => `${s.id}:${s.order_index}:${s.name}`).join(",");
+  // Ressincroniza quando o servidor devolve outro funil ou dados atualizados.
+  // O id do funil entra na chave porque dois funis sem etapa nenhuma geram a
+  // mesma lista vazia — sem ele, alternar entre eles não dispararia o efeito.
+  const serverKey = [
+    activePipeline?.id ?? "",
+    ...serverStages.map((s) => `${s.id}:${s.order_index}:${s.name}`),
+  ].join(",");
   useEffect(() => setStages(serverStages), [serverKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statsByStage = useMemo(

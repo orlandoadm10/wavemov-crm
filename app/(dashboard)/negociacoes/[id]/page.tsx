@@ -61,11 +61,13 @@ export default async function DealPage({
     supabase
       .from("tasks")
       .select("*")
+      .eq("organization_id", orgId)
       .eq("deal_id", id)
       .order("due_at", { ascending: true, nullsFirst: false }),
     supabase
       .from("activity_logs")
       .select("*, actor:profiles!activity_logs_actor_id_fkey(*)")
+      .eq("organization_id", orgId)
       .eq("deal_id", id)
       .order("created_at", { ascending: false })
       .limit(50),
@@ -73,6 +75,7 @@ export default async function DealPage({
     supabase
       .from("whatsapp_conversations")
       .select("*")
+      .eq("organization_id", orgId)
       .eq("deal_id", id)
       .order("last_message_at", { ascending: false }),
   ]);

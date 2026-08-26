@@ -68,3 +68,16 @@ export function daysSince(date: string | Date | null | undefined) {
   const diff = Date.now() - new Date(date).getTime();
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
+
+/**
+ * Mensagem de erro de escrita para o usuário, em português.
+ *
+ * O erro do PostgREST vem em inglês e com jargão de banco ("violates not-null
+ * constraint", "new row violates row-level security policy"): não ajuda quem
+ * usa o CRM e ainda expõe detalhe de schema. O objeto inteiro vai para o
+ * console porque `code`, `details` e `hint` são onde está o motivo acionável.
+ */
+export function describeWriteError(err: unknown, fallback: string) {
+  if (err) console.error(fallback, err);
+  return fallback;
+}
