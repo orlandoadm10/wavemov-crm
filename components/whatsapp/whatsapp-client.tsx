@@ -2,7 +2,7 @@
 
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -307,11 +307,12 @@ export function WhatsAppClient({
             {st.label}
           </Badge>
         </div>
-        <Link href="/atendimento/configuracoes">
-          <Button variant="outline" size="sm">
-            <Settings className="h-3.5 w-3.5" />
-            Conexão e configurações
-          </Button>
+        <Link
+          href="/atendimento/configuracoes"
+          className={buttonClasses({ variant: "outline", size: "sm" })}
+        >
+          <Settings className="h-3.5 w-3.5" />
+          Conexão e configurações
         </Link>
       </div>
 

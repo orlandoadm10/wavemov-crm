@@ -3,7 +3,7 @@
 import { DealModal } from "@/components/crm/deal-modal";
 import { Badge, TemperatureBadge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/client";
@@ -28,11 +28,12 @@ import {
   Phone,
   Plus,
   Search,
+  SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface Props {
   organizationId: string;
@@ -62,15 +63,17 @@ export function KanbanBoard({
   const [search, setSearch] = useState("");
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
   );
 
-  // Sincroniza quando o servidor manda novos dados (filtros/refresh)
+  // Sincroniza quando o servidor manda novos dados (filtros/refresh).
+  // Precisa ser efeito: setState durante o render dispara re-render em cascata.
   const initialIds = initialDeals.map((d) => `${d.id}:${d.stage_id}:${d.updated_at}`).join(",");
-  useMemo(() => setDeals(initialDeals), [initialIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setDeals(initialDeals), [initialIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stages = useMemo(
     () =>
@@ -111,7 +114,8 @@ export function KanbanBoard({
     const newStage = stages.find((s) => s.id === newStageId);
     if (!deal || !newStage || deal.stage_id === newStageId) return;
 
-    const fromStageId = deal.stage_id;
+    // Guarda o estado anterior inteiro para reverter sem deixar resíduo
+    const previous = deal;
 
     // Otimista
     setDeals((prev) =>
@@ -138,17 +142,19 @@ export function KanbanBoard({
 
     const { error } = await supabase.from("deals").update(patch).eq("id", dealId);
     if (error) {
-      // Reverte em caso de falha
-      setDeals((prev) =>
-        prev.map((d) => (d.id === dealId ? { ...d, stage_id: fromStageId } : d))
+      // Reverte o card inteiro (etapa, objeto da etapa e status) e avisa
+      setDeals((prev) => prev.map((d) => (d.id === dealId ? previous : d)));
+      setMoveError(
+        `Não foi possível mover "${deal.title}" para ${newStage.name}. Tente novamente.`
       );
       return;
     }
+    setMoveError(null);
 
     await Promise.all([
       supabase.from("deal_stage_history").insert({
         deal_id: dealId,
-        from_stage_id: fromStageId,
+        from_stage_id: previous.stage_id,
         to_stage_id: newStageId,
         changed_by: profileId,
       }),
@@ -185,7 +191,8 @@ export function KanbanBoard({
             <option value="open">Em andamento</option>
             <option value="won">Ganhas</option>
             <option value="lost">Perdidas</option>
-            <option value="">Todas</option>
+            <option value="archived">Arquivadas</option>
+            <option value="todas">Todas</option>
           </Select>
           <Select
             value={params.get("responsavel") ?? ""}
@@ -222,13 +229,30 @@ export function KanbanBoard({
             Negociação
           </Button>
           <Button
-            variant="outline"
-            onClick={() => setParam("status", params.get("status") === "archived" ? "open" : "archived")}
+            variant={params.get("status") === "archived" ? "secondary" : "outline"}
+            onClick={() =>
+              setParam("status", params.get("status") === "archived" ? "open" : "archived")
+            }
           >
             <Archive className="h-4 w-4" />
             Arquivados
           </Button>
+          <Link
+            href={activePipeline ? `/funis?funil=${activePipeline.id}` : "/funis"}
+            className={buttonClasses({ variant: "outline" })}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Etapas
+          </Link>
         </div>
+        {moveError && (
+          <p
+            role="alert"
+            className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          >
+            {moveError}
+          </p>
+        )}
       </div>
 
       {/* Board */}

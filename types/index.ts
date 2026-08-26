@@ -263,6 +263,46 @@ export interface QuickReply {
   created_at: string;
 }
 
+// ------------------------------------------------------------
+// Views agregadas (supabase/migrations/0009_reporting.sql)
+// ------------------------------------------------------------
+
+export interface OrgDealStats {
+  organization_id: string;
+  deals_total: number;
+  deals_open: number;
+  deals_won: number;
+  deals_lost: number;
+  value_won: number;
+  value_open: number;
+  last_deal_at: string | null;
+  last_activity_at: string | null;
+}
+
+export interface PipelineStageStats {
+  stage_id: string;
+  pipeline_id: string;
+  organization_id: string;
+  deals_total: number;
+  deals_open: number;
+  value_open: number;
+}
+
+/** Linha do relatório de entrada de leads — só o que a tabela exibe. */
+export interface LeadRow {
+  id: string;
+  title: string;
+  created_at: string;
+  source: string | null;
+  contactName: string | null;
+  whatsapp: string | null;
+  formName: string | null;
+  pipelineName: string | null;
+  stageName: string | null;
+  stageColor: string | null;
+  responsibleName: string;
+}
+
 // Contexto de sessão passado pelo layout autenticado
 export interface SessionContext {
   profile: Profile;

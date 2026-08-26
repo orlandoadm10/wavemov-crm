@@ -16,9 +16,11 @@ CRM web multiempresa, completo e pronto para produção — construído com **Ne
 | **Detalhe do lead** | Stepper de etapas, bloco negócio, tarefas, timeline de atividades, notas internas, conversas WhatsApp vinculadas |
 | **Tarefas** | Prioridades, vencimento, vínculo com lead/contato, banner "próxima tarefa", filtros |
 | **Contatos** | CRUD completo com vínculo a negociações |
-| **Empresas** | Lista com leads/inatividade, perfil da empresa com indicadores, "logar nesta empresa" |
+| **Empresas** | Lista com leads/inatividade, resumo da empresa (KPIs, saúde da conta, evolução de leads), "logar nesta empresa" |
 | **Pessoas** | Gestão da equipe, papéis/permissões, criação de usuários (service role) |
 | **Dashboard** | Métricas reais: criadas/vendidas/perdidas, ticket médio, conversão, gráficos por mês, etapa, responsável, motivo e UTM |
+| **Etapas do funil** | Editor visual das etapas: fluxo com volume e retenção, renomear, reordenar, marcar Ganho/Perdido, excluir |
+| **Relatórios** | Entrada de leads por período e formulário, ranking de formulários e tela do último lead recebido |
 | **Formulários** | Construtor de campos, página pública `/f/[slug]`, cada envio cria contato + negociação no funil |
 | **Atendimento** | Tela WhatsApp em 3 colunas (conversas/chat/painel do lead), respostas rápidas, notas internas, realtime, criação de lead pela conversa |
 | **Admin** | Visão global de usuários/organizações (apenas admin global) |
@@ -65,6 +67,14 @@ No **SQL Editor** do Supabase, execute os arquivos na ordem:
 3. `supabase/migrations/0003_rls.sql` — Row Level Security completa
 4. `supabase/migrations/0004_functions.sql` — provisionamento e onboarding
 5. `supabase/migrations/0005_security.sql` — endurecimento (tokens fora do alcance do cliente)
+6. `supabase/migrations/0006_api_grants.sql` — grants da API
+7. `supabase/migrations/0007_reload_postgrest_schema.sql` — recarrega o cache de schema
+8. `supabase/migrations/0008_expose_public_schema.sql` — exposição do schema `public`
+9. `supabase/migrations/0009_reporting.sql` — views agregadas e índices de relatório
+
+> A `0009` é obrigatória para `/funis`, `/empresas` e `/empresas/[id]`: elas leem
+> as views `organization_deal_stats` e `pipeline_stage_stats`. É aditiva — cria
+> duas views e três índices, sem tocar em dados.
 
 > Alternativa com CLI: `supabase db push` (com o projeto linkado via `supabase link`).
 
@@ -144,7 +154,8 @@ gh repo create wavemov-crm --private --source=. --push
 ```
 app/
   (auth)/         login, registro
-  (dashboard)/    telas autenticadas (admin, tarefas, negociações, atendimento…)
+  (dashboard)/    telas autenticadas (admin, tarefas, negociações, funis,
+                  relatórios, atendimento…)
   api/            rotas server-side (webhooks, uazapi, formulários, sessão)
   f/[slug]/       página pública de formulário
 components/
@@ -159,11 +170,22 @@ lib/
   validations/    schemas Zod
   utils/          formatação, telefone, slug…
 supabase/
-  migrations/     SQL completo (schema, RLS, funções)
+  migrations/     SQL completo (schema, RLS, funções, views de relatório)
   seed/           seed de demonstração
 types/            tipos de domínio
 hooks/            hooks reutilizáveis
+docs/             inventário de funcionalidades, changelog e squad
+.claude/agents/   agentes de desenvolvimento (QA, frontend, backend, produto…)
 ```
+
+### Documentação
+
+| Arquivo | Conteúdo |
+|---|---|
+| `docs/FUNCIONALIDADES.md` | Inventário de telas, rotas, dados e regras de negócio |
+| `docs/CHANGELOG.md` | Histórico de entregas |
+| `docs/SQUAD.md` | Agentes de desenvolvimento e quando acionar cada um |
+| `DESIGN_GUIDE.md` | Contrato visual (cores, espaçamentos, componentes) |
 
 ### Segurança
 - **RLS em todas as tabelas** — isolamento por organização com funções
@@ -177,8 +199,9 @@ hooks/            hooks reutilizáveis
 ## 7. Próximos passos sugeridos
 
 - Upload de logo/avatar via Supabase Storage (estrutura já aceita URLs)
-- Editor visual de funis/etapas (tabelas e RLS já suportam CRUD)
 - Campos personalizados na UI (tabelas `custom_fields` já criadas)
+- Arrastar para reordenar as etapas em `/funis` (hoje é por setas ↑/↓)
+- Paginação no relatório de entrada de leads (hoje mostra os 100 mais recentes)
 - Envio de mídia no atendimento (adaptador já prevê `media_url`)
 - Notificações em tempo real (Supabase Realtime já usado no chat)
 - Relatórios exportáveis (CSV/PDF) no dashboard

@@ -1,6 +1,7 @@
 "use client";
 
 import { formatCurrency } from "@/lib/utils";
+import { useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -26,11 +27,28 @@ const tooltipStyle = {
   fontSize: 12,
 };
 
+function useHasMounted() {
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  return hasMounted;
+}
+
+function ChartPlaceholder({ height }: { height: number }) {
+  return <div aria-hidden="true" style={{ height }} />;
+}
+
 export function LeadsPerMonthChart({
   data,
 }: {
   data: { month: string; leads: number }[];
 }) {
+  const hasMounted = useHasMounted();
+  if (!hasMounted) return <ChartPlaceholder height={240} />;
+
   return (
     <ResponsiveContainer width="100%" height={240}>
       <LineChart data={data} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
@@ -57,6 +75,9 @@ export function SalesPerMonthChart({
 }: {
   data: { month: string; valor: number }[];
 }) {
+  const hasMounted = useHasMounted();
+  if (!hasMounted) return <ChartPlaceholder height={240} />;
+
   return (
     <ResponsiveContainer width="100%" height={240}>
       <BarChart data={data} margin={{ top: 8, right: 12, left: -6, bottom: 0 }}>
@@ -75,6 +96,47 @@ export function SalesPerMonthChart({
   );
 }
 
+// Entrada diária de leads — usado no relatório de entrada e no resumo da empresa.
+export function DailyLeadsChart({
+  data,
+  height = 240,
+}: {
+  data: { label: string; total: number }[];
+  height?: number;
+}) {
+  const hasMounted = useHasMounted();
+  if (!hasMounted) return <ChartPlaceholder height={height} />;
+  if (data.length === 0) {
+    return <p className="py-16 text-center text-sm text-ink-faint">Sem leads no período.</p>;
+  }
+
+  // Em séries longas, mostra um rótulo a cada N dias para não empilhar texto
+  const step = Math.ceil(data.length / 12);
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#eef1f6" vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={{ fontSize: 11, fill: "#94a3b8" }}
+          axisLine={false}
+          tickLine={false}
+          interval={step - 1}
+        />
+        <YAxis
+          tick={{ fontSize: 11, fill: "#94a3b8" }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
+        />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Bar dataKey="total" name="Leads" fill={BLUE} radius={[6, 6, 0, 0]} maxBarSize={28} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function DealsByStageChart({
   data,
 }: {
@@ -84,12 +146,24 @@ export function DealsByStageChart({
   if (filtered.length === 0) {
     return <p className="py-16 text-center text-sm text-ink-faint">Sem negociações no período.</p>;
   }
+
+  return <DealsByStageChartContent data={filtered} />;
+}
+
+function DealsByStageChartContent({
+  data,
+}: {
+  data: { name: string; value: number; color: string }[];
+}) {
+  const hasMounted = useHasMounted();
+  if (!hasMounted) return <ChartPlaceholder height={220} />;
+
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row">
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
-          <Pie data={filtered} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2}>
-            {filtered.map((entry, i) => (
+          <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2}>
+            {data.map((entry, i) => (
               <Cell key={i} fill={entry.color || PALETTE[i % PALETTE.length]} />
             ))}
           </Pie>
@@ -97,7 +171,7 @@ export function DealsByStageChart({
         </PieChart>
       </ResponsiveContainer>
       <ul className="grid w-full shrink-0 grid-cols-2 gap-x-4 gap-y-1.5 text-xs sm:w-44 sm:grid-cols-1">
-        {filtered.map((d, i) => (
+        {data.map((d, i) => (
           <li key={i} className="flex items-center gap-2 text-ink-soft">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.color || PALETTE[i % PALETTE.length] }} />
             <span className="truncate">{d.name}</span>
@@ -121,8 +195,25 @@ export function HorizontalCountChart({
   if (data.length === 0) {
     return <p className="py-16 text-center text-sm text-ink-faint">Sem dados no período.</p>;
   }
+
+  return <HorizontalCountChartContent data={data} color={color} currency={currency} />;
+}
+
+function HorizontalCountChartContent({
+  data,
+  color,
+  currency,
+}: {
+  data: { name: string; value: number }[];
+  color: string;
+  currency?: boolean;
+}) {
+  const height = Math.max(160, data.length * 42);
+  const hasMounted = useHasMounted();
+  if (!hasMounted) return <ChartPlaceholder height={height} />;
+
   return (
-    <ResponsiveContainer width="100%" height={Math.max(160, data.length * 42)}>
+    <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#eef1f6" horizontal={false} />
         <XAxis type="number" hide />

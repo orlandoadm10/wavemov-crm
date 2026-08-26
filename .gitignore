@@ -33,3 +33,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+.env*
+!.env.example
+
+# logs e dumps temporários de ferramentas locais
+.codex-dev.*.log
+.tmp_remote_schema.sql
+
+# configurações pessoais do Claude Code (os agentes em .claude/agents são versionados)
+.claude/settings.local.json

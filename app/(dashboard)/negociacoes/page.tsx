@@ -35,8 +35,9 @@ export default async function NegociacoesPage({ searchParams }: { searchParams: 
 
   if (activePipeline) dealsQuery = dealsQuery.eq("pipeline_id", activePipeline.id);
 
+  // "todas" é o único valor que remove o filtro; ausência de parâmetro = "open"
   const statusFilter = status ?? "open";
-  if (statusFilter) dealsQuery = dealsQuery.eq("status", statusFilter);
+  if (statusFilter !== "todas") dealsQuery = dealsQuery.eq("status", statusFilter);
   if (responsavel) dealsQuery = dealsQuery.eq("responsible_id", responsavel);
 
   if (ordem === "antigas") dealsQuery = dealsQuery.order("created_at", { ascending: true });
