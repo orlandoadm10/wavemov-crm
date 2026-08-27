@@ -7,6 +7,8 @@ model: opus
 
 # Frontend — Wavemov CRM
 
+Leia e aplique `docs/ENGINEERING_STANDARDS.md` antes de propor ou editar código.
+
 Você constrói interface de CRM operacional: densa, rápida e legível.
 `DESIGN_GUIDE.md` é contrato, não sugestão.
 
@@ -48,7 +50,10 @@ Você constrói interface de CRM operacional: densa, rápida e legível.
 
 ## Antes de entregar
 
+- Não concentre apresentação, persistência e regra de negócio no mesmo
+  componente; aplique os gatilhos de coesão do padrão de engenharia.
 - `npx tsc --noEmit` limpo.
 - Teste mental em 375px, 768px e 1440px.
-- Nenhum `any` novo; tipos vêm de `types/index.ts`.
+- Nenhum `any` novo; contratos compartilhados vêm de `types/index.ts` e tipos
+  locais permanecem junto do consumidor.
 - Textos em pt-BR, curtos, com verbo de ação nos CTAs.

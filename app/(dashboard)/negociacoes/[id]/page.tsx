@@ -1,4 +1,5 @@
 import { DealDetail } from "@/components/crm/deal-detail";
+import { WHATSAPP_ACTIVITY_TYPES } from "@/lib/features/deal-history/domain/activity-types";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -43,9 +44,9 @@ export default async function DealPage({
     { data: membersRaw },
     { data: contactsRaw },
     { data: tasksRaw },
-    { data: activitiesRaw },
+    { data: activitiesRaw, error: activitiesQueryError },
     { data: reasonsRaw },
-    { data: conversationsRaw },
+    { data: conversationsRaw, error: conversationsQueryError },
   ] = await Promise.all([
     supabase
       .from("pipelines")
@@ -69,6 +70,7 @@ export default async function DealPage({
       .select("*, actor:profiles!activity_logs_actor_id_fkey(*)")
       .eq("organization_id", orgId)
       .eq("deal_id", id)
+      .not("type", "in", `(${WHATSAPP_ACTIVITY_TYPES.join(",")})`)
       .order("created_at", { ascending: false })
       .limit(50),
     supabase.from("lost_reasons").select("*").eq("organization_id", orgId).order("name"),
@@ -80,6 +82,21 @@ export default async function DealPage({
       .order("last_message_at", { ascending: false }),
   ]);
 
+  if (activitiesQueryError) {
+    console.error("Falha ao carregar atividades da negociação", {
+      organizationId: orgId,
+      dealId: id,
+      error: activitiesQueryError,
+    });
+  }
+  if (conversationsQueryError) {
+    console.error("Falha ao carregar conversas da negociação", {
+      organizationId: orgId,
+      dealId: id,
+      error: conversationsQueryError,
+    });
+  }
+
   return (
     <DealDetail
       organizationId={orgId}
@@ -90,8 +107,12 @@ export default async function DealPage({
       contacts={(contactsRaw ?? []) as Contact[]}
       tasks={(tasksRaw ?? []) as Task[]}
       activities={(activitiesRaw ?? []) as unknown as ActivityLog[]}
+      activitiesError={activitiesQueryError ? "Não foi possível carregar as atividades do lead." : null}
       lostReasons={(reasonsRaw ?? []) as LostReason[]}
       conversations={(conversationsRaw ?? []) as WhatsAppConversation[]}
+      conversationsError={
+        conversationsQueryError ? "Não foi possível carregar as conversas vinculadas." : null
+      }
     />
   );
 }

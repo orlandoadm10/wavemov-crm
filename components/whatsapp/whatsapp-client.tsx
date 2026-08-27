@@ -27,10 +27,10 @@ import type {
   WhatsAppMessage,
 } from "@/types";
 import { DealStagePicker } from "@/components/whatsapp/deal-stage-picker";
+import { MessageThread } from "@/components/whatsapp/message-thread";
 import {
   ArrowLeft,
   ArrowRightLeft,
-  CheckCheck,
   CheckCircle2,
   ExternalLink,
   Handshake,
@@ -632,64 +632,7 @@ export function WhatsAppClient({
 
               {/* Mensagens */}
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50/60 p-4">
-                {loadingMessages ? (
-                  <p className="py-10 text-center text-xs text-ink-faint">Carregando mensagens…</p>
-                ) : messages.length === 0 ? (
-                  <p className="py-10 text-center text-xs text-ink-faint">
-                    Nenhuma mensagem nesta conversa ainda.
-                  </p>
-                ) : (
-                  messages.map((m) =>
-                    m.message_type === "system" ? (
-                      <div key={m.id} className="flex justify-center">
-                        <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] text-amber-700 ring-1 ring-amber-100">
-                          {m.content}
-                        </span>
-                      </div>
-                    ) : (
-                      <div
-                        key={m.id}
-                        className={cn(
-                          "flex",
-                          m.direction === "outbound" ? "justify-end" : "justify-start"
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
-                            m.direction === "outbound"
-                              ? "rounded-br-md bg-primary-600 text-white"
-                              : "rounded-bl-md border border-line bg-white text-ink"
-                          )}
-                        >
-                          {m.media_url && (
-                            <a
-                              href={m.media_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className={cn(
-                                "mb-1 block text-xs underline",
-                                m.direction === "outbound" ? "text-primary-100" : "text-primary-600"
-                              )}
-                            >
-                              📎 Mídia ({m.message_type})
-                            </a>
-                          )}
-                          <p className="whitespace-pre-wrap">{m.content}</p>
-                          <p
-                            className={cn(
-                              "mt-1 flex items-center justify-end gap-1 text-[10px]",
-                              m.direction === "outbound" ? "text-primary-200" : "text-ink-faint"
-                            )}
-                          >
-                            {formatDateTime(m.created_at)}
-                            {m.direction === "outbound" && <CheckCheck className="h-3 w-3" />}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  )
-                )}
+                <MessageThread messages={messages} loading={loadingMessages} />
                 <div ref={bottomRef} />
               </div>
 

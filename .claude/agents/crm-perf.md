@@ -7,6 +7,8 @@ model: opus
 
 # Performance — Wavemov CRM
 
+Leia e aplique `docs/ENGINEERING_STANDARDS.md` antes de propor ou editar código.
+
 Meta: CRM que responde rápido em conexão comum, com listas grandes e uso
 diário intenso. Cada quilobyte e cada linha trazida do banco tem dono.
 

@@ -2,8 +2,10 @@
 
 > **Leia este arquivo primeiro.** Ele é o ponto de entrada para qualquer
 > desenvolvedor ou agente de IA (Claude, Codex, DeepSeek, Cursor…) que assumir o
-> projeto. Depois dele: `README.md` (setup), `docs/FUNCIONALIDADES.md`
-> (o que existe), `DESIGN_GUIDE.md` (contrato visual).
+> projeto. Antes de alterar código, leia também
+> `docs/ENGINEERING_STANDARDS.md` (arquitetura, processo e Definition of Done).
+> Depois: `README.md` (setup), `docs/FUNCIONALIDADES.md` (o que existe) e
+> `DESIGN_GUIDE.md` (contrato visual).
 
 **Última atualização:** 2026-08-26
 **Versão:** `0.2.0` (sem bump)
@@ -42,6 +44,19 @@ npm run build       → 28 rotas, sem erro
 npm run test:db     → 59 asserções, todas passando
 ```
 
+### Rodada atual — histórico operacional separado das conversas
+
+- `/negociacoes/[id]` abre em **Atividades**, sem previews de WhatsApp. A query
+  exclui `whatsapp_inbound`/`whatsapp_outbound` antes do limite de 50.
+- A guia **Conversas** carrega mensagens somente quando acionada, em páginas de
+  50, e suporta as várias conversas que um mesmo lead pode ter desde a `0011`.
+- A visualização é somente leitura: abrir o histórico não zera `unread_count`
+  nem cria um segundo composer. Para responder, usa **Abrir no Atendimento**.
+- `components/whatsapp/message-thread.tsx` é a apresentação compartilhada das
+  bolhas; não duplique esse padrão no detalhe ou em outra tela.
+- Os registros WhatsApp existentes em `activity_logs` foram preservados para
+  auditoria. Interromper essa gravação ou remover dados é decisão separada.
+
 ### Rodada mais recente — funil padrão (`0012`) e funil/etapa no atendimento
 
 Detalhe completo em `docs/CHANGELOG.md`. Resumo do que mudou de contrato:
@@ -68,7 +83,7 @@ Detalhe completo em `docs/CHANGELOG.md`. Resumo do que mudou de contrato:
 > `deals.pipeline_id`, nem que o funil seja da organização da negociação — hoje
 > a invariante depende só do JavaScript. A migration recusa a própria aplicação
 > se encontrar linhas incoerentes, para não instalar a guarda sobre dado sujo.
-> Nenhum código depende dela; aplicar é decisão do cliente.
+> A guarda está ativa no banco; nenhum fluxo adicional no cliente é necessário.
 
 ### Como validar migration antes de entregar o SQL ao cliente
 
@@ -198,8 +213,12 @@ Quebrar qualquer uma destas é considerado defeito grave neste projeto.
 7. **`DESIGN_GUIDE.md` é contrato**, não sugestão.
 8. **Server Component por padrão.** `"use client"` só com estado, evento,
    `useSearchParams` ou lib de browser.
-9. **Documentação faz parte da entrega.** Código sem `docs/` atualizado está
-   incompleto.
+9. **Documentação faz parte da entrega.** Mudança de comportamento, contrato,
+   schema, permissão, operação, arquitetura ou dívida exige `docs/` atualizado;
+   quando não se aplicar, declare isso no fechamento.
+10. **`docs/ENGINEERING_STANDARDS.md` é o contrato de engenharia.** Antes de
+    editar, informar arquivos e impacto; durante, preservar fronteiras e
+    coesão; depois, executar os gates aplicáveis e declarar riscos.
 
 ---
 
@@ -254,7 +273,8 @@ supabase/migrations/ SQL — imutável depois de aplicado
 supabase/tests/      verificação das migrations em Postgres descartável
                      (`npm run test:db`)
 types/index.ts       tipos de domínio + tipos das views agregadas
-docs/                este arquivo, FUNCIONALIDADES, CHANGELOG, SQUAD
+docs/                este arquivo, ENGINEERING_STANDARDS, FUNCIONALIDADES,
+                     CHANGELOG e SQUAD
 .claude/agents/      squad de agentes de desenvolvimento
 ```
 

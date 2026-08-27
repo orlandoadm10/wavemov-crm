@@ -2,6 +2,52 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-26 — histórico do lead separado das conversas
+
+### Alterado
+
+- `/negociacoes/[id]` ganhou o card **Histórico do lead** com as guias
+  **Atividades** e **Conversas**. A timeline comercial não exibe mais um item
+  para cada mensagem recebida ou enviada.
+- A query de `activity_logs` exclui os tipos WhatsApp antes de aplicar o limite
+  de 50, preservando notas, tarefas, movimentações, mudanças de status, ganho e
+  perda mesmo em leads com conversas longas.
+- Mensagens completas são carregadas somente ao abrir a guia Conversas, em
+  páginas de 50 e sem transportar `raw_payload` ao navegador. Várias conversas
+  do mesmo lead podem ser alternadas sem refazer páginas já carregadas.
+- A thread no detalhe é somente leitura, responsiva e aponta para o atendimento
+  quando o usuário precisa responder.
+
+### Interno
+
+- As bolhas de mensagem foram extraídas para
+  `components/whatsapp/message-thread.tsx` e reutilizadas pelo atendimento e
+  pelo detalhe da negociação.
+- Timeline, navegação por guias, histórico de conversas e consulta Supabase
+  foram separados em módulos com responsabilidades únicas.
+- Registros `whatsapp_inbound`/`whatsapp_outbound` existentes continuam em
+  `activity_logs` para auditoria; apenas deixaram de ser exibidos na timeline.
+
+## 2026-08-26 — padrões obrigatórios de engenharia
+
+### Adicionado
+
+- `docs/ENGINEERING_STANDARDS.md` como fonte canônica de Clean Architecture
+  incremental, fronteiras do repositório, coesão, fluxo antes/depois da edição,
+  matriz de validação e Definition of Done.
+- `AGENTS.md` e `CLAUDE.md` na raiz como pontos de entrada para ferramentas e
+  agentes diferentes consumirem o mesmo contrato.
+
+### Alterado
+
+- O squad passou a exigir inventário e impacto antes da implementação, revisão
+  arquitetural e evidências de validação no QA, além de avaliação explícita do
+  impacto documental.
+- Arquivos grandes legados não bloqueiam correções pequenas, mas não podem
+  receber nova responsabilidade sem decomposição ou justificativa registrada.
+- Limites de tamanho viraram gatilhos auditáveis de revisão, sem impor
+  abstrações ou refatorações cerimoniais.
+
 ## 2026-08-26 — funil padrão (migrations `0012`/`0013`) e troca de funil/etapa no atendimento
 
 Sem bump de versão: continua `0.2.0`. **Migration nova:

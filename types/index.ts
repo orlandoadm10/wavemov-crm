@@ -260,6 +260,22 @@ export interface WhatsAppMessage {
   created_at: string;
 }
 
+/** Payload mínimo usado para desenhar uma conversa sem serializar raw_payload. */
+export type ConversationThreadMessage = Pick<
+  WhatsAppMessage,
+  | "id"
+  | "organization_id"
+  | "conversation_id"
+  | "direction"
+  | "message_type"
+  | "content"
+  | "media_url"
+  | "sender_phone"
+  | "receiver_phone"
+  | "sent_by"
+  | "created_at"
+>;
+
 export interface QuickReply {
   id: string;
   organization_id: string;

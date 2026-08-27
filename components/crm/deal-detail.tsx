@@ -1,6 +1,7 @@
 "use client";
 
 import { DealModal } from "@/components/crm/deal-modal";
+import { DealHistoryPanel } from "@/components/crm/deal-history-panel";
 import { TaskModal } from "@/components/crm/task-modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, DealStatusBadge, PriorityBadge, TemperatureBadge } from "@/components/ui/badge";
@@ -49,8 +50,10 @@ interface Props {
   contacts: Contact[];
   tasks: Task[];
   activities: ActivityLog[];
+  activitiesError: string | null;
   lostReasons: LostReason[];
   conversations: WhatsAppConversation[];
+  conversationsError: string | null;
 }
 
 export function DealDetail({
@@ -62,8 +65,10 @@ export function DealDetail({
   contacts,
   tasks,
   activities,
+  activitiesError,
   lostReasons,
   conversations,
+  conversationsError,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -394,7 +399,7 @@ export function DealDetail({
           </Card>
         </div>
 
-        {/* Coluna central/direita: tarefas + timeline + notas + conversas */}
+        {/* Coluna central/direita: tarefas + notas + histórico segmentado */}
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <CardHeader
@@ -444,31 +449,6 @@ export function DealDetail({
             )}
           </Card>
 
-          {conversations.length > 0 && (
-            <Card>
-              <CardHeader title="Conversas de WhatsApp" subtitle="Vinculadas a esta negociação" />
-              <ul className="divide-y divide-line">
-                {conversations.map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      href={`/atendimento?conversa=${c.id}`}
-                      className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-primary-50/40"
-                    >
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                        <MessageCircle className="h-4.5 w-4.5" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-ink">{c.name ?? `+${c.phone}`}</p>
-                        <p className="truncate text-xs text-ink-faint">{c.last_message ?? "Sem mensagens"}</p>
-                      </div>
-                      <span className="text-xs text-ink-faint">{formatDateTime(c.last_message_at)}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-
           {/* Nota interna */}
           <Card className="p-5">
             <div className="mb-3 flex items-center gap-2">
@@ -487,47 +467,13 @@ export function DealDetail({
             </div>
           </Card>
 
-          {/* Timeline */}
-          <Card>
-            <CardHeader title="Histórico de atividades" />
-            {activities.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-ink-faint">Nenhuma atividade registrada.</p>
-            ) : (
-              <ol className="px-5 py-4">
-                {activities.map((a, i) => (
-                  <li key={a.id} className="relative flex gap-3.5 pb-5 last:pb-1">
-                    {i < activities.length - 1 && (
-                      <span className="absolute top-5 left-[7px] h-full w-px bg-line" />
-                    )}
-                    <span
-                      className={cn(
-                        "relative mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-white ring-2",
-                        a.type === "deal_won"
-                          ? "bg-emerald-500 ring-emerald-200"
-                          : a.type === "deal_lost"
-                            ? "bg-rose-500 ring-rose-200"
-                            : a.type === "note"
-                              ? "bg-amber-400 ring-amber-200"
-                              : "bg-primary-500 ring-primary-200"
-                      )}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-ink">{a.title}</p>
-                      {a.description && (
-                        <p className="mt-0.5 rounded-lg bg-slate-50 px-3 py-2 text-sm whitespace-pre-wrap text-ink-soft">
-                          {a.description}
-                        </p>
-                      )}
-                      <p className="mt-0.5 text-xs text-ink-faint">
-                        {a.actor ? `${fullName(a.actor)} · ` : ""}
-                        {formatDateTime(a.created_at)}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </Card>
+          <DealHistoryPanel
+            organizationId={organizationId}
+            activities={activities}
+            activitiesError={activitiesError}
+            conversations={conversations}
+            conversationsError={conversationsError}
+          />
         </div>
       </div>
 

@@ -5,6 +5,9 @@ Antes desta entrega **o projeto não tinha nenhum agente configurado**: as pasta
 Os agentes abaixo foram criados em `.claude/agents/` e ficam disponíveis para
 qualquer sessão do Claude Code aberta neste repositório.
 
+Todos obedecem a `docs/ENGINEERING_STANDARDS.md`. `AGENTS.md` e `CLAUDE.md`
+encaminham ferramentas diferentes para o mesmo contrato com um resumo mínimo.
+
 ## O time
 
 | Agente | Arquivo | Quando acionar |
@@ -27,6 +30,11 @@ crm-product  →  crm-backend  →  crm-frontend  →  crm-perf  →  qa-enginee
 O QA é obrigatório; os demais entram conforme a natureza da tarefa. Uma correção
 de texto não precisa passar pelo Produto, mas passa pelo QA.
 
+Antes da implementação, Produto fecha problema, escopo, papéis e critérios de
+aceite; Engenharia informa arquivos, responsabilidades e impacto. Depois, QA
+exige evidências dos gates aplicáveis, aponta riscos residuais e decide se a
+entrega pode seguir. Documentação encerra mantendo o repositório verdadeiro.
+
 ## Como usar
 
 Peça pelo nome na sessão do Claude Code — por exemplo:
@@ -44,9 +52,11 @@ qualquer falha de isolamento como **Bloqueador** — nunca "sugestão".
 
 ## Regras que valem para todos os agentes
 
-1. Verificar antes de afirmar. Nenhum "passou" sem a saída real do comando.
-2. Não criar componente que já existe em `components/ui/`.
-3. Não adicionar dependência sem justificativa registrada — o app precisa ficar leve.
-4. Toda query filtra por `organization_id`, mesmo com RLS ativo.
-5. Migration aplicada é imutável: correção vira migration nova.
-6. Documentação é parte da entrega (`crm-docs`).
+1. Ler e aplicar `docs/ENGINEERING_STANDARDS.md`.
+2. Verificar antes de afirmar. Nenhum "passou" sem a saída real do comando.
+3. Informar arquivos, responsabilidades e impacto antes de editar.
+4. Não criar componente que já existe em `components/ui/`.
+5. Não adicionar dependência sem justificativa registrada — o app precisa ficar leve.
+6. Toda query filtra por `organization_id`, mesmo com RLS ativo.
+7. Migration aplicada é imutável: correção vira migration nova.
+8. QA é o portão final e documentação é parte da entrega (`crm-docs`).

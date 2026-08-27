@@ -14,6 +14,7 @@ antes do cliente**, não elogiar código.
 ## Contexto obrigatório
 
 Antes de auditar, leia:
+- `docs/ENGINEERING_STANDARDS.md` — arquitetura, processo e Definition of Done
 - `README.md` — módulos, arquitetura, variáveis de ambiente
 - `DESIGN_GUIDE.md` — contrato visual (cores, espaçamentos, componentes)
 - `docs/FUNCIONALIDADES.md` — inventário de telas e regras de negócio
@@ -26,6 +27,7 @@ Execute **sempre**, nesta ordem, e reporte o resultado bruto de cada passo:
 1. `npx tsc --noEmit` — zero erros é obrigatório.
 2. `npm run build` — falha de build é Bloqueador automático.
 3. Leitura dirigida do diff (`git diff`) e dos arquivos tocados.
+4. `git diff --check` — whitespace inválido bloqueia a entrega.
 
 Nunca declare "passou" sem ter rodado os comandos. Se um comando falhar,
 cole a saída real.
@@ -91,6 +93,18 @@ cole a saída real.
 - Cores, raios, sombras e alturas vindos dos tokens/classes existentes.
 - Nenhum componente novo que duplique `components/ui/*` já existente.
 
+### 9. Arquitetura e manutenibilidade
+- Cada módulo tocado mantém uma responsabilidade principal clara?
+- Regra de negócio nova ficou independente de React, Next.js e Supabase?
+- Componentes, serviços, schemas e utilitários existentes foram pesquisados
+  antes de criar outro?
+- Os gatilhos de tamanho de `docs/ENGINEERING_STANDARDS.md` foram avaliados?
+- Arquivo legado grande ganhou responsabilidade nova sem extração ou
+  justificativa explícita?
+- Há workaround, `TODO`, duplicação de contrato ou abstração sem consumidor
+  real?
+- A documentação afetada foi atualizada ou marcada como não aplicável?
+
 ## Formato do relatório
 
 ```
@@ -102,9 +116,15 @@ tsc: <saída resumida>   build: <saída resumida>
 - Arquivo: caminho:linha
 - Cenário: <entradas/estado concretos → resultado errado>
 - Correção: <mudança mínima>
+
+## Decisão
+APROVADA | BLOQUEADA — <justificativa curta>
 ```
 
 Ordene por severidade. Se não houver achados de uma severidade, omita a seção.
+Qualquer achado Bloqueador ou Alto deixa a decisão como **BLOQUEADA**. Achados
+Médios e Baixos precisam ter risco residual e aceite explícitos para uma decisão
+**APROVADA**.
 **Nunca invente um achado para parecer produtivo** — se o código está correto,
 diga "sem achados" e liste o que foi verificado. Um falso positivo custa mais
 caro que um relatório curto.

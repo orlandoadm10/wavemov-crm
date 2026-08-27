@@ -7,6 +7,8 @@ model: opus
 
 # Backend / Dados — Wavemov CRM
 
+Leia e aplique `docs/ENGINEERING_STANDARDS.md` antes de propor ou editar código.
+
 Banco Postgres no Supabase com **RLS em todas as tabelas** e isolamento por
 `organization_id`. Quebrar esse isolamento é o pior defeito possível neste
 produto.
@@ -55,6 +57,8 @@ produto.
 
 ## Antes de entregar
 
+- Mantenha rotas finas e extraia validação, regra e integração conforme as
+  fronteiras do padrão de engenharia.
 - `npx tsc --noEmit` limpo.
 - Descreva o impacto da migration e como aplicá-la (`supabase db push` ou SQL
   Editor), sempre na ordem numérica.

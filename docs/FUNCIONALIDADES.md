@@ -9,7 +9,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 |---|---|---|
 | `/dashboard` | `app/(dashboard)/dashboard/page.tsx` | Métricas do funil: criadas/ganhas/perdidas, ticket, conversão, séries mensais, etapas, responsáveis, motivos de perda, UTMs |
 | `/negociacoes` | `app/(dashboard)/negociacoes/page.tsx` | Kanban com drag-and-drop, filtros de funil/status/responsável/ordem, busca |
-| `/negociacoes/[id]` | `app/(dashboard)/negociacoes/[id]/page.tsx` | Detalhe do lead: stepper de etapas, tarefas, timeline, notas, conversas |
+| `/negociacoes/[id]` | `app/(dashboard)/negociacoes/[id]/page.tsx` | Detalhe do lead: stepper, tarefas, notas e histórico segmentado entre atividades e conversas |
 | `/funis` | `app/(dashboard)/funis/page.tsx` | **Editor de etapas do funil** — fluxo com volume e retenção + CRUD de etapas |
 | `/relatorios` | `app/(dashboard)/relatorios/page.tsx` | **Relatório de entrada de leads** por período e formulário |
 | `/relatorios/ultimo-lead` | `app/(dashboard)/relatorios/ultimo-lead/page.tsx` | **Último lead recebido** com origem, respostas e timeline |
@@ -29,6 +29,28 @@ Rotas públicas: `/login`, `/register`, `/onboarding`, `/f/[slug]`.
 ---
 
 ## Telas adicionadas nesta entrega
+
+### Histórico segmentado do lead — `/negociacoes/[id]`
+
+O detalhe separa a operação comercial do conteúdo integral do WhatsApp no card
+**Histórico do lead**:
+
+- **Atividades** é a guia padrão e mostra criação, formulário, notas, tarefas,
+  mudanças de etapa/funil/responsável/status, ganho, perda e arquivamento.
+  Eventos `whatsapp_inbound` e `whatsapp_outbound` são filtrados no banco antes
+  do limite de 50, então uma conversa longa não expulsa eventos comerciais da
+  timeline.
+- **Conversas (N)** só monta e consulta `whatsapp_messages` depois do clique.
+  Carrega 50 mensagens por vez, sem `raw_payload`, e permite buscar páginas
+  anteriores.
+- Leads com mais de uma conversa mostram um seletor por número/conversa. No
+  mobile, lista e thread são painéis alternados; no desktop ficam lado a lado.
+- A thread é somente leitura e não zera mensagens não lidas. O CTA **Abrir no
+  Atendimento** leva ao chat correto para responder.
+- Mensagens internas do tipo `system` permanecem representadas como notas na
+  timeline operacional e não são duplicadas na guia de conversas.
+- As bolhas são compartilhadas com `/atendimento` por
+  `components/whatsapp/message-thread.tsx`.
 
 ### Funil e etapa do lead no atendimento — `/atendimento`
 

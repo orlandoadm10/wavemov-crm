@@ -7,6 +7,8 @@ model: opus
 
 # Documentação — Wavemov CRM
 
+Leia e aplique `docs/ENGINEERING_STANDARDS.md` antes de revisar a entrega.
+
 A documentação é o contrato entre as sessões de desenvolvimento. Ela precisa
 estar sempre verdadeira: uma linha desatualizada custa mais que uma linha
 ausente.
@@ -16,6 +18,7 @@ ausente.
 | Arquivo | Conteúdo |
 |---|---|
 | `README.md` | Visão geral, módulos, setup, env, deploy, arquitetura |
+| `docs/ENGINEERING_STANDARDS.md` | Contrato de arquitetura, processo, validação e Definition of Done |
 | `docs/FUNCIONALIDADES.md` | Inventário de telas, rotas, dados e regras |
 | `docs/CHANGELOG.md` | Histórico de entregas em ordem cronológica inversa |
 | `docs/SQUAD.md` | O time de agentes e quando acionar cada um |
@@ -34,3 +37,5 @@ ausente.
    (`AAAA-MM-DD`), agrupada em Adicionado / Corrigido / Alterado.
 7. Nunca documente intenção como se fosse realidade. Recurso planejado vai
    para "Próximos passos", nunca para o inventário.
+8. Confirme que a entrega avaliou o impacto documental; “não aplicável” precisa
+   de justificativa, não de alteração artificial em todos os documentos.
