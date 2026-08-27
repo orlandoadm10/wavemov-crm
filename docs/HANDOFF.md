@@ -20,9 +20,8 @@ dela.
 `0001`…`0013` **aplicadas** (confirmação do cliente em 2026-08-26).
 A `0014` (ingestão externa) e a `0015` (respostas do lead) estão
 **aplicadas** — confirmação do cliente em 2026-08-27, cada uma antes de
-qualquer código depender dela. A **`0016` (distribuição automática) NÃO está
-aplicada**: escrita e validada com 27 asserções, aguardando o cliente rodar o
-SQL. Nenhum código depende dela ainda.
+qualquer código depender dela. A `0016` (distribuição automática) também está **aplicada** — confirmação em
+2026-08-27.
 **Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`. O projeto
 está ligado ao Git: **push em `main` = deploy de produção**, sem passo manual.
 

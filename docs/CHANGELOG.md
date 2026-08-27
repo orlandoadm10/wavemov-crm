@@ -2,6 +2,65 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — Frente C: motor de distribuição e deduplicação
+
+Migration `0016` **aplicada pelo cliente** em 2026-08-27. A distribuição passa
+a valer imediatamente, usando a regra padrão que a migration criou com todos os
+membros elegíveis no rodízio, peso 1. A tela de configuração vem em seguida.
+
+### Corrigido
+
+- **Lead deixa de nascer órfão nos três caminhos de entrada.** Antes,
+  `register-form-lead.ts` gravava o `default_responsible_id` do formulário —
+  opcional, normalmente vazio — e o webhook da UAZAPI nem passava o campo. Pela
+  policy da `0011`, esse lead era invisível para todo `seller` e `agent`, e o
+  trigger da mesma migration copiava o nulo para
+  `whatsapp_conversations.assigned_to`, de modo que a conversa sumia junto.
+- **A ingestão parou de abrir um card por submissão.** Quem preenchia o
+  Typeform e depois clicava no anúncio do Meta virava dois leads — e, com
+  rodízio, dois vendedores ligando para o mesmo telefone. Agora a submissão
+  entra na negociação ABERTA que o contato já tem no mesmo funil, com uma linha
+  no histórico. Ganha, perdida e arquivada não bloqueiam card novo: recompra e
+  nova cotação são leads legítimos. É a mesma regra que o webhook já aplicava.
+
+### Adicionado
+
+- `lib/features/lead-distribution/` — domínio (rodízio ponderado e seleção de
+  regra), caso de uso e infraestrutura. Um ponto de decisão para as três
+  entradas.
+- **Auditoria em toda decisão**, inclusive quando NÃO houve distribuição
+  (`no_rule`, `no_candidates`) — são esses os casos que levam alguém a corrigir
+  a configuração.
+- Linha `lead_assigned` no histórico do lead: sem ela, o vendedor vê um lead
+  aparecer na fila sem explicação.
+
+### Decisões
+
+- **A sequência do rodízio é intercalada, não em blocos.** Expandir por peso em
+  bloco (`A,A,A,B`) dá a proporção certa e entrega três leads seguidos à mesma
+  pessoa, concentrando a fila. Em passadas (`A,B,A,A`) a proporção é idêntica e
+  o intervalo entre leads da mesma pessoa é o maior possível.
+- **A regra padrão é sempre a última**, independentemente da prioridade que
+  tenha. Se concorresse por prioridade, salvá-la com prioridade 1 engoliria
+  todas as regras específicas.
+- **`default_responsible_id` do formulário vence o rodízio**: é escolha
+  explícita de quem configurou.
+- **O bilhete usa compare-and-swap, não `set x = x + 1`.** O PostgREST não
+  expressa incremento; "ler, somar, gravar" seria a corrida que o contador
+  existe para evitar. A condição `.eq("assignments_count", lido)` faz quem
+  chegar segundo não atingir linha e tentar de novo. Uma RPC resolveria em uma
+  viagem, mas exigiria migration nova — a `0016` já está aplicada.
+- **Sem regra ou sem candidatos, o lead ENTRA assim mesmo**, sem responsável e
+  com log. Recusá-lo perderia o lead, que é pior que um lead órfão visível ao
+  administrador.
+
+### Validação
+
+`npm run test:unit` **59 testes** (eram 42): rodízio determinístico e
+proporcional, sequência intercalada, bilhete que dá a volta, um participante
+como responsável fixo, e as oito regras de ordem de avaliação. `tsc` limpo,
+`build` sem erro, `test:db` 118.
+
 ## 2026-08-27 — Frente C: schema da distribuição automática (`0016`)
 
 Migration escrita e validada. **PENDENTE de aplicação pelo cliente** — nenhum

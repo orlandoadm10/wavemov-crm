@@ -73,6 +73,7 @@ export async function POST(
     identity: extractLeadIdentity(clean),
     submissionId: submission.id,
     dealSource: `Formulário: ${form.name}`,
+    origin: "public_form",
   });
 
   if (result.error) {

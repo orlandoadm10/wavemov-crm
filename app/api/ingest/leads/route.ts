@@ -146,6 +146,7 @@ export async function POST(request: Request) {
     identity: extractLeadIdentity(clean),
     submissionId: claim.submissionId,
     dealSource: `Integração: ${form.name}`,
+    origin: "external_ingest",
   });
 
   if (result.error) {

@@ -1,3 +1,5 @@
+import { resolveLeadResponsible } from "@/lib/features/lead-distribution/application/resolve-lead-responsible";
+import { recordDistribution } from "@/lib/features/lead-distribution/infrastructure/distribution-queries";
 import { extractInstanceRefs, normalizeWebhookMessage } from "@/lib/services/uazapi";
 import { secretsMatch } from "@/lib/services/webhook-secret";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -327,13 +329,26 @@ export async function POST(request: Request) {
           .maybeSingle();
 
         if (firstStage) {
-          const { data: deal } = await admin
+          // Quem atende este lead (migration 0016). Antes o insert nem passava
+          // `responsible_id`: o lead nascia órfão e, pela policy da 0011,
+          // ficava invisível para todo seller e agent — e o trigger da mesma
+          // migration copiava o nulo para `conversations.assigned_to`, de modo
+          // que a conversa sumia junto. Não havia caminho de recuperação além
+          // de o administrador abrir lead por lead.
+          const distribuicao = await resolveLeadResponsible({
+            admin,
+            organizationId,
+            lead: { origin: "whatsapp", formId: null },
+          });
+
+          const { data: deal, error: dealError } = await admin
             .from("deals")
             .insert({
               organization_id: organizationId,
               pipeline_id: pipeline.id,
               stage_id: firstStage.id,
               contact_id: contact?.id ?? null,
+              responsible_id: distribuicao.responsibleId,
               title: contact?.name ?? `Lead WhatsApp +${phone}`,
               source: "WhatsApp Direto",
               temperature: "warm",
@@ -341,7 +356,15 @@ export async function POST(request: Request) {
             })
             .select("id")
             .single();
+
+          if (dealError) {
+            console.error("[uazapi] falha ao criar lead da conversa", dealError);
+          }
           dealId = deal?.id ?? null;
+
+          if (dealId) {
+            await recordDistribution(admin, organizationId, dealId, distribuicao.audit);
+          }
         }
       }
     }
