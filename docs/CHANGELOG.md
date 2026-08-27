@@ -2,6 +2,53 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — Informações do Lead editáveis e últimas mensagens no atendimento
+
+Ajustes vindos do primeiro lead real recebido pelo Typeform. **Sem migration.**
+
+### Corrigido
+
+- **O atendimento mostrava as mensagens mais ANTIGAS da conversa.**
+  `loadMessages` usava `.order("created_at", asc).limit(500)`, e o `limit` do
+  Postgres corta depois de ordenar: passando de 500 mensagens, o atendente abria
+  a conversa e lia o começo dela, sem nunca ver o que acabou de chegar. Agora a
+  consulta ordena da mais nova para a mais velha e inverte para exibir — são as
+  últimas. O contêiner da thread já rolava sozinho.
+- **O bloco de respostas caía para os "extras" com o nome cru da chave.** O
+  parser exigia `": "` (com espaço) em TODAS as linhas; uma resposta escrita em
+  duas linhas, ou um `"?:"` sem espaço, derrubava o bloco inteiro e a tela
+  passava a mostrar `r-lista` como se fosse informação do lead. Agora vale a
+  maioria das linhas e o separador é `":"`.
+
+### Alterado
+
+- **Informações do Lead** foi para o topo da coluna direita de
+  `/negociacoes/[id]`, ao lado de Negócio, conforme a referência do cliente. O
+  bloco é desenhado como o lead respondeu — uma linha por pergunta — em vez de
+  rótulo acima e valor abaixo, que dobrava a altura do card.
+- **UTM e formulário de origem saíram para um card separado**, abaixo do
+  principal: são dados de campanha, não respostas, e competiam com o que o
+  atendente precisa ler.
+- **O id da resposta deixou de aparecer.** `typeform_response_id` é um token
+  opaco de outro sistema; a referência visual agora é o id do **formulário**
+  (`forms.external_id`), que é o valor que o operador colou no n8n. `ID_form` do
+  payload também sai, para não repetir a mesma linha.
+
+### Adicionado
+
+- **Edição das Informações do Lead** pelo lápis no cabeçalho do card, no
+  detalhe do lead e no atendimento. `viewer` não vê o lápis, e a server action
+  recusa por conta própria.
+- **Toda edição vira uma entrada no histórico do lead** (`lead_info_updated`)
+  com o que mudou, campo a campo (`Plano: UNIMED → AMIL`). Reordenar linhas não
+  conta como alteração; inclusões e remoções são nomeadas.
+
+### Validação
+
+- `npx tsc --noEmit` limpo; `npm run build` sem erro; `npm run test:db` 91
+  asserções; `npm run test:unit` **22 testes** (eram 15), cobrindo o parser mais
+  tolerante, a ida e volta do texto editável e as quatro regras do diff.
+
 ## 2026-08-27 — cobertura do middleware
 
 Fecha a lacuna que permitiu o defeito dos formulários públicos: a política de

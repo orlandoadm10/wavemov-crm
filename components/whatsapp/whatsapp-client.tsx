@@ -51,6 +51,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Filter = "all" | "unread" | "open" | "mine" | "unassigned";
 
+/**
+ * Quantas mensagens a conversa aberta carrega.
+ *
+ * São as ÚLTIMAS deste total, não as primeiras — ver o comentário em
+ * `loadMessages`. O pedido do cliente era "pelo menos as 20 últimas"; a janela
+ * é bem maior porque o custo por mensagem é baixo e o atendente costuma rolar
+ * para trás para lembrar do combinado. O contêiner da thread já rola sozinho
+ * (`overflow-y-auto`), então a janela maior não empurra nada para fora da tela.
+ */
+const CONVERSATION_WINDOW = 500;
+
+
 interface Props {
   organizationId: string;
   profileId: string;
@@ -147,14 +159,25 @@ export function WhatsAppClient({
   const loadMessages = useCallback(
     async (conversationId: string) => {
       setLoadingMessages(true);
-      const { data } = await supabase
+      // ORDEM DESCENDENTE + reverse, e não ascendente.
+      //
+      // `.order(asc).limit(500)` trazia as 500 mensagens MAIS ANTIGAS da
+      // conversa: passando disso, o atendente abria a conversa e lia o começo
+      // dela, sem nunca ver o que acabou de chegar. O `limit` do Postgres corta
+      // depois de ordenar, então a única forma de pegar as últimas é ordenar da
+      // mais nova para a mais velha e inverter aqui para exibir.
+      const { data, error: messagesError } = await supabase
         .from("whatsapp_messages")
         .select("*")
         .eq("organization_id", organizationId)
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true })
-        .limit(500);
-      setMessages((data ?? []) as WhatsAppMessage[]);
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(CONVERSATION_WINDOW);
+      if (messagesError) {
+        console.error("[atendimento] falha ao carregar mensagens", messagesError);
+      }
+      setMessages([...((data ?? []) as WhatsAppMessage[])].reverse());
       setLoadingMessages(false);
       // Zera não lidas. `viewer` não escreve: a policy recusaria e cada
       // conversa aberta por ele viraria um 403 no log.
@@ -822,7 +845,11 @@ export function WhatsAppClient({
                   sob demanda; `key` pelo lead para que trocar de conversa não
                   reaproveite as respostas do lead anterior. */}
               {selected.deal_id && (
-                <LeadInfoPanel key={selected.deal_id} dealId={selected.deal_id} />
+                <LeadInfoPanel
+                  key={selected.deal_id}
+                  dealId={selected.deal_id}
+                  canEdit={canManageDeal}
+                />
               )}
 
               {/* Ações — todas escrevem, então ficam fora do alcance do

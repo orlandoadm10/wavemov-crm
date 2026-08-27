@@ -19,8 +19,17 @@ import { useEffect, useState } from "react";
  * anterior — o tipo de vazamento de contexto que faz o atendente responder a
  * pessoa errada.
  */
-export function LeadInfoPanel({ dealId }: { dealId: string }) {
+export function LeadInfoPanel({
+  dealId,
+  canEdit,
+}: {
+  dealId: string;
+  /** viewer é somente leitura: vê as informações, mas não as edita. */
+  canEdit: boolean;
+}) {
   const [metadata, setMetadata] = useState<unknown>(null);
+  const [formExternalId, setFormExternalId] = useState<string | null>(null);
+  const [hasSubmission, setHasSubmission] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +42,8 @@ export function LeadInfoPanel({ dealId }: { dealId: string }) {
       // A conversa pode ter mudado enquanto a consulta voltava.
       if (!active) return;
       setMetadata(result.metadata);
+      setFormExternalId(result.formExternalId);
+      setHasSubmission(result.hasSubmission);
       setError(result.error);
       setLoading(false);
     });
@@ -66,11 +77,19 @@ export function LeadInfoPanel({ dealId }: { dealId: string }) {
   // deve deixar um bloco vazio ocupando a coluna. A checagem é sobre os DADOS,
   // não sobre o elemento: `<LeadInfoCard/>` é sempre um objeto verdadeiro,
   // mesmo quando o componente decide renderizar `null` lá dentro.
-  if (!hasLeadInfo(parseLeadInfo(metadata))) return null;
+  const podeEditar = canEdit && hasSubmission;
+  if (!hasLeadInfo(parseLeadInfo(metadata)) && !podeEditar) return null;
 
   return (
     <div className="rounded-2xl border border-line bg-white p-4 shadow-(--shadow-card)">
-      <LeadInfoCard metadata={metadata} compact />
+      <LeadInfoCard
+        dealId={dealId}
+        metadata={metadata}
+        formExternalId={formExternalId}
+        hasSubmission={hasSubmission}
+        canEdit={canEdit}
+        compact
+      />
     </div>
   );
 }

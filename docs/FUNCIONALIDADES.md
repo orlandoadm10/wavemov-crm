@@ -14,7 +14,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/relatorios` | `app/(dashboard)/relatorios/page.tsx` | **Relatório de entrada de leads** por período e formulário |
 | `/relatorios/ultimo-lead` | `app/(dashboard)/relatorios/ultimo-lead/page.tsx` | **Último lead recebido** com origem, respostas e timeline |
 | `/tarefas` | `app/(dashboard)/tarefas/page.tsx` | Lista de tarefas com prioridade, vencimento e banner da próxima |
-| `/atendimento` | `app/(dashboard)/atendimento/page.tsx` | WhatsApp em 3 colunas com realtime; **troca de funil e etapa do lead sem sair da conversa** |
+| `/atendimento` | `app/(dashboard)/atendimento/page.tsx` | WhatsApp em 3 colunas com realtime; troca de funil e etapa do lead sem sair da conversa; **Informações do Lead editáveis** |
 | `/atendimento/configuracoes` | `app/(dashboard)/atendimento/configuracoes/page.tsx` | Conexão UAZAPI, QR Code, webhook, respostas rápidas |
 | `/empresas` | `app/(dashboard)/empresas/page.tsx` | Lista de organizações com total de leads e inatividade |
 | `/empresas/[id]` | `app/(dashboard)/empresas/[id]/page.tsx` | **Resumo da empresa** — KPIs, saúde da conta, evolução de leads, últimos leads, pessoas |
@@ -94,10 +94,36 @@ A resposta não inclui `deal_url`.
 ### Informações do Lead — `/negociacoes/[id]` e `/atendimento`
 
 O bloco de respostas que o lead deu no formulário de origem, exibido para quem
-vai atendê-lo. Aparece nas duas telas onde o atendimento acontece: card na
-coluna esquerda do detalhe do lead e painel abaixo da negociação no
-atendimento. Some por completo quando não há respostas — lead manual ou vindo
-do WhatsApp não ganha caixa vazia.
+vai atendê-lo. No detalhe do lead é o **primeiro card da coluna direita**, ao
+lado de Negócio; no atendimento é um painel abaixo da negociação, carregado sob
+demanda. Some por completo quando não há respostas e o usuário não pode
+editá-las — lead manual ou vindo do WhatsApp não ganha caixa vazia.
+
+O bloco é desenhado como o lead respondeu: uma linha por pergunta, resposta
+logo depois dos dois-pontos. **UTM e formulário de origem ficam num card
+separado**, abaixo: são dados de campanha, não respostas, e competiriam com o
+que precisa ser lido primeiro. O **id da resposta** (`typeform_response_id`)
+não é exibido — é token opaco de outro sistema; a referência visual é o id do
+**formulário**, lido de `forms.external_id`.
+
+**Edição.** O lápis no cabeçalho abre uma caixa com uma linha por informação,
+no formato `pergunta: resposta`. `viewer` não vê o lápis, e a server action
+recusa por conta própria. A escrita passa por `updateLeadInfoAction`
+(`service_role`), porque `form_submissions` só tem policy de SELECT: abrir
+`update` por RLS daria ao navegador poder de reescrever o registro do que a
+origem enviou. A organização vem da sessão e é conferida contra o lead antes de
+qualquer escrita, e o texto é gravado de volta na MESMA chave do `metadata`,
+preservando UTM e enriquecimento.
+
+**Histórico.** Toda edição grava um `activity_logs` do tipo
+`lead_info_updated` com o que mudou, campo a campo
+(`QUAL O SEU PLANO DE SAÚDE ATUAL?: UNIMED → AMIL`). A comparação é por
+pergunta, não por posição: reordenar linhas não vira alteração; inclusões e
+remoções aparecem como `(vazio) →` e `→ (removido)`.
+
+**Leads sem formulário não são editáveis**: `form_submissions.form_id` é
+obrigatório, então um lead criado à mão ou vindo do WhatsApp não tem registro
+onde gravar.
 
 **Por que `metadata` não passa por `form_fields`.** As perguntas mudam a cada
 campanha do Typeform ou do Meta. Exigir que cada uma fosse recadastrada no CRM
@@ -107,20 +133,24 @@ veio, e a interpretação acontece só na leitura.
 
 **Como o bloco é lido** (`lib/features/lead-ingestion/domain/lead-answers.ts`):
 
-- O critério é a **forma do valor, não o nome da chave**: qualquer valor com
-  mais de uma linha no formato `pergunta: resposta` vira lista de respostas.
-  Por isso `r_lista` (Typeform) e `r-lista` (Meta) funcionam sem que o código
-  conheça nenhum dos dois nomes — e uma origem futura também funcionará.
-- A divisão é pelo **primeiro** `: `, porque as perguntas terminam em `?` ou
-  `:` e são as respostas que costumam conter dois-pontos
+- O critério é a **forma do valor, não o nome da chave**: um valor com mais de
+  uma linha em que a **maioria** delas tem `:` vira lista de respostas. Por
+  isso `r_lista` (Typeform) e `r-lista` (Meta) funcionam sem que o código
+  conheça nenhum dos dois nomes — e uma origem futura também funcionará. A
+  regra da maioria (antes era "todas as linhas") existe porque uma resposta
+  escrita em duas linhas pelo lead derrubava o bloco inteiro para os extras, e
+  a tela passava a mostrar o nome cru da chave da origem como rótulo.
+- A divisão é pelo **primeiro** `:`, porque as perguntas terminam em `?` ou `:`
+  e são as respostas que costumam conter dois-pontos
   (`Custo do plano: Até R$ 4.000: negociável`).
 - O resto do `metadata` (`typeform_response_id`, `ID_form`, `genero`…) vai
   para uma faixa secundária, com o rótulo humanizado.
 - Valores vazios ou só com espaços são descartados: o `utm` chega como `""` ou
   `"  "` nos dois payloads reais.
 
-Coberto por `npm run test:unit` (9 testes sobre os payloads reais de Typeform e
-Meta Lead Ads).
+Coberto por `npm run test:unit` (16 testes sobre os payloads reais de Typeform
+e Meta Lead Ads, incluindo a ida e volta do texto editável e as regras do diff
+que alimenta o histórico).
 
 **Interface.** O painel *Ingestão externa de leads (n8n)* em `/formularios` é
 renderizado apenas para `org_admin`/admin global — e a credencial nem é lida do

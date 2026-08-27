@@ -10,6 +10,10 @@ import { createClient } from "@/lib/supabase/client";
 
 export interface LeadInfoResult {
   metadata: unknown;
+  /** `forms.external_id` — referência visual de qual formulário originou. */
+  formExternalId: string | null;
+  /** Houve submissão? É o que decide se existe onde gravar uma edição. */
+  hasSubmission: boolean;
   error: string | null;
 }
 
@@ -28,7 +32,7 @@ export async function loadLeadInfo(dealId: string): Promise<LeadInfoResult> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("form_submissions")
-    .select("metadata")
+    .select("metadata, form:forms(external_id)")
     .eq("deal_id", dealId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -36,8 +40,19 @@ export async function loadLeadInfo(dealId: string): Promise<LeadInfoResult> {
 
   if (error) {
     console.error("[lead-info] falha ao carregar respostas do lead", error);
-    return { metadata: null, error: "Não foi possível carregar as informações do lead." };
+    return {
+      metadata: null,
+      formExternalId: null,
+      hasSubmission: false,
+      error: "Não foi possível carregar as informações do lead.",
+    };
   }
 
-  return { metadata: data?.metadata ?? null, error: null };
+  const form = data?.form as unknown as { external_id: string | null } | null;
+  return {
+    metadata: data?.metadata ?? null,
+    formExternalId: form?.external_id ?? null,
+    hasSubmission: Boolean(data),
+    error: null,
+  };
 }

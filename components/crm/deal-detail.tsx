@@ -57,6 +57,11 @@ interface Props {
   conversationsError: string | null;
   /** `form_submissions.metadata` da submissão que originou o lead (0015). */
   leadInfo: unknown;
+  /** `forms.external_id` — referência visual de qual formulário originou. */
+  leadFormExternalId: string | null;
+  /** Existe submissão? É o que decide se há onde gravar uma edição. */
+  hasSubmission: boolean;
+  canEditLeadInfo: boolean;
 }
 
 export function DealDetail({
@@ -73,6 +78,9 @@ export function DealDetail({
   conversations,
   conversationsError,
   leadInfo,
+  leadFormExternalId,
+  hasSubmission,
+  canEditLeadInfo,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -377,12 +385,6 @@ export function DealDetail({
             )}
           </Card>
 
-          {/* Respostas do formulário de origem. Fica logo abaixo do Contato,
-              antes das ações: é o contexto que o vendedor lê ANTES de decidir
-              o que fazer com o lead. Não renderiza nada quando a origem não
-              mandou respostas. */}
-          <LeadInfoCard metadata={leadInfo} />
-
           {/* Ações rápidas */}
           <Card className="space-y-2 p-4">
             <Button variant="outline" className="w-full justify-start" onClick={() => setTaskOpen(true)}>
@@ -409,8 +411,20 @@ export function DealDetail({
           </Card>
         </div>
 
-        {/* Coluna central/direita: tarefas + notas + histórico segmentado */}
+        {/* Coluna central/direita: informações do lead + tarefas + notas +
+            histórico segmentado */}
         <div className="space-y-4 lg:col-span-2">
+          {/* Primeiro card da coluna, ao lado de Negócio: é o contexto que o
+              vendedor lê ANTES de qualquer decisão sobre o lead. Não renderiza
+              nada quando não há respostas nem permissão para escrevê-las. */}
+          <LeadInfoCard
+            dealId={deal.id}
+            metadata={leadInfo}
+            formExternalId={leadFormExternalId}
+            hasSubmission={hasSubmission}
+            canEdit={canEditLeadInfo}
+          />
+
           <Card>
             <CardHeader
               title="Próximas tarefas"

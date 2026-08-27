@@ -69,6 +69,12 @@ implementados e validados localmente, **nenhum publicado**:
 
 Gates: `tsc` limpo, `build` sem erro, `test:unit` 9/9, `test:db` **91/91**.
 
+**Ajustada em 2026-08-27 pelo primeiro lead real** (ver `docs/CHANGELOG.md`):
+o card foi para o topo da coluna direita, ganhou edição com registro no
+histórico, e o parser ficou tolerante a bloco misto. Junto, foi corrigido o
+atendimento, que mostrava as mensagens mais ANTIGAS da conversa em vez das
+últimas.
+
 **Ainda sem prova real:** o card depende de `metadata`, que só existe em
 submissões recebidas DEPOIS da `0015`. Os leads ingeridos antes têm `{}` e não
 mostram o card — é esperado, não defeito. A validação é um lead novo pelo n8n,

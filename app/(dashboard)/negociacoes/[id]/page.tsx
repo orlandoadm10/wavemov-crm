@@ -88,7 +88,7 @@ export default async function DealPage({
     // mostra e não precisa atravessar a fronteira para o navegador.
     supabase
       .from("form_submissions")
-      .select("metadata")
+      .select("metadata, form:forms(external_id)")
       .eq("deal_id", id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -127,6 +127,14 @@ export default async function DealPage({
         conversationsQueryError ? "Não foi possível carregar as conversas vinculadas." : null
       }
       leadInfo={(submissionRaw as { metadata?: unknown } | null)?.metadata ?? null}
+      leadFormExternalId={
+        (submissionRaw as unknown as { form?: { external_id: string | null } | null } | null)?.form
+          ?.external_id ?? null
+      }
+      hasSubmission={Boolean(submissionRaw)}
+      // `viewer` é somente leitura desde a 0003: vê as informações, mas não
+      // recebe o lápis — e a server action recusa por conta própria.
+      canEditLeadInfo={session.membership.role !== "viewer"}
     />
   );
 }
