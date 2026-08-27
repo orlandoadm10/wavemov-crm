@@ -27,6 +27,7 @@ import type {
   WhatsAppMessage,
 } from "@/types";
 import { DealStagePicker } from "@/components/whatsapp/deal-stage-picker";
+import { LeadInfoPanel } from "@/components/whatsapp/lead-info-panel";
 import { MessageThread } from "@/components/whatsapp/message-thread";
 import {
   ArrowLeft,
@@ -815,6 +816,14 @@ export function WhatsAppClient({
                   </p>
                 )}
               </div>
+
+              {/* Respostas do formulário de origem, logo abaixo da negociação:
+                  é o contexto que o atendente lê antes de responder. Carrega
+                  sob demanda; `key` pelo lead para que trocar de conversa não
+                  reaproveite as respostas do lead anterior. */}
+              {selected.deal_id && (
+                <LeadInfoPanel key={selected.deal_id} dealId={selected.deal_id} />
+              )}
 
               {/* Ações — todas escrevem, então ficam fora do alcance do
                   viewer, que é somente leitura desde a 0003. */}

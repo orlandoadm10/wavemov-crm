@@ -135,7 +135,13 @@ export type SubmissionClaim =
  */
 export async function claimIngestSubmission(
   admin: AdminClient,
-  input: { formId: string; externalEventId: string; clean: Record<string, string> }
+  input: {
+    formId: string;
+    externalEventId: string;
+    clean: Record<string, string>;
+    /** Bloco da origem, gravado como veio — ver `metadata` na 0015. */
+    metadata: Record<string, string>;
+  }
 ): Promise<SubmissionClaim> {
   const { data, error } = await admin
     .from("form_submissions")
@@ -144,6 +150,7 @@ export async function claimIngestSubmission(
       external_event_id: input.externalEventId,
       source: "external_ingest",
       raw_data: input.clean,
+      metadata: input.metadata,
     })
     .select("id")
     .single();

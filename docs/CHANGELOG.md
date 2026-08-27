@@ -2,6 +2,44 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — Informações do Lead e external_id com maiúscula
+
+Vinda do primeiro uso real da ingestão externa (Typeform e Meta Lead Ads via
+n8n). Migration `0015` **aplicada pelo cliente** em 2026-08-27, antes de o
+código depender dela.
+
+> Submissões recebidas ANTES da `0015` têm `metadata = '{}'` e não exibem o
+> card. Só leads ingeridos depois da migration mostram as respostas.
+
+### Adicionado
+
+- **Card "Informações do Lead"** em `/negociacoes/[id]` (coluna esquerda,
+  abaixo de Contato) e em `/atendimento` (abaixo da negociação, carregado sob
+  demanda para a conversa aberta). Mostra as respostas que o lead deu no
+  formulário de origem. Não renderiza nada quando não há respostas.
+- **`metadata` no contrato de `POST /api/ingest/leads`** — opcional, guardado
+  como veio em `form_submissions.metadata`, sem filtro por `form_fields`.
+- Migration `0015`: coluna `metadata` e `external_id` aceitando maiúsculas.
+- **`npm run test:unit`** — runner embutido do Node (`node --test`), sem
+  dependência nova, cobrindo o parser das respostas contra os payloads reais
+  de Typeform e Meta Lead Ads. Primeira cobertura de código de aplicação do
+  projeto (débito 1 do HANDOFF, parcialmente atendido).
+
+### Alterado
+
+- `external_id` passou a aceitar letras maiúsculas, para receber o token do
+  Typeform e o `form_id` do Meta colados como estão. Continua **sensível a
+  caixa** por decisão do cliente: colar com a caixa errada responde 404.
+
+### Validação
+
+- `npx tsc --noEmit` limpo; `npm run build` sem erro.
+- `npm run test:unit`: 9 testes, zero falhas.
+- `npm run test:db`: **91 asserções, zero falhas**, incluindo 13 novas no
+  bloco 14 — ids reais de Typeform e Meta aceitos, caixa diferenciando,
+  formatos ainda recusados, `metadata` preservando quebras de linha e acentos
+  num formulário sem nenhum campo cadastrado, e isolamento entre organizações.
+
 ## 2026-08-27 — Frente B publicada em produção
 
 - Commit em produção passou de `e957dd6` para `61a4690`.

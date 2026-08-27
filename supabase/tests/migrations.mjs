@@ -714,7 +714,11 @@ console.log("\n== 13. Ingestão externa de leads (0014) ==");
     /forms_external_id_key|duplicate/i
   );
 
-  for (const invalido of ["Meta-Lead", "com espaco", "ab", "-comeca-com-hifen", "acentuaç"]) {
+  // Maiúscula NÃO está nesta lista: a 0015 passou a aceitá-la (ids do Typeform
+  // e do Meta são colados como estão). A suíte aplica todas as migrations e só
+  // então assere, então o que vale aqui é a regra final — o bloco 14 cobre a
+  // caixa alta pelo lado positivo.
+  for (const invalido of ["com espaco", "ab", "-comeca-com-hifen", "acentuaç"]) {
     await esperaErro(
       `external_id inválido recusado: ${JSON.stringify(invalido)}`,
       () =>
@@ -806,6 +810,101 @@ console.log("\n== 13. Ingestão externa de leads (0014) ==");
   // Sai limpo: o bloco 9 (cascata) e futuros blocos não devem herdar estes dados.
   await db.query(`delete from public.form_submissions where form_id in ($1,$2)`, [formA.id, formB.id]);
   await db.query(`delete from public.forms where organization_id in ($1,$2)`, [ORG_A, ORG_B]);
+}
+
+console.log("\n== 14. Respostas do lead e external_id com maiúscula (0015) ==");
+{
+  const ORG_E = "55555555-5555-5555-5555-555555555555";
+  await db.exec(`insert into public.organizations (id, name) values ('${ORG_E}', 'Empresa E');`);
+  await db.query(`select public.provision_organization_defaults($1)`, [ORG_E]);
+  const funilE = await umaLinha(`select id from public.pipelines where organization_id = $1 and is_default`, [ORG_E]);
+
+  // ---- external_id com maiúscula (ids reais de Typeform e Meta) ----
+  const reais = [
+    ["xtehq3ca", "typeform minúsculo"],
+    ["2432052590537853", "form_id numérico do Meta"],
+    ["XtehQ3ca", "typeform com maiúsculas"],
+    ["Meta_Lead-Ads01", "misto com sublinhado e hífen"],
+  ];
+  for (const [indice, [valor, rotulo]] of reais.entries()) {
+    try {
+      // O slug precisa ser único por linha e NÃO pode derivar do external_id:
+      // `XtehQ3ca` e `xtehq3ca` são ids distintos, mas colidiriam em minúsculas.
+      await db.query(
+        `insert into public.forms (organization_id, name, slug, pipeline_id, external_id)
+           values ($1, $2, $3, $4, $5)`,
+        [ORG_E, `F ${valor}`, `slug-real-${indice}`, funilE.id, valor]
+      );
+      ok(`external_id aceito: ${valor} (${rotulo})`);
+    } catch (e) {
+      fail(`external_id deveria ser aceito: ${valor}`, e.message);
+    }
+  }
+
+  // A decisão do cliente: caixa DIFERENCIA. `xtehq3ca` já existe acima.
+  const caixa = await db.query(
+    `insert into public.forms (organization_id, name, slug, pipeline_id, external_id)
+       values ($1, 'Caixa alta total', 'slug-caixa-alta', $2, 'XTEHQ3CA') returning external_id`,
+    [ORG_E, funilE.id]
+  );
+  if (caixa.rows.length === 1)
+    ok("caixa diferencia: XTEHQ3CA convive com xtehq3ca (comportamento pedido — colar com a caixa errada dá 404)");
+  else fail("o único deveria ser sensível a caixa");
+
+  // O que continua recusado depois de abrir para maiúsculas
+  for (const invalido of ["com espaco", "ab", "-comeca-com-hifen", "acentuaç", "tem.ponto"]) {
+    await esperaErro(
+      `external_id ainda recusado: ${JSON.stringify(invalido)}`,
+      () =>
+        db.query(
+          `insert into public.forms (organization_id, name, slug, pipeline_id, external_id)
+             values ($1, 'Invalido', $2, $3, $4)`,
+          [ORG_E, `slug-${Math.random().toString(36).slice(2)}`, funilE.id, invalido]
+        ),
+      /forms_external_id_format/i
+    );
+  }
+
+  // ---- metadata ----
+  const formE = await umaLinha(`select id from public.forms where external_id = 'xtehq3ca'`);
+
+  const semMeta = await umaLinha(
+    `insert into public.form_submissions (form_id, raw_data) values ($1, '{}'::jsonb) returning metadata`,
+    [formE.id]
+  );
+  if (JSON.stringify(semMeta.metadata) === "{}")
+    ok("submissão sem metadata recebe objeto vazio, nunca nulo (histórico anterior à 0015 segue válido)");
+  else fail("default de metadata", JSON.stringify(semMeta.metadata));
+
+  // O payload real do Typeform: bloco de respostas em uma única string.
+  const rLista =
+    "Qual é o seu email?: adm@teste.com\nPOSSUI CNPJ?: MEI\nQUAL A QUANTIDADE DE VIDAS PARA COTAÇÃO?: 4 vidas";
+  const comMeta = await umaLinha(
+    `insert into public.form_submissions (form_id, raw_data, metadata, external_event_id, source)
+       values ($1, '{}'::jsonb, $2::jsonb, 'evt-typeform', 'external_ingest')
+       returning metadata`,
+    [formE.id, JSON.stringify({ r_lista: rLista, utm: "", typeform_response_id: "g3uuml" })]
+  );
+  if (comMeta.metadata.r_lista === rLista)
+    ok("metadata guarda o bloco de respostas como veio, com quebras de linha e acentos intactos");
+  else fail("metadata alterou o conteúdo", JSON.stringify(comMeta.metadata));
+
+  // metadata NÃO passa por form_fields: o formulário não tem campo nenhum
+  // cadastrado e mesmo assim as respostas ficaram gravadas.
+  const campos = await umaLinha(`select count(*) as n from public.form_fields where form_id = $1`, [formE.id]);
+  if (Number(campos.n) === 0 && Object.keys(comMeta.metadata).length === 3)
+    ok("metadata não é sanitizado contra form_fields (formulário sem campos preservou as 3 chaves)");
+  else fail("sanitização indevida de metadata", JSON.stringify(comMeta.metadata));
+
+  // Isolamento continua valendo para as colunas novas.
+  await comoUsuario(sellerA, async () => {
+    const r = await db.query(`select metadata from public.form_submissions where form_id = $1`, [formE.id]);
+    if (r.rows.length === 0) ok("seller da empresa A não lê metadata de submissão da empresa E");
+    else fail("vazamento de metadata entre organizações", JSON.stringify(r.rows));
+  });
+
+  await db.query(`delete from public.form_submissions where form_id = $1`, [formE.id]);
+  await db.query(`delete from public.forms where organization_id = $1`, [ORG_E]);
 }
 
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);

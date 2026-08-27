@@ -22,8 +22,13 @@ import { NextResponse } from "next/server";
 // Station, planilha…) a este contrato:
 //
 //   headers: x-webhook-secret: wmv_…
-//   body:    { "form_external_id": "meta-lead-ads", "event_id": "…",
-//              "data": { "name": "…", "phone": "…" } }
+//   body:    { "form_external_id": "xtehq3ca", "event_id": "…",
+//              "data":     { "name": "…", "phone": "…" },
+//              "metadata": { "r_lista": "PERGUNTA?: resposta ⏎ …" } }
+//
+// `data` é filtrado contra os campos cadastrados do formulário e alimenta
+// contato e negociação. `metadata` é opcional, guardado como veio e existe
+// para o atendente ler: é onde Typeform e Meta empacotam as respostas.
 //
 // O segredo vai no HEADER, não na query: a URL é a mesma para toda a base e
 // entra em log de acesso de proxy e servidor. Quem cola a URL não precisa
@@ -70,7 +75,12 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  const { form_external_id: externalId, event_id: eventId, data } = parsed.data;
+  const {
+    form_external_id: externalId,
+    event_id: eventId,
+    data,
+    metadata = {},
+  } = parsed.data;
 
   const form = await findFormByExternalId(admin, externalId);
 
@@ -114,6 +124,10 @@ export async function POST(request: Request) {
     formId: form.id,
     externalEventId: eventId,
     clean,
+    // Guardado como veio: são as respostas do formulário de origem, que não
+    // têm campo correspondente em `form_fields` e não devem ser filtradas por
+    // ele. Quem as interpreta para exibição é `parseLeadInfo`.
+    metadata,
   });
 
   if (claim.status === "duplicate") {

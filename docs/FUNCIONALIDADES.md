@@ -40,10 +40,22 @@ payload da origem (Meta Lead Ads, RD Station, planilha…) ao contrato canônico
 
 ```
 headers: x-webhook-secret: wmv_…
-body:    { "form_external_id": "meta-lead-ads",
+body:    { "form_external_id": "xtehq3ca",
            "event_id": "<id do evento na origem>",
-           "data": { "name": "…", "email": "…", "phone": "…" } }
+           "data":     { "name": "…", "email": "…", "phone": "…" },
+           "metadata": { "r_lista": "PERGUNTA?: resposta
+PERGUNTA?: resposta" } }
 ```
+
+`data` é **filtrado** contra os campos cadastrados do formulário e alimenta
+contato e negociação. `metadata` é **opcional**, guardado como veio e existe
+para o atendente ler — é onde Typeform e Meta Lead Ads empacotam as respostas
+do lead. Ver "Informações do Lead" abaixo.
+
+O `form_external_id` costuma ser o id do formulário na origem (token do
+Typeform, `form_id` do Meta). Aceita letras, números, hífen e sublinhado, de 3
+a 64 caracteres, e é **sensível a caixa**: `Xtehq3ca` e `xtehq3ca` são
+formulários diferentes, e colar com a caixa errada no n8n responde 404.
 
 O segredo vai no **cabeçalho**, não na query: a URL é a mesma para toda a base
 e entraria em log de acesso de proxy e servidor.
@@ -78,6 +90,37 @@ lead é pior que lead repetido.
 **Funil e etapa** são sempre os configurados no formulário dentro do CRM. O
 payload não os escolhe: origem externa não empurra lead para etapa arbitrária.
 A resposta não inclui `deal_url`.
+
+### Informações do Lead — `/negociacoes/[id]` e `/atendimento`
+
+O bloco de respostas que o lead deu no formulário de origem, exibido para quem
+vai atendê-lo. Aparece nas duas telas onde o atendimento acontece: card na
+coluna esquerda do detalhe do lead e painel abaixo da negociação no
+atendimento. Some por completo quando não há respostas — lead manual ou vindo
+do WhatsApp não ganha caixa vazia.
+
+**Por que `metadata` não passa por `form_fields`.** As perguntas mudam a cada
+campanha do Typeform ou do Meta. Exigir que cada uma fosse recadastrada no CRM
+significaria descartar em silêncio toda resposta a uma pergunta nova — o
+oposto do que a tela existe para fazer. Por isso `metadata` é guardado como
+veio, e a interpretação acontece só na leitura.
+
+**Como o bloco é lido** (`lib/features/lead-ingestion/domain/lead-answers.ts`):
+
+- O critério é a **forma do valor, não o nome da chave**: qualquer valor com
+  mais de uma linha no formato `pergunta: resposta` vira lista de respostas.
+  Por isso `r_lista` (Typeform) e `r-lista` (Meta) funcionam sem que o código
+  conheça nenhum dos dois nomes — e uma origem futura também funcionará.
+- A divisão é pelo **primeiro** `: `, porque as perguntas terminam em `?` ou
+  `:` e são as respostas que costumam conter dois-pontos
+  (`Custo do plano: Até R$ 4.000: negociável`).
+- O resto do `metadata` (`typeform_response_id`, `ID_form`, `genero`…) vai
+  para uma faixa secundária, com o rótulo humanizado.
+- Valores vazios ou só com espaços são descartados: o `utm` chega como `""` ou
+  `"  "` nos dois payloads reais.
+
+Coberto por `npm run test:unit` (9 testes sobre os payloads reais de Typeform e
+Meta Lead Ads).
 
 **Interface.** O painel *Ingestão externa de leads (n8n)* em `/formularios` é
 renderizado apenas para `org_admin`/admin global — e a credencial nem é lida do
@@ -260,6 +303,23 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0012_funis_padrao_e_administracao.sql` | **Funil padrão explícito e administração segura de funis** |
 | `0013_coerencia_funil_etapa_do_lead.sql` | Guarda de coerência entre negociação, funil e etapa |
 | `0014_ingestao_externa_de_leads.sql` | **Ingestão externa de leads (n8n)**: `forms.external_id`, credencial por organização e idempotência por formulário + evento |
+| `0015_metadata_do_lead_e_external_id_com_maiuscula.sql` | **Respostas do lead** (`form_submissions.metadata`) e `external_id` aceitando maiúsculas |
+
+### `0015_metadata_do_lead_e_external_id_com_maiuscula.sql`
+
+Vinda do primeiro uso real da ingestão (Typeform e Meta via n8n).
+
+- `form_submissions.metadata jsonb not null default '{}'` — o bloco que a
+  origem enviou sobre o lead, guardado sem sanitização. `default '{}'` mantém
+  correto todo o histórico anterior: nunca nulo, sem caminho especial na
+  interface. Distinto de `raw_data`, que é o que o CRM entende e usa.
+- `forms_external_id_format` reescrito para `^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$`.
+  O padrão antigo é subconjunto do novo, então a troca não pode invalidar
+  nenhuma linha existente. O índice único continua sobre a coluna crua e
+  portanto **sensível a caixa** — decisão do cliente, para colar o id da
+  origem exatamente como ele é.
+
+> Coberta por 13 asserções no bloco 14 de `supabase/tests/migrations.mjs`.
 
 ### `0014_ingestao_externa_de_leads.sql`
 

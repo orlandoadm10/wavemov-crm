@@ -47,6 +47,7 @@ export default async function DealPage({
     { data: activitiesRaw, error: activitiesQueryError },
     { data: reasonsRaw },
     { data: conversationsRaw, error: conversationsQueryError },
+    { data: submissionRaw },
   ] = await Promise.all([
     supabase
       .from("pipelines")
@@ -80,6 +81,18 @@ export default async function DealPage({
       .eq("organization_id", orgId)
       .eq("deal_id", id)
       .order("last_message_at", { ascending: false }),
+    // Respostas do formulário de origem (0015). `form_submissions` não tem
+    // `organization_id`: o RLS a isola pela política que atravessa `forms`,
+    // e o filtro por `deal_id` já veio de um lead confirmado desta empresa.
+    // Só `metadata` é trazido — `raw_data` duplica o que o card Contato já
+    // mostra e não precisa atravessar a fronteira para o navegador.
+    supabase
+      .from("form_submissions")
+      .select("metadata")
+      .eq("deal_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   if (activitiesQueryError) {
@@ -113,6 +126,7 @@ export default async function DealPage({
       conversationsError={
         conversationsQueryError ? "Não foi possível carregar as conversas vinculadas." : null
       }
+      leadInfo={(submissionRaw as { metadata?: unknown } | null)?.metadata ?? null}
     />
   );
 }

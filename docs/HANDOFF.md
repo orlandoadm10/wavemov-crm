@@ -10,15 +10,17 @@
 **Última atualização:** 2026-08-27
 **Versão:** `0.2.0` (sem bump)
 **Estado do repositório:** árvore limpa em `main`, sincronizada com
-`origin/main` e **igual ao que está em produção** (`61a4690`). A Frente B
+`origin/main` e igual ao que está em produção. A rodada "Informações do Lead"
+foi publicada em 2026-08-27, com a `0015` aplicada antes. A Frente B
 (ingestão externa de leads via n8n) foi implementada e **publicada** em
 2026-08-27; Frente A (funil padrão `0012`/`0013`) entregue e aplicada antes
 dela.
 **Repositório:** `https://github.com/orlandoadm10/wavemov-crm`
 **Supabase:** projeto `crmjidbr` (`qzdcxyhvvikmtupouzlm`) — migrations
 `0001`…`0013` **aplicadas** (confirmação do cliente em 2026-08-26).
-A `0014` (ingestão externa) está **aplicada** — confirmação do cliente em
-2026-08-27, antes de qualquer código depender dela.
+A `0014` (ingestão externa) e a `0015` (respostas do lead) estão
+**aplicadas** — confirmação do cliente em 2026-08-27, cada uma antes de
+qualquer código depender dela.
 **Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`. O projeto
 está ligado ao Git: **push em `main` = deploy de produção**, sem passo manual.
 
@@ -37,10 +39,46 @@ consistência visual valem mais que recursos novos.
 
 ## 2. Estado atual (encerramento de 2026-08-27)
 
-Árvore limpa em `main`, nada pendente de push. A Frente B foi implementada e
-publicada nesta rodada (`ea30a2d` → `61a4690`).
+### Rodada mais recente — Informações do Lead (publicada)
 
-Arquivos da rodada:
+O primeiro uso real da ingestão trouxe dois pedidos do cliente, ambos
+implementados e validados localmente, **nenhum publicado**:
+
+1. **As respostas do lead não tinham onde morar.** O payload do Typeform (e o
+   do Meta) traz, além de nome/telefone/e-mail, o bloco de respostas do
+   formulário. A `0014` descartava isso, porque `data` é filtrado contra
+   `form_fields`. Agora existe `metadata`, guardado como veio, e o card
+   **Informações do Lead** no detalhe do lead e no atendimento.
+2. **`external_id` aceitando maiúsculas**, para colar o token do Typeform e o
+   `form_id` do Meta como eles são. Continua sensível a caixa por decisão
+   explícita do cliente — colar com a caixa errada dá 404, e isso está
+   documentado em `docs/FUNCIONALIDADES.md`.
+
+| Arquivo | Estado |
+|---|---|
+| `supabase/migrations/0015_metadata_do_lead_e_external_id_com_maiuscula.sql` | novo — **aplicada** em 2026-08-27 |
+| `supabase/tests/migrations.mjs` | +13 asserções (bloco 14) |
+| `lib/features/lead-ingestion/domain/lead-answers.ts` | novo — leitura do `metadata` |
+| `lib/features/lead-ingestion/domain/lead-answers.test.mts` | novo — 9 testes sobre payloads reais |
+| `lib/features/lead-ingestion/infrastructure/lead-info-query.ts` | novo — consulta do navegador |
+| `components/crm/lead-info-card.tsx` | novo — o card, nas duas densidades |
+| `components/whatsapp/lead-info-panel.tsx` | novo — carga sob demanda no atendimento |
+| `app/(dashboard)/negociacoes/[id]/page.tsx`, `components/crm/deal-detail.tsx` | passam o `metadata` ao card |
+| `components/whatsapp/whatsapp-client.tsx` | +1 import e +3 linhas de render |
+| `package.json`, `lib/validations/index.ts`, rota de ingestão | script `test:unit`, contrato e gravação |
+
+Gates: `tsc` limpo, `build` sem erro, `test:unit` 9/9, `test:db` **91/91**.
+
+**Ainda sem prova real:** o card depende de `metadata`, que só existe em
+submissões recebidas DEPOIS da `0015`. Os leads ingeridos antes têm `{}` e não
+mostram o card — é esperado, não defeito. A validação é um lead novo pelo n8n,
+com `event_id` inédito.
+
+---
+
+### Rodada anterior — Frente B, publicada (`ea30a2d` → `61a4690`)
+
+Arquivos:
 
 | Arquivo | Estado |
 |---|---|
@@ -194,7 +232,7 @@ npm run test:db     # supabase/tests/migrations.mjs
 
 Aplica `supabase/migrations/*.sql` do zero, na ordem, num Postgres descartável
 (**PGlite** — Postgres real em WASM, sem Docker, sem tocar em banco de verdade)
-e roda **78 asserções** de comportamento por cima: isolamento entre
+e roda **91 asserções** de comportamento por cima: isolamento entre
 organizações, papéis, invariantes do funil padrão, recusas de exclusão,
 coerência funil/etapa, idempotência e — desde a `0014` — a credencial de
 ingestão fora do alcance de `authenticated` e a chave de evento por
@@ -670,12 +708,14 @@ externa em produção.
 
 ## 10. Débitos técnicos conhecidos
 
-1. **Sem teste do código da aplicação.** O banco tem `npm run test:db` (78
-   asserções sobre as migrations, incluindo leitura e escrita cruzada entre
-   organizações). O que falta é o outro lado: nenhum teste cobre componente,
-   rota de API ou server action. O caminho barato é continuar acrescentando
-   asserções em `supabase/tests/migrations.mjs` para o que é regra de banco, e
-   escolher um runner para o resto.
+1. **Quase sem teste do código da aplicação.** O banco tem `npm run test:db`
+   (91 asserções sobre as migrations, incluindo leitura e escrita cruzada
+   entre organizações). O runner do outro lado **já foi escolhido**:
+   `npm run test:unit` usa `node --test` com o type stripping nativo do Node,
+   sem dependência nova — hoje cobre só o parser das respostas do lead
+   (`lib/features/lead-ingestion/domain/lead-answers.test.mts`). Continua sem
+   cobertura: componente, rota de API, server action e **o middleware**, que
+   é onde morava o defeito dos formulários públicos.
 2. **Peso do stack de formulários.** `/contatos` (207 kB) e `/perfil` (204 kB)
    carregam `react-hook-form` + `zod` + `@hookform/resolvers` em telas com um
    formulário simples. Trocar por `useActionState` nas telas mais leves
@@ -746,7 +786,8 @@ externa em produção.
 ## 12. Resumo de 30 segundos
 
 > CRM multiempresa Next.js + Supabase, v0.2.0, buildando, migrations até a
-> `0014` aplicadas. Em 2026-08-27 a **Frente B** (ingestão externa de leads via
+> `0015` aplicadas. A rodada mais recente levou as respostas do Typeform/Meta
+> ao card **Informações do Lead**, no detalhe do lead e no atendimento. Em 2026-08-27 a **Frente B** (ingestão externa de leads via
 > n8n) foi implementada e publicada: repositório, origin e produção estão em
 > `61a4690`, árvore limpa. A rodada adiciona `POST /api/ingest/leads` (credencial por organização no cabeçalho
 > `x-webhook-secret`, formulário escolhido por `form_external_id`, idempotência

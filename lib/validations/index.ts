@@ -105,7 +105,8 @@ export const publicSubmissionSchema = z.record(
 );
 
 /**
- * `forms.external_id` — mesma regra do `check` da migration 0014.
+ * `forms.external_id` — mesma regra do `check` do banco (0014, ampliada pela
+ * 0015 para aceitar maiúsculas).
  *
  * Duplicada aqui de propósito: o banco é a autoridade (ele recusa a escrita
  * venha de onde vier), mas a tela precisa dizer o que está errado antes de
@@ -113,13 +114,13 @@ export const publicSubmissionSchema = z.record(
  * uma consulta. Se a regra mudar, os dois lados mudam juntos — o teste do
  * bloco 13 de `supabase/tests/migrations.mjs` prende o lado do banco.
  */
-export const EXTERNAL_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{2,63}$/;
+export const EXTERNAL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/;
 
 export const externalIdSchema = z
   .string()
   .regex(
     EXTERNAL_ID_PATTERN,
-    "Use de 3 a 64 caracteres: letras minúsculas, números, hífen ou sublinhado."
+    "Use de 3 a 64 caracteres: letras, números, hífen ou sublinhado."
   );
 
 /**
@@ -138,6 +139,19 @@ export const externalLeadIngestSchema = z.object({
   form_external_id: externalIdSchema,
   event_id: z.string().min(1).max(200),
   data: publicSubmissionSchema,
+  /**
+   * Bloco livre com o que a origem contou sobre o lead — no Typeform e no
+   * Meta Lead Ads é aqui que vêm as RESPOSTAS do formulário, empacotadas numa
+   * única string com quebras de linha.
+   *
+   * Ao contrário de `data`, não é filtrado contra `form_fields`: as perguntas
+   * mudam a cada campanha e ninguém vai recadastrá-las no CRM. É guardado
+   * como veio, em `form_submissions.metadata` (0015), e só serve para leitura
+   * humana — nenhuma regra de negócio depende do conteúdo.
+   *
+   * Opcional: o fluxo que não mandar nada continua válido.
+   */
+  metadata: publicSubmissionSchema.optional(),
 });
 
 // ---------------- WhatsApp ----------------

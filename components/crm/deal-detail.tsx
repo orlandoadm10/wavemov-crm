@@ -6,6 +6,7 @@ import { TaskModal } from "@/components/crm/task-modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, DealStatusBadge, PriorityBadge, TemperatureBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LeadInfoCard } from "@/components/crm/lead-info-card";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Select, Textarea } from "@/components/ui/input";
 import { ConfirmDialog, Modal } from "@/components/ui/modal";
@@ -54,6 +55,8 @@ interface Props {
   lostReasons: LostReason[];
   conversations: WhatsAppConversation[];
   conversationsError: string | null;
+  /** `form_submissions.metadata` da submissão que originou o lead (0015). */
+  leadInfo: unknown;
 }
 
 export function DealDetail({
@@ -69,6 +72,7 @@ export function DealDetail({
   lostReasons,
   conversations,
   conversationsError,
+  leadInfo,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -372,6 +376,12 @@ export function DealDetail({
               <p className="px-5 py-4 text-sm text-ink-faint">Nenhum contato vinculado.</p>
             )}
           </Card>
+
+          {/* Respostas do formulário de origem. Fica logo abaixo do Contato,
+              antes das ações: é o contexto que o vendedor lê ANTES de decidir
+              o que fazer com o lead. Não renderiza nada quando a origem não
+              mandou respostas. */}
+          <LeadInfoCard metadata={leadInfo} />
 
           {/* Ações rápidas */}
           <Card className="space-y-2 p-4">

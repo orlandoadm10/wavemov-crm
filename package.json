@@ -11,7 +11,8 @@
     "db:stop": "npx supabase@latest stop",
     "db:status": "npx supabase@latest status",
     "db:reset": "npx supabase@latest db reset",
-    "test:db": "node supabase/tests/migrations.mjs"
+    "test:db": "node supabase/tests/migrations.mjs",
+    "test:unit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"lib/**/*.test.mts\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
