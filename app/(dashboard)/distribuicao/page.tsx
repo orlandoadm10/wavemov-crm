@@ -60,7 +60,7 @@ export default async function DistribuicaoPage() {
         .order("priority"),
       supabase
         .from("organization_members")
-        .select("role, profile:profiles(*)")
+        .select("role, on_duty, profile:profiles(*)")
         .eq("organization_id", orgId)
         .eq("is_active", true),
       supabase
@@ -80,9 +80,28 @@ export default async function DistribuicaoPage() {
 
   // `viewer` não pode receber lead (a 0016 recusa no banco), então nem aparece
   // como opção: botão que o banco vai recusar não deve existir na tela.
-  const elegiveis = ((membersRaw ?? []) as unknown as { role: string; profile: Profile }[])
+  const elegiveis = (
+    (membersRaw ?? []) as unknown as { role: string; on_duty: boolean; profile: Profile }[]
+  )
     .filter((m) => m.profile && m.role !== "viewer")
-    .map((m) => ({ id: m.profile.id, name: fullName(m.profile), role: m.role }));
+    .map((m) => ({
+      id: m.profile.id,
+      name: fullName(m.profile),
+      role: m.role,
+      onDuty: m.on_duty,
+    }));
+
+  // O plantão mora em `organization_members` (0017) e o participante aponta
+  // para `profiles`: o PostgREST não atravessa as duas numa consulta só, então
+  // a junção acontece aqui, com o mapa que a lista de membros já produziu.
+  const plantaoPorPerfil = new Map(elegiveis.map((m) => [m.id, m.onDuty]));
+  const regras = ((rulesRaw ?? []) as unknown as DistributionRuleRow[]).map((regra) => ({
+    ...regra,
+    participants: (regra.participants ?? []).map((p) => ({
+      ...p,
+      on_duty: plantaoPorPerfil.get(p.profile_id) ?? false,
+    })),
+  }));
 
   return (
     <div className="animate-fade-up space-y-4">
@@ -100,7 +119,7 @@ export default async function DistribuicaoPage() {
         }
       />
       <DistributionClient
-        rules={(rulesRaw ?? []) as unknown as DistributionRuleRow[]}
+        rules={regras}
         members={elegiveis}
         forms={(formsRaw ?? []) as { id: string; name: string }[]}
         auditEntries={(logRaw ?? []) as unknown as AuditEntry[]}

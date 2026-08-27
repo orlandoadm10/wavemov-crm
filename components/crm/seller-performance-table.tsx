@@ -29,7 +29,7 @@ export function SellerPerformanceTable({ rows }: { rows: SellerRow[] }) {
     <DataTable>
       <THead>
         <Th>Pessoa</Th>
-        <Th className="text-center">Peso</Th>
+        <Th className="text-center">Fila</Th>
         <Th>Leads recebidos</Th>
         <Th className="text-center">Em aberto</Th>
         <Th className="text-center">Ganhos</Th>
@@ -55,13 +55,17 @@ export function SellerPerformanceTable({ rows }: { rows: SellerRow[] }) {
             </Td>
 
             <Td className="text-center">
+              {/* Duas explicações diferentes para "fulano não está recebendo
+                  nada", e o administrador precisa distinguir: fora da fila é
+                  configuração; fora do plantão é o dia de hoje. */}
               {row.weight === null ? (
-                // Fora do rodízio é informação, não erro: pode ser férias ou
-                // uma pessoa que só acompanha. Mas precisa ser visível, porque
-                // é a explicação de "fulano não está recebendo nada".
-                <Badge tone="slate">Fora</Badge>
+                <Badge tone="slate">Fora da fila</Badge>
+              ) : !row.onDuty ? (
+                <Badge tone="amber">Sem plantão</Badge>
               ) : (
-                <span className="font-semibold text-ink">{row.weight}</span>
+                <span className="font-semibold text-ink" title="Leads consecutivos por vez">
+                  {row.weight}
+                </span>
               )}
             </Td>
 

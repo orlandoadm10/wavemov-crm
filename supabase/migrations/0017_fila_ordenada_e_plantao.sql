@@ -73,16 +73,34 @@ comment on column public.lead_distribution_participants.weight is
 -- `created_at`, com `profile_id` desempatando. Ninguém percebe mudança de
 -- comportamento no dia em que a migration roda; a partir daí o administrador
 -- reordena como quiser.
-with ordenados as (
-  select id,
-         row_number() over (partition by rule_id order by created_at, profile_id) - 1 as nova_posicao
+-- Só numera regras que NUNCA foram numeradas — as que têm todos os
+-- participantes na posição 0, o default da coluna.
+--
+-- A primeira versão condicionava por linha (`and p.position = 0`), e isso não
+-- era idempotente: numa reexecução, a única linha ainda em 0 podia receber o
+-- `row_number` de outra ordenação e colidir com uma posição já ocupada. O
+-- efeito na PRIMEIRA execução é idêntico — quando todas as posições valem 0,
+-- os dois filtros selecionam exatamente as mesmas linhas —, então esta
+-- correção não altera nada em quem já aplicou a migration.
+with nunca_numeradas as (
+  select rule_id
     from public.lead_distribution_participants
+   group by rule_id
+  having count(*) > 1
+     and count(distinct position) = 1
+     and max(position) = 0
+),
+ordenados as (
+  select p.id,
+         row_number() over (partition by p.rule_id order by p.created_at, p.profile_id) - 1
+           as nova_posicao
+    from public.lead_distribution_participants p
+    join nunca_numeradas n on n.rule_id = p.rule_id
 )
 update public.lead_distribution_participants p
    set position = o.nova_posicao
   from ordenados o
- where o.id = p.id
-   and p.position = 0;
+ where o.id = p.id;
 
 -- ------------------------------------------------------------
 -- 3. O cursor da fila

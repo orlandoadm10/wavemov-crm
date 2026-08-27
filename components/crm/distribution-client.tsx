@@ -4,6 +4,8 @@ import {
   createRuleAction,
   deleteRuleAction,
   removeParticipantAction,
+  reorderParticipantsAction,
+  setOnDutyAction,
   updateRuleAction,
   upsertParticipantAction,
 } from "@/app/(dashboard)/distribuicao/actions";
@@ -14,8 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/input";
 import { ConfirmDialog, Modal } from "@/components/ui/modal";
-import { buildRotationSequence } from "@/lib/features/lead-distribution/domain/rotation";
-import { GripVertical, Pencil, Plus, Trash2, UserPlus } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -23,8 +25,11 @@ export interface RuleParticipant {
   id: string;
   profile_id: string;
   weight: number;
+  position: number;
   is_active: boolean;
   profile: { id: string; first_name: string | null; last_name: string | null } | null;
+  /** Plantão da pessoa na organização (0017), resolvido pela página. */
+  on_duty: boolean;
 }
 
 export interface DistributionRuleRow {
@@ -37,6 +42,7 @@ export interface DistributionRuleRow {
   origin: string | null;
   form_id: string | null;
   assignments_count: number;
+  queue_position: number;
   participants: RuleParticipant[];
 }
 
@@ -44,6 +50,7 @@ export interface EligibleMember {
   id: string;
   name: string;
   role: string;
+  onDuty: boolean;
 }
 
 const ORIGIN_LABELS: Record<string, string> = {
@@ -280,19 +287,31 @@ function RuleCard({
 }) {
   const [novoParticipante, setNovoParticipante] = useState("");
 
-  const ativos = rule.participants.filter((p) => p.is_active);
+  // A fila, na ordem que o administrador definiu.
+  const ativos = [...rule.participants]
+    .filter((p) => p.is_active)
+    .sort((a, b) => a.position - b.position);
   const disponiveis = members.filter((m) => !rule.participants.some((p) => p.profile_id === m.id));
   const formName = forms.find((f) => f.id === rule.form_id)?.name;
 
-  // A sequência é a mesma que o motor monta. Mostrá-la é o que transforma
-  // "peso 2" numa promessa verificável em vez de um número abstrato.
-  const sequencia = buildRotationSequence(
-    ativos.map((p) => ({
-      profileId: p.profile_id,
-      name: nomeDe(p),
-      weight: p.weight,
-    }))
-  );
+  // Quem recebe o próximo lead, pela MESMA regra do motor: a primeira pessoa
+  // de plantão depois da posição do cursor; não havendo, dá a volta. Mostrar
+  // isso é o que transforma a fila numa promessa verificável.
+  /** Troca a pessoa de lugar e regrava a fila inteira, renumerada. */
+  function mover(indice: number, direcao: -1 | 1) {
+    const nova = [...ativos];
+    const alvo = indice + direcao;
+    [nova[indice], nova[alvo]] = [nova[alvo], nova[indice]];
+    return reorderParticipantsAction({
+      ruleId: rule.id,
+      profileIds: nova.map((p) => p.profile_id),
+    });
+  }
+
+  const dePlantao = ativos.filter((p) => p.on_duty);
+  const proximo = dePlantao.length
+    ? nomeDe(dePlantao.find((p) => p.position > rule.queue_position) ?? dePlantao[0])
+    : null;
 
   return (
     <Card>
@@ -329,6 +348,13 @@ function RuleCard({
       />
 
       <div className="space-y-3 px-5 py-4">
+        {ativos.length > 0 && dePlantao.length === 0 && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800">
+            Todos os participantes desta regra estão <b>fora do plantão</b>. Os leads que
+            casarem com ela entram <b>sem responsável</b> até alguém voltar.
+          </p>
+        )}
+
         {ativos.length === 0 ? (
           <p className="rounded-lg bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800">
             Nenhum participante no rodízio. Enquanto estiver assim, os leads que casarem com esta
@@ -336,20 +362,58 @@ function RuleCard({
             fica na auditoria como <code className="rounded bg-amber-100 px-1">no_candidates</code>.
           </p>
         ) : (
-          <ul className="divide-y divide-line rounded-xl ring-1 ring-line">
-            {ativos.map((p) => (
-              <li key={p.id} className="flex items-center gap-3 px-3 py-2.5">
+          <ol className="divide-y divide-line rounded-xl ring-1 ring-line">
+            {ativos.map((p, indice) => (
+              <li
+                key={p.id}
+                className={cn(
+                  "flex flex-wrap items-center gap-2 px-3 py-2.5 sm:gap-3",
+                  // Fora do plantão continua na lista, e na posição dele — é
+                  // justamente isso que o recurso promete. Só fica esmaecido.
+                  !p.on_duty && "bg-slate-50/70"
+                )}
+              >
+                <span className="w-5 shrink-0 text-center text-xs font-semibold text-ink-faint">
+                  {indice + 1}
+                </span>
                 <Avatar name={nomeDe(p)} size="sm" />
-                <span className="min-w-0 flex-1 truncate text-sm text-ink">{nomeDe(p)}</span>
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-sm",
+                    p.on_duty ? "text-ink" : "text-ink-faint line-through decoration-1"
+                  )}
+                >
+                  {nomeDe(p)}
+                </span>
+
+                <button
+                  onClick={() =>
+                    onParticipant(() =>
+                      setOnDutyAction({ profileId: p.profile_id, onDuty: !p.on_duty })
+                    )
+                  }
+                  disabled={busy}
+                  title={
+                    p.on_duty
+                      ? "De plantão — recebe leads. Clique para tirar da fila sem perder a posição."
+                      : "Fora do plantão — é pulado na fila. Clique para religar."
+                  }
+                  className="rounded-lg px-1 py-1 disabled:opacity-50"
+                >
+                  <Badge tone={p.on_duty ? "green" : "slate"} dot>
+                    {p.on_duty ? "Plantão" : "Fora"}
+                  </Badge>
+                </button>
+
                 <label className="flex items-center gap-1.5 text-xs text-ink-faint">
-                  Peso
+                  Seguidos
                   <Input
                     type="number"
                     min={1}
                     max={100}
                     defaultValue={p.weight}
-                    className="h-8 w-16 text-xs"
-                    aria-label={`Peso de ${nomeDe(p)}`}
+                    className="h-8 w-14 text-xs"
+                    aria-label={`Leads consecutivos de ${nomeDe(p)}`}
                     onBlur={(e) => {
                       const peso = Number(e.target.value);
                       if (peso === p.weight) return;
@@ -363,20 +427,41 @@ function RuleCard({
                     }}
                   />
                 </label>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={busy}
-                  aria-label={`Remover ${nomeDe(p)} do rodízio`}
-                  onClick={() =>
-                    onParticipant(() => removeParticipantAction(rule.id, p.profile_id))
-                  }
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={busy || indice === 0}
+                    aria-label={`Mover ${nomeDe(p)} para cima na fila`}
+                    onClick={() => onParticipant(() => mover(indice, -1))}
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={busy || indice === ativos.length - 1}
+                    aria-label={`Mover ${nomeDe(p)} para baixo na fila`}
+                    onClick={() => onParticipant(() => mover(indice, 1))}
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={busy}
+                    aria-label={`Remover ${nomeDe(p)} da fila`}
+                    onClick={() =>
+                      onParticipant(() => removeParticipantAction(rule.id, p.profile_id))
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </li>
             ))}
-          </ul>
+          </ol>
         )}
 
         {disponiveis.length > 0 && (
@@ -413,21 +498,11 @@ function RuleCard({
           </div>
         )}
 
-        {sequencia.length > 1 && (
-          <div className="rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-line">
-            <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-ink-soft">
-              <GripVertical className="h-3.5 w-3.5 text-ink-faint" />
-              Ordem de entrega desta volta
-            </p>
-            <p className="text-xs leading-relaxed text-ink-faint">
-              {sequencia
-                .map((id) => nomeDe(ativos.find((p) => p.profile_id === id)))
-                .join(" → ")}
-            </p>
-            <p className="mt-1.5 text-xs text-ink-faint">
-              {rule.assignments_count} lead(s) já distribuído(s) por esta regra.
-            </p>
-          </div>
+        {rule.assignments_count > 0 && (
+          <p className="text-xs text-ink-faint">
+            {rule.assignments_count} lead(s) já distribuído(s) por esta regra.
+            {proximo && ` O próximo vai para ${proximo}.`}
+          </p>
         )}
       </div>
     </Card>

@@ -231,3 +231,116 @@ function describeParticipantError(err: unknown, fallback: string) {
   if (err) console.error(fallback, err);
   return fallback;
 }
+
+const reorderSchema = z.object({
+  ruleId: z.string().uuid(),
+  /** Ordem final, do primeiro ao último da fila. */
+  profileIds: z.array(z.string().uuid()).min(1),
+});
+
+/**
+ * Regrava a ordem da fila inteira.
+ *
+ * Renumera TODOS os participantes de 0 em diante, em vez de trocar duas
+ * posições. É o que mantém as posições distintas e sem buracos — a `0017` não
+ * põe índice único sobre `(rule_id, position)` de propósito, porque trocar
+ * duas linhas por PostgREST não acontece numa transação, e um único
+ * intermediário duplicado derrubaria a operação inteira.
+ *
+ * Como cada `update` é independente, uma falha no meio deixa a fila numa ordem
+ * parcial — não corrompida, apenas diferente da pedida. Por isso o resultado
+ * informa quantas linhas foram gravadas em vez de anunciar sucesso cego.
+ */
+export async function reorderParticipantsAction(input: unknown): Promise<DistributionResult> {
+  const session = await getSessionContext();
+  if (!assertOrgAdmin(session)) {
+    return { error: "Apenas administradores da empresa configuram a distribuição." };
+  }
+
+  const parsed = reorderSchema.safeParse(input);
+  if (!parsed.success) return { error: "Ordem inválida." };
+
+  const supabase = await createClient();
+
+  // A regra precisa ser desta empresa: o RLS já recusaria a escrita, mas
+  // conferir aqui evita disparar N updates que vão todos falhar.
+  const { data: regra } = await supabase
+    .from("lead_distribution_rules")
+    .select("id")
+    .eq("id", parsed.data.ruleId)
+    .eq("organization_id", session.organization.id)
+    .maybeSingle();
+  if (!regra) return { error: "Regra não encontrada." };
+
+  let gravadas = 0;
+  for (const [indice, profileId] of parsed.data.profileIds.entries()) {
+    const { data } = await supabase
+      .from("lead_distribution_participants")
+      .update({ position: indice })
+      .eq("rule_id", parsed.data.ruleId)
+      .eq("profile_id", profileId)
+      .select("id")
+      .maybeSingle();
+    if (data) gravadas++;
+  }
+
+  if (gravadas !== parsed.data.profileIds.length) {
+    console.error("[distribuicao] reordenação parcial", {
+      esperadas: parsed.data.profileIds.length,
+      gravadas,
+    });
+    revalidatePath("/distribuicao");
+    return { error: "A ordem foi gravada só em parte. Confira a fila e tente novamente." };
+  }
+
+  revalidatePath("/distribuicao");
+  return { success: "Ordem da fila atualizada." };
+}
+
+const onDutySchema = z.object({
+  profileId: z.string().uuid(),
+  onDuty: z.boolean(),
+});
+
+/**
+ * Liga e desliga o plantão de uma pessoa.
+ *
+ * O plantão é GLOBAL (`organization_members.on_duty`, 0017): vale para todas as
+ * regras, porque quem não está trabalhando não deve receber lead de campanha
+ * nenhuma. E é só o administrador que mexe — a policy de update de
+ * `organization_members` já exige `is_org_admin` desde a 0003, então o banco é
+ * quem recusa; a checagem daqui evita a viagem.
+ *
+ * Fora do plantão a pessoa é PULADA na fila, sem perder a posição dela.
+ */
+export async function setOnDutyAction(input: unknown): Promise<DistributionResult> {
+  const session = await getSessionContext();
+  if (!assertOrgAdmin(session)) {
+    return { error: "Apenas administradores da empresa alteram o plantão." };
+  }
+
+  const parsed = onDutySchema.safeParse(input);
+  if (!parsed.success) return { error: "Dados inválidos." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("organization_members")
+    .update({ on_duty: parsed.data.onDuty })
+    .eq("organization_id", session.organization.id)
+    .eq("profile_id", parsed.data.profileId)
+    .select("profile_id")
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error("[distribuicao] falha ao alterar o plantão", error);
+    return { error: "Não foi possível alterar o plantão." };
+  }
+
+  revalidatePath("/distribuicao");
+  revalidatePath("/relatorios/vendedores");
+  return {
+    success: parsed.data.onDuty
+      ? "Plantão ligado. A pessoa volta a receber leads na posição dela."
+      : "Plantão desligado. A pessoa é pulada na fila, sem perder a posição.",
+  };
+}

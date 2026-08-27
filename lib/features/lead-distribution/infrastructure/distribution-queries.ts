@@ -6,8 +6,8 @@
  * não protege nada aqui dentro. `organization_id` vem SEMPRE do formulário ou
  * da instância já resolvidos pelo chamador, nunca de payload externo.
  */
+import type { QueueCursor, QueueParticipant } from "@/lib/features/lead-distribution/domain/queue";
 import type { DistributionRule } from "@/lib/features/lead-distribution/domain/rule-matching";
-import type { RotationParticipant } from "@/lib/features/lead-distribution/domain/rotation";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -36,23 +36,44 @@ export async function loadActiveRules(
   return (data ?? []) as DistributionRule[];
 }
 
-/** Participantes ativos de uma regra, já com o nome para o snapshot. */
-export async function loadParticipants(
+/**
+ * A fila ELEGÍVEL da regra, em ordem.
+ *
+ * "Elegível" é a interseção de três coisas, e nenhuma delas pode faltar:
+ *   - o participante está ativo na regra;
+ *   - a pessoa é membro ativo da organização;
+ *   - a pessoa está **de plantão** (`organization_members.on_duty`, 0017).
+ *
+ * O filtro acontece aqui, e não no domínio, de propósito: `pickNext` recebe a
+ * fila já filtrada e é justamente por isso que o ausente é pulado sem que a
+ * posição de ninguém mude. Se o domínio precisasse conhecer plantão, ele
+ * precisaria também conhecer papel, vínculo e organização.
+ *
+ * As duas consultas são separadas porque `lead_distribution_participants` se
+ * liga a `profiles`, e o plantão vive em `organization_members` — o join
+ * transversal não é expressável num único `select` do PostgREST sem uma view.
+ */
+export async function loadEligibleQueue(
   admin: AdminClient,
-  ruleId: string
-): Promise<RotationParticipant[]> {
+  ruleId: string,
+  organizationId: string
+): Promise<QueueParticipant[]> {
   const { data, error } = await admin
     .from("lead_distribution_participants")
-    .select("weight, profile:profiles!inner(id, first_name, last_name)")
+    .select("weight, position, profile:profiles!inner(id, first_name, last_name)")
     .eq("rule_id", ruleId)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .order("position");
 
   if (error) {
-    console.error("[distribuicao] falha ao ler participantes", error);
+    console.error(
+      "[distribuicao] falha ao ler a fila — a migration 0017 foi aplicada?",
+      error
+    );
     return [];
   }
 
-  return (data ?? []).map((linha) => {
+  const participantes = (data ?? []).map((linha) => {
     const perfil = linha.profile as unknown as {
       id: string;
       first_name: string | null;
@@ -62,74 +83,117 @@ export async function loadParticipants(
       profileId: perfil.id,
       name: `${perfil.first_name ?? ""} ${perfil.last_name ?? ""}`.trim() || "Sem nome",
       weight: linha.weight as number,
+      position: linha.position as number,
     };
   });
-}
 
-/** Tentativas do compare-and-swap antes de desistir do bilhete. */
-const TICKET_MAX_ATTEMPTS = 5;
+  if (participantes.length === 0) return [];
 
-/**
- * Tira o próximo bilhete do rodízio, sem corrida.
- *
- * POR QUE COMPARE-AND-SWAP E NÃO `set x = x + 1`
- * O PostgREST não expressa `coluna = coluna + 1`: o cliente só manda valores
- * literais. Fazer "ler, somar, gravar" seria exatamente a corrida que este
- * contador existe para evitar — duas ingestões simultâneas leriam o mesmo
- * valor e os dois leads cairiam no mesmo vendedor, no cenário em que isso mais
- * acontece, que é a rajada de uma campanha.
- *
- * A condição `.eq("assignments_count", lido)` transforma o update num
- * compare-and-swap: quem chegar segundo não atinge linha nenhuma, relê e tenta
- * de novo. Uma RPC `security definer` faria isso em uma viagem só, mas exigiria
- * migration nova — e a 0016 já está aplicada, migration aplicada é imutável.
- * Se a contenção justificar, a otimização é uma `0017`, não uma edição.
- *
- * Devolve `null` quando a regra sumiu ou depois de esgotadas as tentativas; o
- * chamador trata como "sem distribuição" em vez de adivinhar uma posição.
- */
-export async function takeRotationTicket(
-  admin: AdminClient,
-  ruleId: string
-): Promise<number | null> {
-  for (let tentativa = 0; tentativa < TICKET_MAX_ATTEMPTS; tentativa++) {
-    const { data: atual, error: leituraError } = await admin
-      .from("lead_distribution_rules")
-      .select("assignments_count")
-      .eq("id", ruleId)
-      .maybeSingle();
+  const { data: membros, error: membrosError } = await admin
+    .from("organization_members")
+    .select("profile_id")
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .eq("on_duty", true)
+    .neq("role", "viewer")
+    .in(
+      "profile_id",
+      participantes.map((p) => p.profileId)
+    );
 
-    if (leituraError || !atual) {
-      console.error("[distribuicao] falha ao ler o contador do rodízio", leituraError);
-      return null;
-    }
-
-    const lido = Number(atual.assignments_count);
-    const proximo = lido + 1;
-
-    const { data: gravado, error: escritaError } = await admin
-      .from("lead_distribution_rules")
-      .update({ assignments_count: proximo })
-      .eq("id", ruleId)
-      .eq("assignments_count", lido)
-      .select("assignments_count")
-      .maybeSingle();
-
-    if (escritaError) {
-      console.error("[distribuicao] falha ao gravar o bilhete do rodízio", escritaError);
-      return null;
-    }
-    // Linha afetada = o bilhete é meu. Zero linhas = outra requisição passou na
-    // frente entre a leitura e a escrita; relê e tenta de novo.
-    if (gravado) return Number(gravado.assignments_count);
+  if (membrosError) {
+    // Sem conseguir ler o plantão não dá para escolher: distribuir para quem
+    // pode estar fora é pior que registrar `no_candidates` e deixar o
+    // administrador ver o problema.
+    console.error("[distribuicao] falha ao ler o plantão", membrosError);
+    return [];
   }
 
-  console.error(
-    "[distribuicao] contenção alta no contador do rodízio: bilhete não obtido em",
-    TICKET_MAX_ATTEMPTS,
-    "tentativas"
-  );
-  return null;
+  const dePlantao = new Set((membros ?? []).map((m) => m.profile_id as string));
+  return participantes.filter((p) => dePlantao.has(p.profileId));
+}
+
+/** Tentativas do compare-and-swap antes de desistir da vez. */
+export const CURSOR_MAX_ATTEMPTS = 5;
+
+/** O cursor atual da regra, para o domínio decidir de quem é a vez. */
+export async function readQueueCursor(
+  admin: AdminClient,
+  ruleId: string
+): Promise<QueueCursor | null> {
+  const { data, error } = await admin
+    .from("lead_distribution_rules")
+    .select("queue_position, queue_uses")
+    .eq("id", ruleId)
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error("[distribuicao] falha ao ler o cursor da fila", error);
+    return null;
+  }
+  return { position: Number(data.queue_position), uses: Number(data.queue_uses) };
+}
+
+/**
+ * Avança o cursor, sem corrida.
+ *
+ * POR QUE COMPARE-AND-SWAP
+ * "Ler, decidir, gravar" é exatamente a corrida que este cursor existe para
+ * evitar: duas ingestões simultâneas leriam a mesma posição e os dois leads
+ * cairiam na mesma pessoa — no cenário em que isso mais acontece, que é a
+ * rajada de uma campanha.
+ *
+ * As condições `.eq("queue_position", de.position)` e `.eq("queue_uses",
+ * de.uses)` fazem a escrita valer **apenas se o cursor não mudou** desde a
+ * leitura. Quem chegar segundo não atinge linha nenhuma, relê e refaz a
+ * escolha com o cursor novo — que é o comportamento certo, porque a vez
+ * realmente é de outra pessoa agora.
+ *
+ * Uma RPC `security definer` resolveria em uma viagem só, mas o PostgREST não
+ * expressa a operação e as migrations `0016`/`0017` já estão aplicadas. Se a
+ * contenção justificar, a otimização é uma migration nova, não uma edição.
+ *
+ * `assignments_count` sobe junto: deixou de decidir qualquer coisa, mas é o
+ * total que a tela mostra.
+ */
+export async function commitQueueAdvance(
+  admin: AdminClient,
+  ruleId: string,
+  de: QueueCursor,
+  para: QueueCursor,
+  totalAtual: number
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("lead_distribution_rules")
+    .update({
+      queue_position: para.position,
+      queue_uses: para.uses,
+      assignments_count: totalAtual + 1,
+    })
+    .eq("id", ruleId)
+    .eq("queue_position", de.position)
+    .eq("queue_uses", de.uses)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[distribuicao] falha ao avançar o cursor da fila", error);
+    return false;
+  }
+  return Boolean(data);
+}
+
+/** Total distribuído pela regra — só para o `assignments_count` acompanhar. */
+export async function readAssignmentsCount(
+  admin: AdminClient,
+  ruleId: string
+): Promise<number> {
+  const { data } = await admin
+    .from("lead_distribution_rules")
+    .select("assignments_count")
+    .eq("id", ruleId)
+    .maybeSingle();
+  return Number(data?.assignments_count ?? 0);
 }
 
 export interface DistributionAudit {

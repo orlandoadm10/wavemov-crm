@@ -23,8 +23,10 @@ export interface SellerRow {
   name: string;
   jobTitle: string | null;
   role: string;
-  /** Peso somado nas regras ativas; `null` quando não está em nenhuma. */
+  /** Leads consecutivos somados nas regras ativas; `null` quando fora de todas. */
   weight: number | null;
+  /** Plantão: fora dele a pessoa é pulada na fila (0017). */
+  onDuty: boolean;
   received: number;
   won: number;
   lost: number;
@@ -89,7 +91,7 @@ export default async function RendimentoPorVendedorPage({
   ] = await Promise.all([
     supabase
       .from("organization_members")
-      .select("role, profile:profiles(*)")
+      .select("role, on_duty, profile:profiles(*)")
       .eq("organization_id", orgId)
       .eq("is_active", true),
     // Só as colunas que entram na conta. `created_at` recorta o período de
@@ -123,9 +125,9 @@ export default async function RendimentoPorVendedorPage({
       .eq("rule.is_active", true),
   ]);
 
-  const members = ((membersRaw ?? []) as unknown as { role: string; profile: Profile }[]).filter(
-    (m) => m.profile
-  );
+  const members = (
+    (membersRaw ?? []) as unknown as { role: string; on_duty: boolean; profile: Profile }[]
+  ).filter((m) => m.profile);
 
   const agora = new Date();
   const porPessoa = new Map<string, SellerRow>();
@@ -136,6 +138,7 @@ export default async function RendimentoPorVendedorPage({
       name: fullName(membro.profile),
       jobTitle: membro.profile.job_title ?? null,
       role: membro.role,
+      onDuty: membro.on_duty,
       weight: null,
       received: 0,
       won: 0,
@@ -203,7 +206,10 @@ export default async function RendimentoPorVendedorPage({
     .sort((a, b) => b.received - a.received || a.name.localeCompare(b.name));
 
   const totalRecebidos = linhas.reduce((soma, l) => soma + l.received, 0);
-  const noRodizio = linhas.filter((l) => l.weight !== null).length;
+  // Estar na fila não basta: fora do plantão a pessoa é pulada. O número que
+  // interessa ao administrador é quantos podem receber AGORA.
+  const noRodizio = linhas.filter((l) => l.weight !== null && l.onDuty).length;
+  const foraDoPlantao = linhas.filter((l) => l.weight !== null && !l.onDuty).length;
   const totalGanhos = linhas.reduce((soma, l) => soma + l.won, 0);
   const totalFechados = linhas.reduce((soma, l) => soma + l.won + l.lost, 0);
 
@@ -252,10 +258,11 @@ export default async function RendimentoPorVendedorPage({
           icon={<Users className="h-5 w-5 text-rose-500" />}
         />
         <StatCard
-          label="No rodízio"
-          sublabel="participando de alguma regra"
+          label="De plantão"
+          sublabel="na fila e podendo receber agora"
           value={noRodizio}
-          tone="slate"
+          tone={noRodizio === 0 ? "red" : "slate"}
+          hint={foraDoPlantao > 0 ? `${foraDoPlantao} na fila, fora do plantão` : undefined}
           icon={<Scale className="h-5 w-5 text-slate-400" />}
         />
         <StatCard

@@ -2,6 +2,62 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — motor da fila ordenada e plantão na tela
+
+Migration `0017` **aplicada pelo cliente**. O motor e a interface passaram a
+usar a fila; o plantão agora vale de verdade.
+
+### Alterado — motor
+
+- `domain/rotation.ts` deu lugar a `domain/queue.ts`. Saiu a sequência derivada
+  (participantes por UUID, expandidos pelo peso, escolhidos por `ticket % n`);
+  entrou `pickNext(fila, cursor)`: é a vez de quem está na posição do cursor
+  enquanto o peso dela não se esgota; depois avança para a **próxima posição
+  elegível**, dando a volta no fim.
+- **O plantão é filtrado na infraestrutura, não no domínio.** `pickNext` recebe
+  a fila já filtrada, e é exatamente por isso que o ausente é pulado sem que a
+  posição de ninguém mude. Se o domínio precisasse conhecer plantão, precisaria
+  conhecer também papel, vínculo e organização.
+- **Se a pessoa da vez sai no meio do peso, a vez passa adiante.** O lead não
+  pode ficar preso esperando quem não está trabalhando.
+- O compare-and-swap agora é sobre `queue_position`/`queue_uses`, e a **fila é
+  relida a cada tentativa**: se outra requisição avançou no meio, a vez passou
+  a ser de outra pessoa, e insistir na escolha antiga entregaria dois leads
+  seguidos para a mesma.
+- `ticket` na auditoria passou a guardar a **posição servida** — é o que
+  permite reconstruir a escolha junto com o snapshot dos candidatos.
+
+### Alterado — telas
+
+- `/distribuicao`: a fila virou lista numerada, com **↑/↓ para reordenar**
+  (regravando a ordem inteira renumerada, não trocando duas linhas) e um selo
+  de **plantão** clicável por pessoa. Quem está fora continua na lista, na
+  posição dele, esmaecido — é o que o recurso promete. O card diz **para quem
+  vai o próximo lead**, pela mesma regra do motor. Peso virou "Seguidos".
+- Aviso novo quando **todos** os participantes de uma regra estão fora do
+  plantão: os leads dela entram sem responsável até alguém voltar.
+- `/relatorios/vendedores`: a coluna "Peso" virou "Fila", distinguindo **"Fora
+  da fila"** (configuração) de **"Sem plantão"** (o dia de hoje) — duas
+  explicações diferentes para "fulano não está recebendo nada". O KPI "No
+  rodízio" virou "De plantão", contando só quem pode receber agora.
+
+### Corrigido
+
+- **A `0017` não era idempotente.** O backfill de posições condicionava por
+  linha (`and p.position = 0`): numa reexecução, a única linha ainda em 0 podia
+  receber o `row_number` de outra ordenação e **colidir** com uma posição já
+  ocupada. Passou a numerar apenas regras nunca numeradas (todas as posições em
+  0). O efeito na primeira execução é idêntico, então **nada muda para quem já
+  aplicou** — o teste do bloco 17 é que passou a exercitar a reexecução.
+
+### Validação
+
+`npm run test:unit` **63 testes**: 13 novos no domínio da fila, incluindo
+ausente pulado sem deslocar ninguém, retomada da posição ao voltar, vez que
+passa adiante quando a pessoa sai no meio do peso, cursor persistido entre
+leads e peso reduzido abaixo do já consumido. `npm run test:db` **138
+asserções**. `tsc` limpo, `build` sem erro.
+
 ## 2026-08-27 — fila ordenada e plantão (`0017`)
 
 Migration escrita e validada. **PENDENTE de aplicação.** O motor ainda usa o
