@@ -915,7 +915,10 @@ console.log("\n== 15. Distribuição automática de leads (0016) ==");
        from public.lead_distribution_rules where organization_id = $1`,
     [ORG_A]
   );
-  if (regraA && regraA.is_fallback === true && regraA.method === "weighted_round_robin")
+  // O método é o da 0017: a 0016 nasceu com `weighted_round_robin` e a suíte
+  // aplica todas as migrations antes de asserir, então o que vale é a regra
+  // final.
+  if (regraA && regraA.is_fallback === true && regraA.method === "ordered_queue")
     ok("organização com membros elegíveis nasceu com regra padrão ativa");
   else fail("backfill da regra padrão", JSON.stringify(regraA));
 
@@ -1065,8 +1068,8 @@ console.log("\n== 15. Distribuição automática de leads (0016) ==");
     bilhetes.push(Number(r.assignments_count));
   }
   if (new Set(bilhetes).size === 5 && bilhetes[4] - bilhetes[0] === 4)
-    ok(`o bilhete do rodízio é único e sequencial (${bilhetes.join(", ")})`);
-  else fail("bilhetes do rodízio", JSON.stringify(bilhetes));
+    ok(`o total distribuído pela regra é único e sequencial (${bilhetes.join(", ")})`);
+  else fail("contador da regra", JSON.stringify(bilhetes));
 
   // ---- Papéis ----
   await comoUsuario(sellerA, async () => {
@@ -1226,6 +1229,207 @@ console.log("\n== 15. Distribuição automática de leads (0016) ==");
   });
 
   await db.query(`delete from public.forms where id = $1`, [formB2.id]);
+}
+
+console.log("\n== 16. Fila ordenada e plantão (0017) ==");
+{
+  const ORG_F = "66666666-6666-6666-6666-666666666666";
+  await db.exec(`insert into public.organizations (id, name) values ('${ORG_F}', 'Empresa F');`);
+
+  // Três pessoas, criadas em ordem conhecida.
+  const emails = ["f1@teste.com", "f2@teste.com", "f3@teste.com"];
+  for (const email of emails) {
+    await db.query(`insert into auth.users (email, raw_user_meta_data) values ($1, '{}')`, [email]);
+  }
+  const perfisF = [];
+  for (const email of emails) {
+    const authId = await uid(email);
+    const p = await perfil(authId);
+    perfisF.push(p);
+    await db.query(
+      `insert into public.organization_members (organization_id, profile_id, role) values ($1,$2,'seller')`,
+      [ORG_F, p]
+    );
+  }
+  await db.query(`select public.provision_organization_defaults($1)`, [ORG_F]);
+
+  const regraF = await umaLinha(
+    `select id, queue_position, queue_uses, method from public.lead_distribution_rules
+      where organization_id = $1 and is_fallback`,
+    [ORG_F]
+  );
+
+  if (regraF.method === "ordered_queue" && Number(regraF.queue_position) === -1)
+    ok("a regra nasce com método de fila ordenada e cursor em -1 (ninguém servido)");
+  else fail("estado inicial da fila", JSON.stringify(regraF));
+
+  const posicoes = await db.query(
+    `select p.position, p.profile_id from public.lead_distribution_participants p
+      where p.rule_id = $1 order by p.position`,
+    [regraF.id]
+  );
+  if (
+    posicoes.rows.length === 3 &&
+    posicoes.rows.map((r) => Number(r.position)).join(",") === "0,1,2"
+  )
+    ok("os participantes recebem posições distintas e sequenciais (0,1,2)");
+  else fail("posições iniciais", JSON.stringify(posicoes.rows));
+
+  // Plantão nasce ligado: a migration não pode parar quem já distribuía.
+  const plantao = await umaLinha(
+    `select count(*) filter (where on_duty) as ativos, count(*) as total
+       from public.organization_members where organization_id = $1`,
+    [ORG_F]
+  );
+  if (Number(plantao.ativos) === 3 && Number(plantao.total) === 3)
+    ok("todo mundo nasce de plantão (a migration não interrompe a distribuição)");
+  else fail("plantão inicial", JSON.stringify(plantao));
+
+  // ---- A consulta que o motor faz: fila elegível, em ordem ----
+  const filaElegivel = async () =>
+    (
+      await db.query(
+        `select p.position, p.weight, p.profile_id
+           from public.lead_distribution_participants p
+           join public.organization_members om
+             on om.profile_id = p.profile_id and om.organization_id = $2
+          where p.rule_id = $1
+            and p.is_active
+            and om.is_active
+            and om.on_duty
+            and om.role <> 'viewer'
+          order by p.position, p.created_at`,
+        [regraF.id, ORG_F]
+      )
+    ).rows;
+
+  const todos = await filaElegivel();
+  if (todos.length === 3) ok("com todo mundo de plantão, a fila tem os três");
+  else fail("fila com todos", JSON.stringify(todos));
+
+  // Fora do plantão: PULADO, sem perder a posição.
+  await db.query(
+    `update public.organization_members set on_duty = false where organization_id = $1 and profile_id = $2`,
+    [ORG_F, perfisF[1]]
+  );
+  const semSegundo = await filaElegivel();
+  if (
+    semSegundo.length === 2 &&
+    semSegundo.map((r) => Number(r.position)).join(",") === "0,2"
+  )
+    ok("quem sai do plantão é pulado e as posições dos outros NÃO mudam (0,2)");
+  else fail("fila com um fora do plantão", JSON.stringify(semSegundo));
+
+  // Voltando, retoma o lugar dela.
+  await db.query(
+    `update public.organization_members set on_duty = true where organization_id = $1 and profile_id = $2`,
+    [ORG_F, perfisF[1]]
+  );
+  const voltou = await filaElegivel();
+  if (voltou.map((r) => Number(r.position)).join(",") === "0,1,2")
+    ok("voltando ao plantão, retoma a posição original");
+  else fail("retorno ao plantão", JSON.stringify(voltou));
+
+  // ---- Só o administrador liga e desliga o plantão ----
+  await comoUsuario(sellerA, async () => {
+    const r = await db.query(
+      `update public.organization_members set on_duty = false
+        where organization_id = $1 and profile_id = $2 returning profile_id`,
+      [ORG_A, pSellerA]
+    );
+    if (r.rows.length === 0) ok("seller NÃO desliga o próprio plantão (só o administrador)");
+    else fail("seller alterou o próprio plantão");
+  });
+
+  await comoUsuario(adminA, async () => {
+    const r = await db.query(
+      `update public.organization_members set on_duty = false
+        where organization_id = $1 and profile_id = $2 returning profile_id`,
+      [ORG_A, pSellerA]
+    );
+    if (r.rows.length === 1) ok("org_admin liga e desliga o plantão da equipe");
+    else fail("org_admin não conseguiu alterar o plantão");
+    await db.query(
+      `update public.organization_members set on_duty = true where organization_id = $1 and profile_id = $2`,
+      [ORG_A, pSellerA]
+    );
+  });
+
+  // Qualquer membro LÊ o plantão: o vendedor precisa saber se está na fila.
+  await comoUsuario(sellerA, async () => {
+    const r = await db.query(
+      `select on_duty from public.organization_members where organization_id = $1 and profile_id = $2`,
+      [ORG_A, pSellerA]
+    );
+    if (r.rows.length === 1) ok("seller LÊ o próprio plantão");
+    else fail("seller não leu o próprio plantão");
+  });
+
+  // ---- O cursor persiste, que é o ponto da 0017 ----
+  const avanca = await umaLinha(
+    `update public.lead_distribution_rules
+        set queue_position = 1, queue_uses = 1, assignments_count = assignments_count + 1
+      where id = $1 and queue_position = -1 and queue_uses = 0
+      returning queue_position, queue_uses`,
+    [regraF.id]
+  );
+  if (avanca && Number(avanca.queue_position) === 1)
+    ok("o cursor avança por compare-and-swap (a corrida não entrega dois leads à mesma posição)");
+  else fail("avanço do cursor", JSON.stringify(avanca));
+
+  const conflito = await db.query(
+    `update public.lead_distribution_rules
+        set queue_position = 2, queue_uses = 1
+      where id = $1 and queue_position = -1 and queue_uses = 0
+      returning id`,
+    [regraF.id]
+  );
+  if (conflito.rows.length === 0)
+    ok("quem chegou com o cursor velho não atinge linha e precisa reler");
+  else fail("o compare-and-swap não protegeu o cursor");
+
+  const persistiu = await umaLinha(
+    `select queue_position, queue_uses from public.lead_distribution_rules where id = $1`,
+    [regraF.id]
+  );
+  if (Number(persistiu.queue_position) === 1 && Number(persistiu.queue_uses) === 1)
+    ok("a última posição da fila fica persistida entre um lead e o seguinte");
+  else fail("persistência do cursor", JSON.stringify(persistiu));
+
+  // ---- Método antigo não é mais aceito ----
+  await esperaErro(
+    "o método da 0016 deixou de ser aceito (regra que o motor não sabe servir)",
+    () =>
+      db.query(`update public.lead_distribution_rules set method = 'weighted_round_robin' where id = $1`, [
+        regraF.id,
+      ]),
+    /lead_distribution_rules_method_check|check constraint/i
+  );
+
+  // ---- Quem entra depois vai para o FIM da fila ----
+  await db.query(`insert into auth.users (email, raw_user_meta_data) values ('f4@teste.com', '{}')`);
+  const novo = await perfil(await uid("f4@teste.com"));
+  await db.query(
+    `insert into public.organization_members (organization_id, profile_id, role) values ($1,$2,'seller')`,
+    [ORG_F, novo]
+  );
+  const doNovo = await umaLinha(
+    `select position from public.lead_distribution_participants where rule_id = $1 and profile_id = $2`,
+    [regraF.id, novo]
+  );
+  if (doNovo && Number(doNovo.position) === 3)
+    ok("quem entra na equipe entra no FIM da fila, não na frente");
+  else fail("posição de quem entra depois", JSON.stringify(doNovo));
+
+  // ---- Isolamento ----
+  await comoUsuario(adminA, async () => {
+    const r = await db.query(
+      `update public.organization_members set on_duty = false where organization_id = $1 returning profile_id`,
+      [ORG_F]
+    );
+    if (r.rows.length === 0) ok("admin da empresa A não mexe no plantão da empresa F");
+    else fail("vazamento: admin da A alterou plantão da F", JSON.stringify(r.rows));
+  });
 }
 
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);

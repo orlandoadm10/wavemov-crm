@@ -2,6 +2,66 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — fila ordenada e plantão (`0017`)
+
+Migration escrita e validada. **PENDENTE de aplicação.** O motor ainda usa o
+algoritmo da `0016` — ver o aviso no fim desta entrada.
+
+### Por que a mudança
+
+A `0016` escolhia o responsável por uma sequência **derivada**: participantes
+ordenados por `profile_id` (um UUID), expandidos pelo peso, e um contador que
+dava a volta por resto da divisão. Dois defeitos de produto:
+
+1. **A ordem era um UUID.** O administrador não escolhia quem vinha primeiro, e
+   não havia como explicar a ordem para a equipe.
+2. **Tirar alguém do rodízio remapeava todo o resto.** Com `ticket % n`, a
+   largura da sequência muda quando um participante sai, e o próximo lead cai
+   em alguém arbitrário — a continuidade se perdia exatamente no dia em que
+   alguém faltava.
+
+### Adicionado — migration `0017`
+
+- **`organization_members.on_duty`** — plantão por PESSOA, valendo para todas
+  as regras. Mora aqui porque a tabela já tem, desde a `0003`, exatamente as
+  policies pedidas: `select` para qualquer membro, `update` só para
+  `org_admin`. O controle "só o administrador liga e desliga" saiu sem policy
+  nova. `default true`: a migration não pode parar quem já distribuía.
+- **`lead_distribution_participants.position`** — ordem manual da fila, com
+  backfill pela ordem que a `0016` produzia na prática (`created_at`), para
+  ninguém perceber mudança de comportamento no dia da aplicação.
+- **`lead_distribution_rules.queue_position` + `queue_uses`** — o cursor.
+  Guarda a **posição** do último servido, não o `profile_id`: é o que dá
+  continuidade quando alguém entra ou sai, em vez de perder a referência junto
+  com a pessoa. `-1` = ninguém servido ainda.
+- **`method` passou a aceitar apenas `ordered_queue`.** Deixar o método antigo
+  aceito criaria uma regra que o motor não sabe servir, e a falha apareceria
+  como lead sem responsável — silenciosa, do jeito que este projeto já pagou
+  caro para evitar.
+- Quem entra na equipe entra no **fim** da fila. Sem isso, o membro novo caía
+  em `position = 0` e receberia o próximo lead na frente de todo mundo.
+
+### Peso mudou de significado
+
+Antes multiplicava a frequência numa sequência intercalada. Agora é **quantos
+leads consecutivos** a pessoa recebe antes de a fila avançar — que é o que faz
+sentido numa fila.
+
+### Validação
+
+`npm run test:db` **133 asserções** (eram 118), 15 novas no bloco 16: cursor
+inicial, posições distintas, plantão nascendo ligado, **quem sai do plantão é
+pulado sem as posições dos outros mudarem**, retomada da posição ao voltar,
+`seller` que não desliga o próprio plantão mas lê, compare-and-swap do cursor,
+persistência entre leads, método antigo recusado, entrada no fim da fila e
+isolamento entre organizações.
+
+> **Estado interino, entre aplicar a `0017` e o motor novo:** nada quebra — o
+> código publicado continua distribuindo pelo algoritmo da `0016`, que só usa
+> colunas que continuam existindo. Mas **o plantão ainda não é respeitado**:
+> desligar alguém não o tira da fila até o motor novo subir. Não confie nele
+> nesse intervalo.
+
 ## 2026-08-27 — Frente C: configuração da distribuição e rendimento por vendedor
 
 Fecha a Frente C. **Sem migration** — usa o schema da `0016`.

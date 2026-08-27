@@ -21,7 +21,9 @@ dela.
 A `0014` (ingestão externa) e a `0015` (respostas do lead) estão
 **aplicadas** — confirmação do cliente em 2026-08-27, cada uma antes de
 qualquer código depender dela. A `0016` (distribuição automática) também está **aplicada** — confirmação em
-2026-08-27.
+2026-08-27. A **`0017` (fila ordenada e plantão) NÃO está aplicada**: escrita e
+validada com 15 asserções. Enquanto ela não for aplicada e o motor novo não
+subir, o plantão não é respeitado pela distribuição.
 **Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`. O projeto
 está ligado ao Git: **push em `main` = deploy de produção**, sem passo manual.
 
@@ -237,7 +239,7 @@ npm run test:db     # supabase/tests/migrations.mjs
 
 Aplica `supabase/migrations/*.sql` do zero, na ordem, num Postgres descartável
 (**PGlite** — Postgres real em WASM, sem Docker, sem tocar em banco de verdade)
-e roda **118 asserções** de comportamento por cima: isolamento entre
+e roda **133 asserções** de comportamento por cima: isolamento entre
 organizações, papéis, invariantes do funil padrão, recusas de exclusão,
 coerência funil/etapa, idempotência e — desde a `0014` — a credencial de
 ingestão fora do alcance de `authenticated` e a chave de evento por
@@ -714,7 +716,7 @@ externa em produção.
 ## 10. Débitos técnicos conhecidos
 
 1. **Quase sem teste do código da aplicação.** O banco tem `npm run test:db`
-   (118 asserções sobre as migrations, incluindo leitura e escrita cruzada
+   (133 asserções sobre as migrations, incluindo leitura e escrita cruzada
    entre organizações). O runner do outro lado **já foi escolhido**:
    `npm run test:unit` usa `node --test` com o type stripping nativo do Node,
    sem dependência nova. Hoje cobre o parser das respostas do lead
