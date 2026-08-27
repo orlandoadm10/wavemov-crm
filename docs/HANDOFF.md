@@ -9,8 +9,9 @@
 
 **Última atualização:** 2026-08-26
 **Versão:** `0.2.0` (sem bump)
-**Estado do repositório:** rodada de funil padrão e movimentação no atendimento
-validada e entregue em 2026-08-26.
+**Estado do repositório:** árvore limpa em `main` (`778ce5e`); rodada do
+histórico do lead (Atividades × Conversas) commitada em 2026-08-26; Frente A
+(funil padrão `0012`/`0013` e movimentação no atendimento) entregue e aplicada.
 **Repositório:** `https://github.com/orlandoadm10/wavemov-crm`
 **Supabase:** projeto `crmjidbr` (`qzdcxyhvvikmtupouzlm`) — migrations
 `0001`…`0012` **aplicadas** (confirmação do cliente em 2026-08-26).
@@ -32,19 +33,15 @@ consistência visual valem mais que recursos novos.
 
 ## 2. Estado atual (encerramento de 2026-08-26)
 
-As migrations `0012` e `0013` estão aplicadas em produção e o código da rodada
-foi publicado, fechando a defasagem temporária entre as policies do banco e os
-controles exibidos pela interface.
+Árvore de trabalho limpa em `main` (`778ce5e`). A rodada mais recente — o
+**histórico do lead separado das conversas** — está validada e commitada; as
+migrations `0012` e `0013` seguem aplicadas em produção, e o código publicado
+cobre funil padrão, administração de funis e troca de funil/etapa no
+atendimento.
 
-Verificado antes da publicação:
+### Rodada mais recente — histórico do lead separado das conversas (`778ce5e`)
 
-```
-npx tsc --noEmit    → limpo
-npm run build       → 28 rotas, sem erro
-npm run test:db     → 59 asserções, todas passando
-```
-
-### Rodada atual — histórico operacional separado das conversas
+Detalhe completo em `docs/CHANGELOG.md`. Comportamento que vale como contrato:
 
 - `/negociacoes/[id]` abre em **Atividades**, sem previews de WhatsApp. A query
   exclui `whatsapp_inbound`/`whatsapp_outbound` antes do limite de 50.
@@ -57,7 +54,16 @@ npm run test:db     → 59 asserções, todas passando
 - Os registros WhatsApp existentes em `activity_logs` foram preservados para
   auditoria. Interromper essa gravação ou remover dados é decisão separada.
 
-### Rodada mais recente — funil padrão (`0012`) e funil/etapa no atendimento
+Verificado antes do commit:
+
+```
+npx tsc --noEmit    → limpo
+npm run build       → 28 rotas, sem erro
+git diff --check    → OK
+npm run test:db     → N/A (nenhuma migration alterada nesta rodada)
+```
+
+### Rodada anterior — funil padrão (`0012`) e funil/etapa no atendimento
 
 Detalhe completo em `docs/CHANGELOG.md`. Resumo do que mudou de contrato:
 
@@ -76,6 +82,14 @@ Detalhe completo em `docs/CHANGELOG.md`. Resumo do que mudou de contrato:
   **Frente A está concluída**.
 - **`viewer` perdeu acessos que o banco já recusava** e ganhou 403 na rota de
   envio de mensagem, que antes só checava sessão e organização.
+
+Verificado na publicação desta rodada:
+
+```
+npx tsc --noEmit    → limpo
+npm run build       → 28 rotas, sem erro
+npm run test:db     → 59 asserções, todas passando
+```
 
 > **Banco atualizado: `supabase/migrations/0013_coerencia_funil_etapa_do_lead.sql`.**
 > Escrita, validada em Postgres descartável e **aplicada em produção**. Fecha a última
@@ -603,12 +617,13 @@ Auditar pelo menos estes pontos: `app/api/webhooks/uazapi/route.ts`,
 ## 12. Resumo de 30 segundos
 
 > CRM multiempresa Next.js + Supabase, v0.2.0, buildando, migrations até a
-> `0013` aplicadas em produção. As telas de Etapas do funil, Relatório de
-> entrada de leads, Último lead e Resumo da empresa vieram em 2026-08-25/26.
-> Depois, uma rodada de correções tapou um **vazamento entre organizações no
-> webhook da UAZAPI**. A rodada mais recente trouxe a `0012` (funil padrão
-> explícito, exclusão de funil que não apaga leads, estrutura de funil restrita
-> a `org_admin`) e a **troca de funil e etapa do lead dentro do atendimento**.
+> `0013` aplicadas em produção. A rodada mais recente (`778ce5e`, árvore limpa)
+> separou o **histórico do lead** em **Atividades** (timeline operacional sem
+> mensagens de WhatsApp) e **Conversas** (thread por conversa, carregada sob
+> demanda, somente leitura, sem `raw_payload` no navegador). Antes dela: funil
+> padrão `0012`/`0013` e troca de funil/etapa no atendimento; correção do
+> **vazamento entre organizações no webhook da UAZAPI**; telas de Etapas do
+> funil, Relatórios, Último lead e Resumo da empresa.
 > Regra número um: **nada pode vazar dados entre organizações** — filtre por
 > `organization_id`, toda view nova nasce com `security_invoker = on`, rota com
 > `service_role` recusa em vez de adivinhar a organização **e checa o papel**, e
