@@ -20,6 +20,8 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/empresas/[id]` | `app/(dashboard)/empresas/[id]/page.tsx` | **Resumo da empresa** — KPIs, saúde da conta, evolução de leads, últimos leads, pessoas |
 | `/contatos` | `app/(dashboard)/contatos/page.tsx` | CRUD de contatos com vínculo a negociações |
 | `/pessoas` | `app/(dashboard)/pessoas/page.tsx` | Equipe, papéis e criação de usuários (service role) |
+| `/distribuicao` | `app/(dashboard)/distribuicao/page.tsx` | **Distribuição automática de leads** — regras, participantes, pesos e auditoria (só `org_admin`) |
+| `/relatorios/vendedores` | `app/(dashboard)/relatorios/vendedores/page.tsx` | **Rendimento por vendedor** — distribuição, conversão, tarefas e notas |
 | `/formularios` | `app/(dashboard)/formularios/page.tsx` | Construtor de formulários de captura + **painel de ingestão externa (n8n)**, restrito a `org_admin` |
 | `/perfil` | `app/(dashboard)/perfil/page.tsx` | Dados do usuário e completude do perfil |
 | `/admin` | `app/(dashboard)/admin/page.tsx` | Visão global (somente admin global) |
@@ -29,6 +31,45 @@ Rotas públicas: `/login`, `/register`, `/onboarding`, `/f/[slug]`.
 ---
 
 ## Telas adicionadas nesta entrega
+
+### Distribuição automática de leads — `/distribuicao`
+
+Restrita a `org_admin`/admin global; os demais veem um estado vazio explicando
+a quem pedir. Configura **quem recebe cada lead que entra**, nos três caminhos
+(formulário público, integração n8n e WhatsApp).
+
+- **Regras por prioridade.** Avaliadas de cima para baixo; a primeira que casa
+  vence. Condições: **origem** e **formulário**, em branco = qualquer,
+  combinadas com E. A **regra padrão** é sempre a última e não aceita condições
+  (o banco recusa) — ela existe para receber o que nenhuma outra pegou, e não é
+  excluível pela tela: sem ela o lead volta a nascer órfão.
+- **Participantes e peso** (1..100). O card mostra a **ordem de entrega da
+  volta** — a mesma sequência que o motor monta —, o que torna "peso 2" uma
+  promessa verificável em vez de um número abstrato. Regra sem participante
+  avisa, em amarelo, que os leads dela entrarão sem responsável.
+- **`viewer` não aparece como opção**: a `0016` recusa no banco, e botão que o
+  banco vai recusar não deve existir na tela.
+- **Histórico de distribuição** com filtro "só os sem responsável". O número de
+  candidatos e o número do rodízio ficam no `title`, permitindo conferir a
+  escolha meses depois mesmo que a regra tenha mudado ou a pessoa saído.
+
+### Rendimento por vendedor — `/relatorios/vendedores`
+
+Relatório de gestão: `org_admin`, `viewer` e admin global. `seller`/`agent`
+veem um estado vazio — quem não enxerga os leads dos outros (0011) não deveria
+enxergar os números deles.
+
+- KPIs do período: leads distribuídos, **sem responsável** (com link para
+  corrigir a configuração), quantos estão no rodízio e a conversão da equipe.
+- Tabela por pessoa: **peso ao lado dos recebidos** — a leitura pretendida é
+  comparar os dois, porque peso igual com recebimento muito diferente denuncia
+  configuração que não faz o que o admin acha que faz —, barra comparativa,
+  em aberto, ganhos, perdidos, conversão, valor ganho, tarefas pendentes (com
+  contagem de vencidas) e notas escritas no período.
+- **Conversão é sobre o que FECHOU**, não sobre o total recebido: lead em
+  aberto não é fracasso, e dividir por ele puniria quem acabou de receber.
+- Quem está fora do rodízio aparece com o selo "Fora" — é a explicação de
+  "fulano não está recebendo nada".
 
 ### Ingestão externa de leads (n8n) — `/formularios`
 

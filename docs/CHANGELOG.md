@@ -2,6 +2,45 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — Frente C: configuração da distribuição e rendimento por vendedor
+
+Fecha a Frente C. **Sem migration** — usa o schema da `0016`.
+
+### Adicionado
+
+- **`/distribuicao`** (só `org_admin`): regras por prioridade com condições de
+  origem e formulário, participantes com peso, e o **histórico de
+  distribuição** com filtro "só os sem responsável". Cada regra mostra a
+  **ordem de entrega da volta**, que é a mesma sequência que o motor monta.
+- **`/relatorios/vendedores`**: leads distribuídos, sem responsável, no
+  rodízio e conversão da equipe; tabela por pessoa com peso, recebidos (com
+  barra comparativa), em aberto, ganhos, perdidos, conversão, valor ganho,
+  tarefas pendentes/vencidas e notas do período. Ligado a partir de
+  `/relatorios` e de `/distribuicao`.
+
+### Decisões
+
+- **Peso ao lado dos recebidos**, não no fim da linha: a leitura pretendida é
+  comparar os dois. Peso igual com recebimento muito diferente é o sinal de que
+  a configuração não faz o que o administrador acha que faz.
+- **Conversão sobre o que fechou**, não sobre o total recebido — lead em aberto
+  não é fracasso, e dividir por ele puniria quem acabou de receber.
+- **A regra padrão não é excluível pela tela.** Sem ela, todo lead que não casa
+  com uma regra específica volta a nascer órfão. Para parar de distribuir,
+  desativa-se.
+- **`viewer` não aparece como participante**: a `0016` recusa no banco, e botão
+  que o banco vai recusar não deve existir na tela.
+- **Regra sem participante avisa em amarelo** que os leads dela entrarão sem
+  responsável, citando o `no_candidates` que vai aparecer na auditoria.
+- As actions de configuração usam o cliente da **sessão**, não `service_role`:
+  as policies da `0016` já exigem `is_org_admin`, então quem decide é o banco.
+
+### Validação
+
+`npx tsc --noEmit` limpo; `npm run build` com `/distribuicao` (6,37 kB) e
+`/relatorios/vendedores` (1,38 kB); `test:db` 118; `test:unit` 59. Smoke local:
+as duas rotas novas respondem 307 para quem não tem sessão.
+
 ## 2026-08-27 — Frente C: motor de distribuição e deduplicação
 
 Migration `0016` **aplicada pelo cliente** em 2026-08-27. A distribuição passa

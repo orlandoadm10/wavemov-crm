@@ -175,6 +175,13 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
           <>
             <PeriodFilter />
             <Link
+              href="/relatorios/vendedores"
+              className={buttonClasses({ variant: "outline" })}
+            >
+              <UserRound className="h-4 w-4" />
+              Por vendedor
+            </Link>
+            <Link
               href="/relatorios/ultimo-lead"
               className={buttonClasses({ variant: "outline" })}
             >
