@@ -83,7 +83,14 @@ export function Modal({
     }
     openModalCount += 1;
 
-    const focusFrame = requestAnimationFrame(() => panelRef.current?.focus());
+    // O painel só fica com o foco quando o conteúdo não indica um destino.
+    // Marque um campo com `data-autofocus` para receber o cursor na abertura —
+    // `autoFocus` do React não serve aqui, porque este frame rodaria depois e
+    // roubaria o foco de volta.
+    const focusFrame = requestAnimationFrame(() => {
+      const alvo = panelRef.current?.querySelector<HTMLElement>("[data-autofocus]");
+      (alvo ?? panelRef.current)?.focus();
+    });
 
     return () => {
       cancelAnimationFrame(focusFrame);

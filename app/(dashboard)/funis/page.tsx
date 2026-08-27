@@ -30,14 +30,21 @@ export default async function FunisPage({ searchParams }: { searchParams: Search
   const pipelines = (pipelinesRaw ?? []) as Pipeline[];
   const activePipeline = pipelines.find((p) => p.id === funil) ?? pipelines[0] ?? null;
 
+  // Desde a migration 0012 a estrutura do funil é assunto de administrador:
+  // as policies de pipelines/pipeline_stages exigem is_org_admin. Oferecer os
+  // controles a um seller só produziria uma escrita recusada pelo banco.
+  const canManagePipelines =
+    session.membership.role === "org_admin" || session.profile.is_global_admin;
+
   return (
     <div className="animate-fade-up">
       <PipelineStagesClient
+        organizationId={orgId}
         pipelines={pipelines}
         activePipeline={activePipeline}
         stats={(statsRaw ?? []) as PipelineStageStats[]}
-        canEdit={session.membership.role !== "viewer"}
-        canDelete={session.membership.role === "org_admin" || session.profile.is_global_admin}
+        canEdit={canManagePipelines}
+        canDelete={canManagePipelines}
       />
     </div>
   );

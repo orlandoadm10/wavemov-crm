@@ -2,6 +2,163 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-26 — funil padrão (migrations `0012`/`0013`) e troca de funil/etapa no atendimento
+
+Sem bump de versão: continua `0.2.0`. **Migration nova:
+`0012_funis_padrao_e_administracao.sql`, aplicada em produção pelo cliente.**
+Também foi aplicada a `0013_coerencia_funil_etapa_do_lead.sql`, que impede no
+banco combinações de organização, funil e etapa incompatíveis.
+
+### Banco de dados
+
+- **`pipelines.is_default`** com índice único parcial por organização: no máximo
+  um funil padrão por empresa e, para toda empresa que tenha funis, exatamente
+  um. Backfill determinístico pelo funil mais antigo.
+- **Excluir funil não apaga mais negociações.** `deals.pipeline_id` passou de
+  `on delete cascade` para `on delete restrict`, e `forms.pipeline_id`, de
+  `on delete set null` para `on delete restrict`. Era o risco que travava a
+  criação de funis pela interface: um clique em "excluir" podia levar junto
+  todos os leads do funil.
+- **Estrutura de funil virou assunto de `org_admin`.** As policies de insert e
+  update de `pipelines` e `pipeline_stages` passaram a exigir `is_org_admin`.
+  Leitura continua para todo membro.
+- **Invariantes no banco, não só na tela**: o primeiro funil da organização
+  nasce padrão e um adicional nunca vira; `is_default` só muda pela função
+  `set_default_pipeline()`; o funil padrão e o último funil da organização não
+  podem ser excluídos; um funil não muda de organização.
+- RPCs novas, todas com checagem de `is_org_admin` na entrada e `execute`
+  revogado de `PUBLIC`/`anon`: `create_pipeline` (funil + etapas mínimas numa
+  transação), `set_default_pipeline`, `delete_pipeline` e
+  `pipeline_delete_blockers`, que informa à interface o que impede a exclusão.
+- Validada antes de ir para produção com a cadeia `0001`→`0012` aplicada do zero
+  num Postgres descartável, mais 40 asserções de comportamento (isolamento entre
+  empresas, papéis, invariantes do padrão, recusas de exclusão e idempotência).
+
+### Adicionado
+
+- **Administração de funis em `/funis`** — criar, renomear e excluir, fechando
+  a Frente A. A criação usa a RPC `create_pipeline` (funil + etapas mínimas
+  numa transação), com o interruptor "Começar com etapas padrão". A exclusão
+  consulta `pipeline_delete_blockers` antes de tentar e explica em português o
+  que impede — funil padrão, único funil, negociações ou formulários
+  vinculados —, só oferecendo o botão quando não há impedimento. O estado
+  vazio da tela passou a conter a ação de criação: antes o componente devolvia
+  `EmptyState` antes do `PageHeader`, e uma empresa sem funil nenhum não tinha
+  como criar o primeiro.
+- **Troca de funil e etapa do lead direto no atendimento.** Dois selects no
+  cartão "Negociação" do painel direito, com salvamento automático, confirmação
+  na tela e trilha em `deal_stage_history` + `activity_logs`
+  (`origem: "atendimento"`). Só lista etapas abertas: ganhar e perder continuam
+  em `/negociacoes/[id]`, onde há confirmação e motivo de perda. Trocar o funil
+  grava funil e etapa no mesmo update e reposiciona a etapa para a primeira
+  aberta do destino.
+
+### Corrigido
+
+- **Conversa com lead fechado oferecia "Criar lead desta conversa" — e o clique
+  criava um lead duplicado.** A página só carregava negociações com
+  `status = "open"` (limite 300), então uma conversa cujo lead foi ganho,
+  perdido ou arquivado ficava sem o objeto do lead e caía no estado de "sem
+  negociação", apesar de ter `deal_id`. O clique criava um segundo lead e
+  sobrescrevia o vínculo da conversa, desligando o histórico do lead real. A
+  página passou a carregar também os leads vinculados às conversas exibidas.
+- **Criação de lead pela conversa engolia falhas.** Três `return` silenciosos
+  viravam "não aconteceu nada" na tela; agora todo erro aparece em pt-BR,
+  inclusive o parcial ("o lead foi criado, mas não ficou vinculado"), para que
+  o vendedor não clique de novo e crie outro lead. `linkToDeal` também passou a
+  informar falha.
+- **Criação de lead pela conversa levava o vendedor para fora do chat**
+  (`router.push`). Agora permanece na conversa.
+- **Webhook da UAZAPI e criação de lead pelo atendimento** resolviam o funil por
+  `.order("created_at").limit(1)` — "o mais antigo", que mudava de significado
+  assim que a empresa criava um segundo funil. Passaram a usar `is_default`.
+- **`/funis` oferecia a `seller` e `agent` controles que o banco recusa** desde
+  a `0012`. A tela passou a exigir `org_admin` para editar e excluir.
+
+### Segurança e permissões
+
+- **`viewer` conseguia enviar mensagem de WhatsApp pela API.**
+  `app/api/uazapi/send` validava sessão e organização, mas não o papel — e como
+  a rota fala com a UAZAPI por `service_role`, o RLS não a protegia. Agora
+  responde 403 para `viewer`, e o campo de mensagem some da tela para ele.
+- `viewer` também deixou de ver "Transferir atendimento", "Nota interna",
+  "Marcar como resolvida", "Criar lead" e "Vincular a lead existente": todas
+  escrevem, todas eram recusadas pelo banco em silêncio. Abrir uma conversa
+  como `viewer` não dispara mais o update de `unread_count` recusado.
+- `resolve()` e `saveNote()` passaram a mostrar a falha na tela.
+
+### Corrigido (revisão de QA da própria entrega)
+
+- **Gravação recusada pelo RLS era anunciada como sucesso.** O update sem
+  `.select()` devolve 204 e zero linhas quando a negociação deixa de passar
+  pela policy — por exemplo, quando o lead é transferido para outro
+  responsável enquanto a aba está aberta. A tela dizia "Etapa alterada" e a
+  trilha registrava uma movimentação que nunca aconteceu. Agora a linha
+  afetada é conferida e o vendedor é avisado.
+- **Voltar ao funil de origem rebaixava o lead para a primeira etapa.** Quem
+  abria o seletor, escolhia outro funil e voltava atrás perdia a posição do
+  lead. Desfazer agora restaura a etapa real, e voltar ao valor já gravado não
+  gera movimento nenhum.
+- **Erro ao vincular negociação aparecia atrás do modal aberto** — invisível
+  para quem clicou. Passou a ser mostrado dentro do próprio modal, e o botão
+  ganhou estado de carregamento contra clique duplo.
+- **Movimentação que terminava depois da troca de conversa falhava calada.** O
+  aviso agora sobe para um alerta no topo da tela, nomeando o lead.
+- Consulta dos leads vinculados passou a ir em lotes de 100: 300 UUIDs num
+  único `id=in.(…)` estouram o limite de cabeçalho do proxy e a resposta 414
+  era descartada em silêncio, ressuscitando o bug do lead duplicado.
+- O temporizador do seletor é cancelado se o lead for fechado por outra pessoa
+  na mesma janela, e a `key` do componente passou a incluir a conversa — a
+  `0011` permite várias conversas para o mesmo lead.
+- Lead criado pelo atendimento passou a abrir `deal_stage_history`, como toda
+  outra movimentação do produto.
+- Vincular conversa, vincular o lead recém-criado, transferir atendimento e
+  resolver/reabrir conversa passaram a conferir se o update realmente afetou
+  uma linha; RLS recusando a escrita não é mais anunciado como sucesso.
+- O botão de resolver/reabrir do cabeçalho deixou de aparecer para `viewer`.
+- Os seletores de funil e etapa ficam bloqueados durante a gravação, evitando
+  duas movimentações concorrentes com respostas fora de ordem.
+
+### Corrigido (segunda revisão de QA, sobre o CRUD de funis)
+
+- **Enter repetido no campo "Nome" criava funis duplicados.** O `Button` já se
+  protege contra clique duplo, mas o atalho de teclado não passa por ele:
+  segurar Enter disparava uma chamada de `create_pipeline` por repetição de
+  tecla, e nenhum dos funis gêmeos era o padrão, então nada denunciava o
+  problema. Criar e renomear ganharam guarda de reentrância e o campo fica
+  desabilitado durante a gravação.
+- **O campo do modal abria sem o cursor.** O `autoFocus` do React era desfeito
+  pelo `Modal`, que reivindica o foco do painel no quadro seguinte. O `Modal`
+  passou a respeitar um `data-autofocus` no conteúdo antes de cair no painel —
+  as duas estratégias competindo eram a causa, e agora há uma só.
+- **Exclusão recusada pelo banco deixava a tela dizendo que estava tudo livre.**
+  Entre a consulta de vínculos e o clique pode entrar um lead novo no funil. O
+  erro agora recarrega a lista de impedimentos, que passa a mostrar o motivo
+  real em vez de repetir "nenhuma negociação vinculada".
+- **"Mova as negociações antes" não dizia para onde ir.** A contagem do banco
+  inclui negociações ganhas, perdidas e arquivadas, enquanto o Kanban abre
+  filtrado em "abertas" — o admin ia até lá, via o quadro vazio e concluía que
+  a tela estava errada. O impedimento virou link para
+  `/negociacoes?funil=<id>&status=todas` (e para `/formularios`).
+- Nome do funil ganhou limite de 60 caracteres e o erro passou a aparecer sob o
+  campo; o aviso de "muitos funis" foi para o token de alerta do Design Guide;
+  a verificação de vínculos usa `Skeleton` em vez de texto; e o
+  `router.refresh()` redundante depois da navegação foi removido.
+
+### Interno
+
+- `firstOpenStage()` em `lib/utils/index.ts` — a mesma regra estava prestes a
+  virar a terceira cópia. `deal-modal.tsx` passou a consumir o helper.
+- `Modal` aceita `data-autofocus` no conteúdo para escolher onde o foco pousa
+  na abertura. Sem a marca, o comportamento é o de antes (foco no painel).
+- `Pipeline.is_default` em `types/index.ts`.
+- `/funis` mostra qual é o funil padrão e ganhou a ação **Tornar padrão**
+  (`org_admin`), via a RPC `set_default_pipeline` da `0012`. Sem isso o webhook
+  e a criação de lead pelo atendimento dependiam de um campo que ninguém
+  conseguia ver nem trocar.
+- Erros das consultas da página de atendimento passaram a ser logados: lista
+  vazia por falha era indistinguível de lista vazia por ausência de dados.
+
 ## 2026-08-26 — correção global de posicionamento dos modais
 
 ### Corrigido

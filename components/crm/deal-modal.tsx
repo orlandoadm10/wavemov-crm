@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
-import { describeWriteError, fullName } from "@/lib/utils";
+import { describeWriteError, firstOpenStage, fullName } from "@/lib/utils";
 import { dealSchema } from "@/lib/validations";
 import type { Contact, Deal, Pipeline, Profile } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -84,11 +84,7 @@ export function DealModal({
   );
 
   function firstOpenStageId(pipelineId: string) {
-    const target = pipelines.find((p) => p.id === pipelineId);
-    const open = (target?.stages ?? [])
-      .filter((s) => !s.is_won_stage && !s.is_lost_stage)
-      .sort((a, b) => a.order_index - b.order_index);
-    return open[0]?.id ?? "";
+    return firstOpenStage(pipelines.find((p) => p.id === pipelineId)?.stages)?.id ?? "";
   }
 
   async function onSubmit(data: FormData) {

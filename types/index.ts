@@ -55,6 +55,8 @@ export interface Pipeline {
   organization_id: string;
   name: string;
   description: string | null;
+  /** Funil que recebe leads sem escolha explícita (migration 0012). */
+  is_default: boolean;
   created_at: string;
   stages?: PipelineStage[];
 }

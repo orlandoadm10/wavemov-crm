@@ -301,13 +301,19 @@ export async function POST(request: Request) {
     if (openDeal) {
       dealId = openDeal.id;
     } else {
+      // Funil padrão explícito (migration 0012). Antes era "o mais antigo por
+      // created_at", que mudava de significado assim que a empresa criava um
+      // segundo funil. A 0012 garante exatamente um padrão por organização.
       const { data: pipeline } = await admin
         .from("pipelines")
         .select("id")
         .eq("organization_id", organizationId)
-        .order("created_at")
-        .limit(1)
+        .eq("is_default", true)
         .maybeSingle();
+
+      if (!pipeline) {
+        console.error("[uazapi] Organização sem funil padrão", { organizationId });
+      }
 
       if (pipeline) {
         const { data: firstStage } = await admin

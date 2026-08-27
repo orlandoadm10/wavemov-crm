@@ -5,9 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input, Select } from "@/components/ui/input";
+import { Field, Input, Select, Textarea } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { createClient } from "@/lib/supabase/client";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, describeWriteError, formatCurrency } from "@/lib/utils";
 import type { Pipeline, PipelineStage, PipelineStageStats } from "@/types";
 import {
   ArrowDown,
@@ -16,19 +19,31 @@ import {
   ChevronRight,
   Copy,
   Filter,
+  Pencil,
   Plus,
+  Star,
   Trash2,
   TrendingDown,
 } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 interface Props {
+  organizationId: string;
   pipelines: Pipeline[];
   activePipeline: Pipeline | null;
   stats: PipelineStageStats[];
   canEdit: boolean;
   canDelete: boolean;
+}
+
+/** Retorno de `pipeline_delete_blockers` (migration 0012). */
+interface DeleteBlockers {
+  deals_count: number;
+  forms_count: number;
+  is_default: boolean;
+  is_last_pipeline: boolean;
 }
 
 const STAGE_COLORS = [
@@ -42,6 +57,7 @@ const STAGE_COLORS = [
 ];
 
 export function PipelineStagesClient({
+  organizationId,
   pipelines,
   activePipeline,
   stats,
@@ -63,6 +79,27 @@ export function PipelineStagesClient({
   const [error, setError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [settingDefault, setSettingDefault] = useState(false);
+
+  // CRUD de funis
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [withDefaultStages, setWithDefaultStages] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameName, setRenameName] = useState("");
+  const [renameDescription, setRenameDescription] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [blockers, setBlockers] = useState<DeleteBlockers | null>(null);
+  const [checkingBlockers, setCheckingBlockers] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Ressincroniza quando o servidor devolve outro funil ou dados atualizados.
   // O id do funil entra na chave porque dois funis sem etapa nenhuma geram a
@@ -156,6 +193,173 @@ export function PipelineStagesClient({
     router.refresh();
   }
 
+  /**
+   * Define o funil ativo como padrão da organização.
+   *
+   * Passa pela RPC `set_default_pipeline` (migration 0012) em vez de um update
+   * direto: o trigger do banco recusa mexer em `is_default` por fora, porque
+   * dois updates soltos deixariam a empresa com dois padrões ou nenhum.
+   */
+  async function makeDefault() {
+    if (!activePipeline || activePipeline.is_default) return;
+    setSettingDefault(true);
+    setError(null);
+    const { error: err } = await supabase.rpc("set_default_pipeline", {
+      target_pipeline_id: activePipeline.id,
+    });
+    setSettingDefault(false);
+    if (err) {
+      setError(
+        describeWriteError(
+          err,
+          "Não foi possível tornar este o funil padrão. Só o administrador da empresa pode fazer isso."
+        )
+      );
+      return;
+    }
+    router.refresh();
+  }
+
+  /**
+   * Cria um funil com etapas mínimas numa transação só, pela RPC
+   * `create_pipeline` (0012). Nunca por `insert` direto: `deals.stage_id` é
+   * obrigatório, e um funil sem etapa aberta nasceria inutilizável.
+   *
+   * Quem decide o padrão é o banco — a empresa sem nenhum funil ganha o
+   * primeiro como padrão, e um funil adicional nunca toma o posto.
+   */
+  async function createPipeline() {
+    const nome = newName.trim();
+    // O Enter no campo não passa pelo Button, então não herda o `disabled`
+    // dele: sem esta guarda, segurar a tecla cria um funil por repetição.
+    if (!nome || creating) return;
+    setCreating(true);
+    setCreateError(null);
+
+    const { data, error: err } = await supabase.rpc("create_pipeline", {
+      org_id: organizationId,
+      pipeline_name: nome,
+      pipeline_description: newDescription.trim() || null,
+      with_default_stages: withDefaultStages,
+    });
+    setCreating(false);
+
+    if (err || !data) {
+      setCreateError(
+        describeWriteError(
+          err,
+          "Não foi possível criar o funil. Só o administrador da empresa pode criar funis."
+        )
+      );
+      return;
+    }
+
+    setCreateOpen(false);
+    setNewName("");
+    setNewDescription("");
+    setWithDefaultStages(true);
+    // `selectPipeline` navega para uma URL nova numa rota force-dynamic, o que
+    // já refaz a busca no servidor: um `router.refresh()` aqui seria um
+    // segundo round-trip resolvido contra a URL antiga.
+    selectPipeline(String(data)); // abre o funil recém-criado
+  }
+
+  async function renamePipeline() {
+    if (!activePipeline) return;
+    const nome = renameName.trim();
+    if (!nome || renaming) return;
+    setRenaming(true);
+    setRenameError(null);
+
+    const { data, error: err } = await supabase
+      .from("pipelines")
+      .update({ name: nome, description: renameDescription.trim() || null })
+      .eq("id", activePipeline.id)
+      .eq("organization_id", organizationId)
+      .select("id");
+    setRenaming(false);
+
+    // Zero linhas = a policy recusou (a 0012 exige org_admin). Sem conferir, a
+    // tela fecharia o modal anunciando um "salvo" que não aconteceu.
+    if (err || (data ?? []).length === 0) {
+      setRenameError(
+        describeWriteError(
+          err,
+          "Não foi possível renomear o funil. Só o administrador da empresa pode alterá-lo."
+        )
+      );
+      return;
+    }
+    setRenameOpen(false);
+    router.refresh();
+  }
+
+  /**
+   * Consulta o que impede a exclusão ANTES de tentar excluir, para explicar o
+   * vínculo em português em vez de traduzir um erro de chave estrangeira.
+   */
+  async function carregarImpedimentos() {
+    if (!activePipeline) return;
+    setBlockers(null);
+    setCheckingBlockers(true);
+
+    const { data, error: err } = await supabase.rpc("pipeline_delete_blockers", {
+      target_pipeline_id: activePipeline.id,
+    });
+    setCheckingBlockers(false);
+
+    const linha = (data as DeleteBlockers[] | null)?.[0];
+    if (err || !linha) {
+      setDeleteError(
+        describeWriteError(err, "Não foi possível verificar os vínculos deste funil.")
+      );
+      return;
+    }
+    // `bigint` pode chegar como string dependendo do transporte; o `Number()`
+    // aqui é o que garante que as comparações adiante sejam numéricas.
+    setBlockers({
+      deals_count: Number(linha.deals_count),
+      forms_count: Number(linha.forms_count),
+      is_default: linha.is_default,
+      is_last_pipeline: linha.is_last_pipeline,
+    });
+  }
+
+  async function openDelete() {
+    if (!activePipeline) return;
+    setDeleteOpen(true);
+    setDeleteError(null);
+    await carregarImpedimentos();
+  }
+
+  async function confirmDelete() {
+    if (!activePipeline) return;
+    setDeleting(true);
+    setDeleteError(null);
+
+    const { error: err } = await supabase.rpc("delete_pipeline", {
+      target_pipeline_id: activePipeline.id,
+    });
+    setDeleting(false);
+
+    if (err) {
+      // A consulta de impedimentos é de alguns segundos atrás: um lead pode ter
+      // caído neste funil nesse intervalo. Recarrega para a lista mostrar o
+      // motivo real, em vez de continuar dizendo que estava tudo livre.
+      setDeleteError(
+        describeWriteError(err, "Não foi possível excluir o funil. Verifique os vínculos abaixo.")
+      );
+      await carregarImpedimentos();
+      return;
+    }
+    setDeleteOpen(false);
+    // Sai do funil que deixou de existir: manter `?funil=<id>` na URL deixaria
+    // a tela pedindo um funil apagado depois do refresh.
+    const outro = pipelines.find((p) => p.id !== activePipeline.id);
+    if (outro) selectPipeline(outro.id);
+    else router.replace(pathname);
+  }
+
   async function addStage() {
     if (!activePipeline) return;
     setBusy(true);
@@ -224,13 +428,236 @@ export function PipelineStagesClient({
     }
   }
 
+  // Cada impedimento vira uma frase em português. O banco recusaria de todo
+  // jeito (FKs `restrict` e triggers da 0012), mas erro de chave estrangeira
+  // não é mensagem para o usuário — e explicar antes evita o clique inútil.
+  const impedimentos = useMemo(() => {
+    if (!blockers || !activePipeline) return [];
+    const lista: { texto: string; href?: string; acao?: string }[] = [];
+    if (blockers.is_last_pipeline) {
+      lista.push({ texto: "É o único funil da empresa. Crie outro antes de excluir este." });
+    } else if (blockers.is_default) {
+      lista.push({
+        texto: "É o funil padrão. Abra outro funil e use “Tornar padrão” antes de excluir este.",
+      });
+    }
+    if (blockers.deals_count > 0) {
+      lista.push({
+        texto: `${blockers.deals_count} negociação(ões) estão neste funil. Mova-as para outro funil antes.`,
+        // `status=todas` de propósito: a contagem do banco inclui ganhas,
+        // perdidas e arquivadas, e o Kanban abre filtrado em "abertas" — sem
+        // isto o admin acha o quadro vazio e conclui que a tela está mentindo.
+        href: `/negociacoes?funil=${activePipeline.id}&status=todas`,
+        acao: "Ver negociações",
+      });
+    }
+    if (blockers.forms_count > 0) {
+      lista.push({
+        texto: `${blockers.forms_count} formulário(s) enviam leads para este funil. Aponte-os para outro funil antes.`,
+        href: "/formularios",
+        acao: "Ver formulários",
+      });
+    }
+    return lista;
+  }, [blockers, activePipeline]);
+
+  const createButton = canEdit ? (
+    <Button
+      onClick={() => {
+        setCreateError(null);
+        setCreateOpen(true);
+      }}
+    >
+      <Plus className="h-4 w-4" />
+      Novo funil
+    </Button>
+  ) : null;
+
+  // Os modais moram fora dos dois `return` porque o de criação também precisa
+  // existir no estado vazio — é lá que criar o primeiro funil é indispensável.
+  const pipelineModals = (
+    <>
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Novo funil"
+        subtitle="O funil organiza as etapas por onde os leads passam."
+        size="sm"
+      >
+        <div className="space-y-4">
+          <Field label="Nome" error={createError ?? undefined}>
+            <Input
+              data-autofocus
+              aria-label="Nome do funil"
+              maxLength={60}
+              disabled={creating}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Ex.: Funil de Parcerias"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newName.trim()) createPipeline();
+              }}
+            />
+          </Field>
+          <Field label="Descrição (opcional)">
+            <Textarea
+              aria-label="Descrição do funil"
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              placeholder="Para que serve este funil"
+            />
+          </Field>
+          <div>
+            <Switch
+              checked={withDefaultStages}
+              onChange={setWithDefaultStages}
+              label="Começar com etapas padrão"
+            />
+            <p className="mt-1.5 text-xs text-ink-faint">
+              {withDefaultStages
+                ? "Cria Lead Novo, Ganho e Perdido. Você renomeia e acrescenta etapas depois."
+                : "Cria só a etapa Lead Novo — um funil precisa de ao menos uma etapa aberta para receber leads."}
+            </p>
+          </div>
+          {pipelines.length >= 10 && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 ring-1 ring-inset ring-amber-100">
+              Esta empresa já tem {pipelines.length} funis. Muitos funis costumam ser etapas
+              disfarçadas: confira se o caso não cabe numa etapa do funil existente.
+            </p>
+          )}
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setCreateOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={createPipeline} disabled={!newName.trim()} loading={creating}>
+            Criar funil
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        title="Renomear funil"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <Field label="Nome" error={renameError ?? undefined}>
+            <Input
+              data-autofocus
+              aria-label="Nome do funil"
+              maxLength={60}
+              disabled={renaming}
+              value={renameName}
+              onChange={(e) => setRenameName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && renameName.trim()) renamePipeline();
+              }}
+            />
+          </Field>
+          <Field label="Descrição (opcional)">
+            <Textarea
+              aria-label="Descrição do funil"
+              value={renameDescription}
+              onChange={(e) => setRenameDescription(e.target.value)}
+            />
+          </Field>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setRenameOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={renamePipeline} disabled={!renameName.trim()} loading={renaming}>
+            Salvar
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Excluir funil"
+        subtitle={activePipeline?.name}
+        size="sm"
+      >
+        {checkingBlockers ? (
+          <div className="space-y-2" aria-busy aria-label="Verificando vínculos">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+        ) : impedimentos.length > 0 ? (
+          <>
+            <p className="text-sm text-ink-soft">
+              Este funil não pode ser excluído agora:
+            </p>
+            <ul className="mt-2 space-y-1.5 text-sm text-ink-soft">
+              {impedimentos.map((motivo) => (
+                <li key={motivo.texto} className="flex gap-2">
+                  <span aria-hidden className="text-ink-faint">
+                    •
+                  </span>
+                  <span>
+                    {motivo.texto}
+                    {motivo.href && (
+                      <>
+                        {" "}
+                        <Link
+                          href={motivo.href}
+                          className="font-medium text-primary-700 hover:underline"
+                        >
+                          {motivo.acao}
+                        </Link>
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : blockers ? (
+          <p className="text-sm text-ink-soft">
+            As etapas deste funil também serão excluídas. Nenhuma negociação ou formulário
+            está vinculado a ele. Esta ação não pode ser desfeita.
+          </p>
+        ) : null}
+        {deleteError && (
+          <p role="alert" className="mt-3 text-xs text-rose-600">
+            {deleteError}
+          </p>
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+            {impedimentos.length > 0 ? "Fechar" : "Cancelar"}
+          </Button>
+          {blockers && impedimentos.length === 0 && (
+            <Button variant="danger" onClick={confirmDelete} loading={deleting}>
+              Excluir funil
+            </Button>
+          )}
+        </div>
+      </Modal>
+    </>
+  );
+
   if (!activePipeline) {
     return (
-      <EmptyState
-        icon={<Filter className="h-6 w-6" />}
-        title="Nenhum funil cadastrado"
-        description="O funil padrão é criado junto com a empresa. Fale com o administrador se ele não aparecer aqui."
-      />
+      <>
+        {/* A ação fica só no EmptyState: repetida no cabeçalho, viram dois
+            botões idênticos a um palmo de distância. */}
+        <PageHeader title="Etapas do funil" />
+        <EmptyState
+          icon={<Filter className="h-6 w-6" />}
+          title="Nenhum funil cadastrado"
+          description={
+            canEdit
+              ? "Crie o primeiro funil da empresa. Ele nasce como padrão e passa a receber os leads que chegam pelo WhatsApp."
+              : "O funil padrão é criado junto com a empresa. Fale com o administrador se ele não aparecer aqui."
+          }
+          action={createButton}
+        />
+        {pipelineModals}
+      </>
     );
   }
 
@@ -238,7 +665,11 @@ export function PipelineStagesClient({
     <>
       <PageHeader
         title="Etapas do funil"
-        subtitle={`${stages.length} etapa(s) · ${activePipeline.name}`}
+        subtitle={
+          canEdit
+            ? `${stages.length} etapa(s) · ${activePipeline.name}`
+            : `${stages.length} etapa(s) · ${activePipeline.name} — a estrutura do funil é administrada pelo admin da empresa`
+        }
         actions={
           <>
             {pipelines.length > 1 && (
@@ -251,10 +682,43 @@ export function PipelineStagesClient({
                 {pipelines.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
+                    {p.is_default ? " (padrão)" : ""}
                   </option>
                 ))}
               </Select>
             )}
+            {activePipeline.is_default ? (
+              <Badge tone="blue">Funil padrão</Badge>
+            ) : (
+              canEdit && (
+                <Button variant="outline" onClick={makeDefault} loading={settingDefault}>
+                  <Star className="h-4 w-4" />
+                  Tornar padrão
+                </Button>
+              )
+            )}
+            {canEdit && (
+              <Button
+                variant="outline"
+                aria-label="Renomear funil"
+                onClick={() => {
+                  setRenameName(activePipeline.name);
+                  setRenameDescription(activePipeline.description ?? "");
+                  setRenameError(null);
+                  setRenameOpen(true);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+                Renomear
+              </Button>
+            )}
+            {canDelete && (
+              <Button variant="outline" aria-label="Excluir funil" onClick={openDelete}>
+                <Trash2 className="h-4 w-4 text-rose-500" />
+                Excluir
+              </Button>
+            )}
+            {createButton}
             {canEdit && (
               <Button onClick={addStage} loading={busy}>
                 <Plus className="h-4 w-4" />
@@ -264,6 +728,13 @@ export function PipelineStagesClient({
           </>
         }
       />
+
+      {activePipeline.is_default && (
+        <p className="mb-4 text-xs text-ink-faint">
+          Leads sem escolha explícita de funil — os que chegam pelo WhatsApp e os criados no
+          atendimento — entram neste funil.
+        </p>
+      )}
 
       {error && (
         <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -480,6 +951,8 @@ export function PipelineStagesClient({
         Marcar uma etapa como <strong>Ganho</strong> ou <strong>Perdido</strong> faz o Kanban
         fechar a negociação automaticamente quando um card for movido para ela.
       </p>
+
+      {pipelineModals}
     </>
   );
 }

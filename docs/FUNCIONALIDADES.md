@@ -14,7 +14,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/relatorios` | `app/(dashboard)/relatorios/page.tsx` | **Relatório de entrada de leads** por período e formulário |
 | `/relatorios/ultimo-lead` | `app/(dashboard)/relatorios/ultimo-lead/page.tsx` | **Último lead recebido** com origem, respostas e timeline |
 | `/tarefas` | `app/(dashboard)/tarefas/page.tsx` | Lista de tarefas com prioridade, vencimento e banner da próxima |
-| `/atendimento` | `app/(dashboard)/atendimento/page.tsx` | WhatsApp em 3 colunas com realtime |
+| `/atendimento` | `app/(dashboard)/atendimento/page.tsx` | WhatsApp em 3 colunas com realtime; **troca de funil e etapa do lead sem sair da conversa** |
 | `/atendimento/configuracoes` | `app/(dashboard)/atendimento/configuracoes/page.tsx` | Conexão UAZAPI, QR Code, webhook, respostas rápidas |
 | `/empresas` | `app/(dashboard)/empresas/page.tsx` | Lista de organizações com total de leads e inatividade |
 | `/empresas/[id]` | `app/(dashboard)/empresas/[id]/page.tsx` | **Resumo da empresa** — KPIs, saúde da conta, evolução de leads, últimos leads, pessoas |
@@ -29,6 +29,54 @@ Rotas públicas: `/login`, `/register`, `/onboarding`, `/f/[slug]`.
 ---
 
 ## Telas adicionadas nesta entrega
+
+### Funil e etapa do lead no atendimento — `/atendimento`
+
+O vendedor reposiciona o lead no funil sem sair da conversa. O controle fica no
+cartão **Negociação**, no painel direito (`components/whatsapp/deal-stage-picker.tsx`).
+
+- Dois `Select` — **Funil** e **Etapa** — abaixo do link da negociação.
+- **Só etapas abertas.** Ganhar e perder continuam exclusivos de
+  `/negociacoes/[id]`, onde há confirmação e motivo de perda. O atendimento
+  nunca toca em `status`, `won_at`, `lost_at` ou `lost_reason_id`.
+- Trocar o funil reposiciona a etapa para a primeira etapa aberta do destino e
+  grava **funil e etapa no mesmo update** — gravar só o funil deixaria o lead
+  numa etapa de outro funil e ele sumiria dos dois Kanbans.
+- Funil sem etapa aberta aparece desabilitado na lista, com o motivo no rótulo;
+  a escrita é recusada antes de acontecer.
+- Salva sozinho ao escolher, com "Salvando…", confirmação em verde e erro em
+  pt-BR por `describeWriteError`. Falha devolve os dois selects ao valor do
+  servidor.
+- Registra `deal_stage_history` e um `activity_logs` do tipo `stage_changed`,
+  marcado com `origem: "atendimento"` e o id da conversa em `metadata`.
+- Lead ganho, perdido ou arquivado aparece como dois `Badge` somente leitura,
+  com o caminho para reabrir no detalhe. `viewer` vê os mesmos badges.
+- **Criar lead desta conversa** passou a usar o funil `is_default` da `0012`,
+  informa falhas na tela (inclusive a parcial, em que o lead foi criado mas não
+  ficou vinculado) e mantém o vendedor na conversa.
+
+### Administração de funis — `/funis`
+
+Criar, renomear, tornar padrão e excluir funis. Tudo restrito a `org_admin` e
+admin global, na tela e no banco (policies e RPCs da `0012`).
+
+- **Novo funil**: modal com nome, descrição e o interruptor **Começar com
+  etapas padrão** (ligado). Ligado cria `Lead Novo`, `Ganho` e `Perdido`;
+  desligado cria só `Lead Novo` — funil sem etapa aberta não recebe lead,
+  porque `deals.stage_id` é obrigatório. Vai pela RPC `create_pipeline`, numa
+  transação só, e a tela abre o funil recém-criado.
+- **Quem vira padrão é o banco**: o primeiro funil da empresa nasce padrão; um
+  funil adicional nunca toma o posto. Trocar exige a ação **Tornar padrão**.
+- **Renomear**: modal com nome e descrição. Zero linhas afetadas é tratado como
+  recusa da policy, não como sucesso.
+- **Excluir**: a tela consulta `pipeline_delete_blockers` **antes** e lista em
+  português o que impede — funil padrão, único funil da empresa, negociações
+  vinculadas, formulários apontando para ele. O botão de excluir só aparece
+  quando não há impedimento. A exclusão em si vai pela RPC `delete_pipeline`,
+  e as FKs `restrict` da `0012` são a última linha de defesa.
+- **Estado vazio**: a ação de criação vive dentro do `EmptyState`. Antes o
+  componente devolvia `EmptyState` antes do `PageHeader`, então uma empresa sem
+  nenhum funil não tinha como criar o primeiro.
 
 ### Etapas do funil — `/funis`
 
@@ -49,8 +97,11 @@ Origem: era listado como "próximo passo" no `README.md`; agora existe.
 
 Dados: `pipelines`, `pipeline_stages`, view `pipeline_stage_stats`.
 
-Permissões: `viewer` só lê; `seller`/`agent` criam, renomeiam e reordenam;
-excluir exige `org_admin` (ou admin global) — igual à policy de RLS.
+Permissões: desde a `0012`, **toda alteração de estrutura de funil exige
+`org_admin`** (ou admin global) — criar, renomear, reordenar, marcar
+Ganho/Perdido e excluir. `seller`, `agent` e `viewer` apenas leem, igual à
+policy de RLS. Mover um lead entre etapas continua sendo trabalho de
+`seller`/`agent`, no Kanban, no detalhe do lead ou no atendimento.
 
 Acesso: item **Etapas** na barra do Kanban, ou `/funis?funil=<id>`.
 
@@ -124,6 +175,36 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0009_reporting.sql` | **Views agregadas e índices de relatório** |
 | `0010_webhook_secret_por_instancia.sql` | Segredo de webhook por instância |
 | `0011_visibilidade_leads_conversas.sql` | Visibilidade por responsável e conversa por instância |
+| `0012_funis_padrao_e_administracao.sql` | **Funil padrão explícito e administração segura de funis** |
+
+### `0012_funis_padrao_e_administracao.sql`
+
+Pré-requisito da criação de funis pela interface. Sem ela, excluir um funil
+apagava em cascata as negociações vinculadas e o "funil padrão" era apenas o
+mais antigo por `created_at`.
+
+- `pipelines.is_default` + índice único parcial `pipelines_default_por_org_idx`
+  — no máximo um padrão por organização; para toda organização com funis,
+  exatamente um. Backfill determinístico pelo funil mais antigo.
+- `deals.pipeline_id` passou de `on delete cascade` para **`on delete restrict`**;
+  `forms.pipeline_id`, de `on delete set null` para **`on delete restrict`**.
+  Excluir funil nunca apaga nem desassocia dados.
+- Policies de `pipelines` e `pipeline_stages` para insert/update exigem
+  `is_org_admin`. Leitura continua para todo membro: `seller` e `agent`
+  precisam enxergar funis e etapas para trabalhar seus leads.
+- Triggers de invariante: o primeiro funil da organização nasce padrão e um
+  adicional nunca vira; `is_default` só muda por `set_default_pipeline()`; o
+  funil padrão e o último funil da organização não podem ser excluídos.
+- RPCs (todas `security definer`, com checagem de `is_org_admin` na entrada e
+  `execute` revogado de `PUBLIC`/`anon`): `create_pipeline`,
+  `set_default_pipeline`, `delete_pipeline` e `pipeline_delete_blockers` — esta
+  última devolve à interface o que impede a exclusão (negociações, formulários,
+  padrão, último funil) para explicar o bloqueio sem erro cru do PostgREST.
+
+> Consumidores do funil padrão: o webhook da UAZAPI e a criação de lead pela
+> tela de atendimento resolvem o funil por `is_default`, nunca por
+> `.order("created_at").limit(1)`. Formulários continuam usando o
+> `pipeline_id` explicitamente configurado.
 
 ### `0009_reporting.sql`
 
@@ -163,6 +244,12 @@ organização, porém sem escrita; `org_admin` e admin global têm visão gerenc
 de todas as conversas vinculadas ao lead, inclusive quando vieram de instâncias
 e atendentes diferentes.
 
+Desde a `0012` há uma fronteira a mais: **a estrutura do funil (criar, renomear,
+tornar padrão, excluir funil; criar, editar, reordenar e excluir etapas) é
+exclusiva de `org_admin` e do admin global.** `seller` e `agent` continuam
+usando o funil e movendo seus próprios leads entre etapas — inclusive pelo
+painel de atendimento —, mas não mudam a estrutura.
+
 ---
 
 ## Componentes compartilhados adicionados
@@ -172,6 +259,9 @@ e atendentes diferentes.
 | `PeriodFilter` | `components/crm/period-filter.tsx` | Pílulas Hoje / 7 dias / 30 dias / Este mês; grava `?periodo=` na URL |
 | `DailyLeadsChart` | `components/crm/dashboard-charts.tsx` | Barras de entrada diária; reduz os rótulos do eixo em séries longas |
 | `LeadsReportTable` | `components/crm/leads-report-table.tsx` | Tabela de leads com busca e filtro locais |
-| `PipelineStagesClient` | `components/crm/pipeline-stages-client.tsx` | Editor de etapas do funil |
+| `PipelineStagesClient` | `components/crm/pipeline-stages-client.tsx` | Administração de funis e editor de etapas |
+| `DealStagePicker` | `components/whatsapp/deal-stage-picker.tsx` | Move o lead de funil/etapa dentro do atendimento; monte com `key` por conversa e lead |
+| `firstOpenStage` | `lib/utils/index.ts` | Primeira etapa aberta de um funil (exclui ganho e perda); destino ao trocar de funil |
+| `data-autofocus` | `components/ui/modal.tsx` | Marca no conteúdo do `Modal` para o foco pousar num campo em vez do painel |
 | `buttonClasses` | `components/ui/button.tsx` | Dá aparência de botão a um `<Link>` sem aninhar `<button>` dentro de `<a>` |
 | `resolvePeriod` / `dailySeries` | `lib/utils/period.ts` | Resolve o período da URL e monta a série diária contínua |

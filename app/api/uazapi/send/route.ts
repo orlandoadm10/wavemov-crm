@@ -20,6 +20,17 @@ export async function POST(request: Request) {
 
   const session = await getSessionContext();
 
+  // `viewer` é somente leitura em todo o produto. A rota usa `service_role`
+  // para falar com a UAZAPI, então o RLS não a protege: sem esta guarda, um
+  // viewer manda mensagem em nome da empresa pelo endpoint, mesmo sem o
+  // formulário na tela.
+  if (session.membership.role === "viewer") {
+    return NextResponse.json(
+      { error: "Seu perfil é somente leitura e não pode enviar mensagens." },
+      { status: 403 }
+    );
+  }
+
   // Organização explícita + RLS por responsável. Mesmo conhecendo um UUID de
   // outra conversa, seller/agent recebe 404 e não consegue enviar por ela.
   const supabase = await createClient();

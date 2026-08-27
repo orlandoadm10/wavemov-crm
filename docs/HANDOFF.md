@@ -6,10 +6,13 @@
 > (o que existe), `DESIGN_GUIDE.md` (contrato visual).
 
 **Última atualização:** 2026-08-26
-**Versão:** `0.2.0` (sem bump na rodada de correções)
+**Versão:** `0.2.0` (sem bump)
+**Estado do repositório:** rodada de funil padrão e movimentação no atendimento
+validada e entregue em 2026-08-26.
 **Repositório:** `https://github.com/orlandoadm10/wavemov-crm`
 **Supabase:** projeto `crmjidbr` (`qzdcxyhvvikmtupouzlm`) — migrations
-`0001`…`0011` **aplicadas** (confirmação do cliente em 2026-08-26)
+`0001`…`0012` **aplicadas** (confirmação do cliente em 2026-08-26).
+A `0013` também está **aplicada** (confirmação do cliente em 2026-08-26).
 **Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`
 
 ---
@@ -27,7 +30,70 @@ consistência visual valem mais que recursos novos.
 
 ## 2. Estado atual (encerramento de 2026-08-26)
 
-### Rodada de correções mais recente
+As migrations `0012` e `0013` estão aplicadas em produção e o código da rodada
+foi publicado, fechando a defasagem temporária entre as policies do banco e os
+controles exibidos pela interface.
+
+Verificado antes da publicação:
+
+```
+npx tsc --noEmit    → limpo
+npm run build       → 28 rotas, sem erro
+npm run test:db     → 59 asserções, todas passando
+```
+
+### Rodada mais recente — funil padrão (`0012`) e funil/etapa no atendimento
+
+Detalhe completo em `docs/CHANGELOG.md`. Resumo do que mudou de contrato:
+
+- **Migration `0012` aplicada em produção.** `pipelines.is_default` existe e é
+  garantido por índice único parcial e triggers; `deals.pipeline_id` e
+  `forms.pipeline_id` são `on delete restrict`; a estrutura de funis e etapas
+  passou a exigir `org_admin`. Quatro RPCs novas: `create_pipeline`,
+  `set_default_pipeline`, `delete_pipeline`, `pipeline_delete_blockers`.
+- **O vendedor troca funil e etapa do lead dentro do atendimento**
+  (`components/whatsapp/deal-stage-picker.tsx`). Só etapas abertas; ganhar e
+  perder continuam em `/negociacoes/[id]`.
+- **`/funis` administra funis**: criar (RPC `create_pipeline`), renomear,
+  `Tornar padrão` (RPC `set_default_pipeline`) e excluir (RPC
+  `delete_pipeline`, com `pipeline_delete_blockers` explicando o bloqueio antes
+  da tentativa). O estado vazio passou a conter a ação de criação. Com isso a
+  **Frente A está concluída**.
+- **`viewer` perdeu acessos que o banco já recusava** e ganhou 403 na rota de
+  envio de mensagem, que antes só checava sessão e organização.
+
+> **Banco atualizado: `supabase/migrations/0013_coerencia_funil_etapa_do_lead.sql`.**
+> Escrita, validada em Postgres descartável e **aplicada em produção**. Fecha a última
+> brecha do QA: nada no banco exige que `deals.stage_id` pertença a
+> `deals.pipeline_id`, nem que o funil seja da organização da negociação — hoje
+> a invariante depende só do JavaScript. A migration recusa a própria aplicação
+> se encontrar linhas incoerentes, para não instalar a guarda sobre dado sujo.
+> Nenhum código depende dela; aplicar é decisão do cliente.
+
+### Como validar migration antes de entregar o SQL ao cliente
+
+```bash
+npm run test:db     # supabase/tests/migrations.mjs
+```
+
+Aplica `supabase/migrations/*.sql` do zero, na ordem, num Postgres descartável
+(**PGlite** — Postgres real em WASM, sem Docker, sem tocar em banco de verdade)
+e roda **59 asserções** de comportamento por cima: isolamento entre
+organizações, papéis, invariantes do funil padrão, recusas de exclusão,
+coerência funil/etapa e idempotência. O ambiente Supabase é imitado com o
+mínimo — schema `auth`, `auth.uid()` lendo um GUC e os papéis
+`anon`/`authenticated`/`service_role`/`authenticator`.
+
+Existe porque **o cliente executa o SQL manualmente no painel do Supabase**:
+migration entregue sem teste é migration testada em produção. É também a única
+coisa parecida com suíte automatizada que o projeto tem hoje (débito 1) — o
+caminho barato para pagar o resto desse débito é acrescentar asserções aqui.
+
+**Ao criar uma migration, rode isto antes de mandar o SQL para o cliente e
+acrescente asserções para as invariantes novas.** Um teste que só confirma que
+o SQL compila não paga o que custa.
+
+### Rodada de correções anterior
 
 Sem versão nova e sem migration. Detalhe completo em `docs/CHANGELOG.md`.
 
@@ -45,6 +111,12 @@ Sem versão nova e sem migration. Detalhe completo em `docs/CHANGELOG.md`.
 - `/funis` não ressincronizava entre dois funis vazios.
 - Dashboard ordenava funis por `name` enquanto o resto do projeto usa
   `created_at`.
+- Popups abriam abaixo da viewport quando estavam dentro de ancestrais
+  animados com `transform`. O `Modal` compartilhado passou a usar portal em
+  `document.body`; a correção vale para todos os consumidores do componente.
+
+Esta rodada está mesclada em `main` no commit `ff757ea` (PR #1) e foi publicada
+em `https://wavemov-crm.vercel.app`.
 
 Verificado nesta rodada:
 
@@ -155,6 +227,10 @@ Cada item abaixo foi um bug real encontrado neste projeto.
 | Mostrar `err.message` do PostgREST ao usuário | Texto em inglês com jargão de banco ("violates not-null constraint") e detalhe de schema na tela | `describeWriteError(err, "mensagem em pt-BR")` — usuário lê português, `console.error` recebe `code`/`details`/`hint` |
 | Delete + insert sem transação | Se o insert falha, os campos já foram apagados: o formulário público continua ativo e vira um form vazio que gera lead sem dados | Diga na tela o que de fato ficou no banco e `router.refresh()` para não exibir o que não existe mais |
 | Resetar campo obrigatório para `""` contando com fallback no submit | `stage_id` é `z.string().uuid()` no `dealSchema`: o `parse()` estoura antes, e `parsed.stage_id \|\| stages[0]?.id` é código morto | Ao trocar o funil, `setValue("stage_id", primeiraEtapaAberta)` — reposicione o valor, não o limpe |
+| `update` sem `.select()` em tabela com RLS | Quando a linha não passa pelo `USING` da policy, o PostgREST devolve **204 e zero linhas, sem erro**. O código comemora, a tela diz "salvo" e a trilha registra um movimento que não houve | `.update(...).eq(...).select("id")` e tratar `data.length === 0` como falha — foi assim que a movimentação de etapa no atendimento parou de mentir |
+| Gravar depois do desmonte do componente | `setError` vira no-op: a escrita falha e ninguém é avisado. É a falha silenciosa disfarçada de debounce | Se o componente pode desmontar com escrita pendente, o erro sobe para um estado do pai que sobrevive à troca de tela (`onDetachedError` em `deal-stage-picker.tsx`) |
+| `id=in.(…)` com centenas de UUIDs | ~300 UUIDs passam de 11 KB de linha de requisição e o proxy responde 414; se o `error` for descartado, a lista volta vazia e o bug que a consulta corrigia ressuscita calado | Fatiar em lotes de ~100 com `Promise.all` e **logar o `error`** |
+| Rota de API que só valida sessão e organização | `service_role` ignora RLS: sem checar o papel, `viewer` (somente leitura) manda mensagem em nome da empresa pelo endpoint, mesmo sem o botão na tela | Checar `session.membership.role` na rota, não só no componente |
 | `position: fixed` dentro de ancestral com `transform` | O elemento fixo usa o ancestral como containing block: overlay e popup ficam relativos à página longa, não à viewport | O `Modal` compartilhado renderiza via portal em `document.body`; não crie overlays diretamente dentro de `.animate-fade-up` |
 
 ---
@@ -175,6 +251,8 @@ lib/services/        session, uazapi (adaptador), whatsapp
 lib/utils/           formatação + period.ts (resolvePeriod / dailySeries)
 lib/validations/     schemas Zod
 supabase/migrations/ SQL — imutável depois de aplicado
+supabase/tests/      verificação das migrations em Postgres descartável
+                     (`npm run test:db`)
 types/index.ts       tipos de domínio + tipos das views agregadas
 docs/                este arquivo, FUNCIONALIDADES, CHANGELOG, SQUAD
 .claude/agents/      squad de agentes de desenvolvimento
@@ -217,6 +295,26 @@ docs/                este arquivo, FUNCIONALIDADES, CHANGELOG, SQUAD
 - **Erro de escrita no cliente** passa por `describeWriteError(err, mensagem)`
   em `lib/utils/index.ts`: pt-BR na tela, objeto completo no `console.error`.
   Não devolva `err.message` do PostgREST para o usuário.
+- **Funil padrão** é `pipelines.is_default` (0012). Quem precisa de "o funil
+  desta empresa sem escolha explícita" usa `is_default`, nunca
+  `.order("created_at").limit(1)` nem `pipelines[0]`. Quem decide o padrão é o
+  banco: o primeiro funil da organização nasce padrão, um adicional nunca vira,
+  e trocar exige a RPC `set_default_pipeline` — um `update` direto em
+  `is_default` é recusado por trigger.
+- **Administração de funil é só de `org_admin`** (policies da 0012). Criar,
+  excluir e consultar bloqueios de exclusão passam pelas RPCs `create_pipeline`,
+  `delete_pipeline` e `pipeline_delete_blockers`; renomear é `update` normal.
+  Mover lead entre etapas continua sendo trabalho de `seller`/`agent`.
+- **`firstOpenStage(stages)`** em `lib/utils/index.ts` devolve a primeira etapa
+  que não é de ganho nem de perda. É o destino ao trocar um lead de funil e ao
+  criar lead sem etapa explícita. Devolve `null` quando o funil só tem etapas de
+  fechamento — recuse antes de gravar, porque `deals.stage_id` é obrigatório.
+- **Trocar lead de funil grava `pipeline_id` e `stage_id` no mesmo `update`.**
+  Gravar só o funil deixa o lead numa etapa que não pertence a ele, e ele some
+  dos dois Kanbans. Foi bug real (`ff757ea`).
+- **`Modal` aceita `data-autofocus`** no conteúdo para o foco pousar num campo.
+  `autoFocus` do React não funciona ali: o `Modal` reivindica o foco do painel
+  no quadro seguinte e o rouba de volta.
 
 ---
 
@@ -240,6 +338,18 @@ Fluxo: `crm-product → crm-backend → crm-frontend → crm-perf → qa-enginee
 > checklist dele como roteiro de revisão manual — ele vale independentemente da
 > ferramenta.
 
+O papel do squad é ser uma **segunda leitura adversarial**, não cerimônia. Nas
+duas últimas rodadas ele pagou por si: o parecer de produto cortou ganhar/perder
+de dentro do chat (a perda exige motivo, e o Kanban já prova que quando a UI não
+pede ninguém preenche) e o QA achou um `update` sob RLS que anunciava sucesso
+com zero linhas afetadas. Se você trabalha sozinho, **releia o próprio diff
+procurando estas três coisas**, que foram exatamente as que escaparam na
+primeira passada:
+
+1. Escrita que pode ser recusada e ninguém confere o resultado.
+2. Estado local que sobrevive à troca de contexto (conversa, funil, lead).
+3. Botão visível para quem o banco vai recusar.
+
 ---
 
 ## 8. Como validar antes de entregar
@@ -247,6 +357,7 @@ Fluxo: `crm-product → crm-backend → crm-frontend → crm-perf → qa-enginee
 ```bash
 npx tsc --noEmit      # obrigatório: zero erros
 npm run build         # obrigatório: falha de build é bloqueador
+npm run test:db       # obrigatório se mexeu em supabase/migrations/
 ```
 
 Depois, o checklist de `.claude/agents/qa-engineer.md`: isolamento por
@@ -255,8 +366,9 @@ organização, estado do React, contratos de dados, performance, experiência
 
 Não declare "passou" sem a saída real dos comandos.
 
-**Não existe suíte de testes automatizados no projeto** — a qualidade hoje é
-garantida por tipos, build e revisão. Ver débitos 1 e 6.
+**Não existe teste do código da aplicação** — só do banco (`npm run test:db`).
+A qualidade do front hoje é garantida por tipos, build e revisão. Ver débitos
+1 e 6.
 
 ---
 
@@ -265,17 +377,29 @@ garantida por tipos, build e revisão. Ver débitos 1 e 6.
 1. **Smoke test de produção das migrations `0010/0011`.** Receber e responder
    pela mesma instância; transferir responsável; confirmar isolamento de
    `seller`/`agent` e visão consolidada de `org_admin`.
-2. **Interface multi-instância.** A configuração ainda gerencia somente a
-   instância mais antiga; listar instâncias, status e URL/segredo individual.
-3. **Frente A — criação de funis por `org_admin`.** Próxima migration é a
-   `0012`: `pipelines.is_default`, índice único parcial, backfill, RLS e fluxo
-   de criação que também funcione quando a organização ainda não tem funil.
-4. **Frente B — ingestão externa de leads.** Endpoint genérico chamado pelo
+2. ~~**Frente A — criação e administração segura de funis.**~~ **CONCLUÍDA.**
+   Migration `0012` aplicada; funil padrão respeitado pelo webhook e pela
+   criação de lead no atendimento; `/funis` cria, renomeia, torna padrão e
+   exclui, com os impedimentos explicados antes da tentativa. As quatro RPCs
+   da `0012` têm chamador. Os oito critérios de aceite da seção 9.1 estão
+   cobertos. O que sobrou de propósito, e continua valendo como próximo passo:
+   arrastar para reordenar etapas (item 7) e a decisão sobre o modal
+   "Configurar Visualização do CRM" (item 6).
+3. **Frente B — ingestão externa de leads.** Endpoint genérico chamado pelo
    n8n, com segredo por organização, `forms.external_id` globalmente único,
    origem, idempotência por evento e mapeamento explícito de funil/etapa.
+   Uma organização pode ter vários formulários; cada formulário corresponde a
+   um webhook/fluxo próprio no n8n. O gestor do n8n cria esse fluxo, adapta o
+   payload da origem ao contrato canônico do CRM e informa o `external_id` do
+   formulário. A idempotência deve ser por formulário + evento, pois fluxos
+   diferentes podem reutilizar o mesmo identificador na origem.
    Decisões fechadas: id do formulário é colado manualmente; funil novo não
    vira padrão; formulário ausente ou inativo responde 404; a resposta não
    inclui `deal_url`; erro de id duplicado nunca revela a empresa proprietária.
+4. **Interface multi-instância.** A configuração ainda gerencia somente a
+   instância mais antiga; listar instâncias, status e URL/segredo individual.
+   Antecipar este item apenas se houver necessidade operacional imediata de
+   conectar um segundo número.
 5. **Testes de integração de RLS + CI.** Cobrir dois usuários/organizações e
    papéis distintos; rodar `tsc` e build em todo push.
 6. **Decidir o modal "Configurar Visualização do CRM"** (5ª tela de referência).
@@ -290,13 +414,105 @@ garantida por tipos, build e revisão. Ver débitos 1 e 6.
 10. **Upload de logo/avatar via Supabase Storage.** O schema já aceita URLs.
 11. **Exportação CSV** dos relatórios.
 
+### 9.1 Frente A — especificação para criação de funis
+
+**Parecer de produto e engenharia:** aprovada como próxima frente, com uma
+condição bloqueadora: não disponibilizar apenas um modal de criação/exclusão
+sobre o schema atual. Hoje `deals.pipeline_id` usa `on delete cascade`; apagar
+um funil pode apagar em cascata todos os leads/negociações vinculados. Além
+disso, vários fluxos tratam o primeiro funil por `created_at` como padrão sem
+que exista uma marca explícita no banco.
+
+#### Migration `0012` — obrigatória antes da UI
+
+Criar um arquivo novo em `supabase/migrations/`; migrations aplicadas nunca são
+editadas. A migration deve:
+
+1. Adicionar `pipelines.is_default boolean not null default false`.
+2. Fazer backfill de exatamente um padrão por organização que já tenha funis
+   (usar deterministicamente o mais antigo).
+3. Criar índice único parcial por organização onde `is_default = true`.
+4. Trocar a FK de `deals.pipeline_id` de `on delete cascade` para
+   **`on delete restrict`**. Exclusão de funil jamais pode apagar leads.
+5. Trocar a FK de `forms.pipeline_id` de `on delete set null` para
+   **`on delete restrict`**. Funil usado por formulário não pode ser apagado
+   silenciosamente.
+6. Garantir nas policies/RPCs que somente `org_admin` (e admin global) cria,
+   renomeia, torna padrão, exclui ou altera a estrutura de funis/etapas.
+   `seller`/`agent` usa o funil e movimenta seus próprios leads, mas não muda
+   sua estrutura; `viewer` continua somente leitura.
+7. Impedir a exclusão do último funil da organização. O funil padrão só pode
+   ser excluído depois que outro for explicitamente definido como padrão.
+
+O cliente executa SQL manualmente no Supabase. Portanto, o Claude deve criar e
+revisar o arquivo `0012`, entregar ao cliente o caminho e o SQL completo (ou
+instruções inequívocas para copiá-lo), e **parar antes de depender do novo
+schema**. Só continuar a implementação/marcar a migration como aplicada depois
+que o cliente confirmar que rodou o SQL. Não usar o CLI para aplicar migration
+remotamente sem autorização expressa.
+
+#### Semântica de funil padrão
+
+- Um funil adicional novo **não** vira padrão automaticamente.
+- Exceção necessária: se a organização não tiver nenhum funil, o primeiro
+  criado vira o padrão.
+- O administrador terá uma ação explícita `Tornar padrão`, com confirmação.
+- Webhook UAZAPI e criação manual de lead pelo WhatsApp devem usar
+  `is_default = true`, nunca `.order("created_at").limit(1)`.
+- Páginas e modais que hoje usam `pipelines[0]` também precisam respeitar o
+  padrão quando não houver escolha explícita do usuário.
+- Formulários continuam usando o `pipeline_id` explicitamente configurado; a
+  troca do padrão não deve remapear formulários existentes.
+
+Auditar pelo menos estes pontos: `app/api/webhooks/uazapi/route.ts`,
+`components/whatsapp/whatsapp-client.tsx`, `components/crm/deal-modal.tsx`,
+`components/forms/forms-client.tsx`, `/funis`, `/negociacoes` e `/dashboard`.
+
+#### Criação e interface
+
+- Criar funil e etapas mínimas numa única transação/RPC ou server action. Não
+  deixar funil vazio: `deals.stage_id` é obrigatório.
+- Sugestão inicial: `Lead Novo` (aberta), `Ganho` e `Perdido`. O produto pode
+  oferecer `Começar com etapas padrão`, ligado por padrão, desde que nunca
+  produza um funil inutilizável.
+- Modal com nome e descrição; botão somente para `org_admin`/admin global.
+- O estado vazio de `/funis` precisa conter a ação de criação. Hoje
+  `pipeline-stages-client.tsx` retorna `EmptyState` antes de renderizar o
+  `PageHeader`, então um botão apenas no cabeçalho fica inacessível quando não
+  existe nenhum funil.
+- Mostrar badge de padrão e ações `Renomear`, `Tornar padrão` e `Excluir`.
+- Ao excluir, explicar vínculos que bloqueiam a operação, sem exibir erro cru
+  do PostgREST.
+- Sem limite técnico de funis nesta etapa; mostrar aviso de organização acima
+  de aproximadamente 10, se necessário.
+- Todos os popups devem usar o `Modal` compartilhado, que já renderiza via
+  portal em `document.body`; não recriar overlay local.
+
+#### Critérios mínimos de aceite
+
+1. `seller`/`agent` não consegue criar, excluir, renomear, tornar padrão nem
+   editar etapas, inclusive tentando chamar o Supabase diretamente.
+2. `org_admin` consegue criar o primeiro funil e um funil adicional.
+3. Há no máximo um funil padrão por organização e nenhuma operação afeta outra
+   organização.
+4. Tentativa de excluir funil com deals ou formulários falha sem apagar nem
+   desassociar dados.
+5. Webhook UAZAPI e criação pelo WhatsApp colocam novos leads no funil padrão.
+6. Formulários continuam enviando leads ao funil explicitamente configurado.
+7. Estado vazio, carregamento, falha, teclado, mobile e modal em página rolada
+   foram validados.
+8. `npx tsc --noEmit` e `npm run build` passam antes de qualquer deploy.
+
 ---
 
 ## 10. Débitos técnicos conhecidos
 
-1. **Sem testes automatizados.** Nenhum runner configurado. O maior risco é
-   regressão de RLS: um teste de integração que tenta ler dados de outra
-   organização com um usuário comum pagaria por si.
+1. **Sem teste do código da aplicação.** O banco tem `npm run test:db` (59
+   asserções sobre as migrations, incluindo leitura e escrita cruzada entre
+   organizações). O que falta é o outro lado: nenhum teste cobre componente,
+   rota de API ou server action. O caminho barato é continuar acrescentando
+   asserções em `supabase/tests/migrations.mjs` para o que é regra de banco, e
+   escolher um runner para o resto.
 2. **Peso do stack de formulários.** `/contatos` (207 kB) e `/perfil` (204 kB)
    carregam `react-hook-form` + `zod` + `@hookform/resolvers` em telas com um
    formulário simples. Trocar por `useActionState` nas telas mais leves
@@ -308,8 +524,9 @@ garantida por tipos, build e revisão. Ver débitos 1 e 6.
    dia.
 5. **`dailySeries()` usa `setDate` para iterar.** Sem risco no Brasil (sem
    horário de verão), mas frágil se o produto for internacionalizado.
-6. **Sem CI.** Nenhum workflow roda `tsc`/`build` no push. Um GitHub Action de
-   ~15 linhas evitaria que um commit quebrado chegue à Vercel.
+6. **Sem CI.** Nenhum workflow roda `tsc`/`build`/`test:db` no push. Um GitHub
+   Action de ~15 linhas evitaria que um commit quebrado chegue à Vercel — e
+   agora existe o que rodar nele.
 7. ~~`UAZAPI_WEBHOOK_SECRET` é um segredo global.~~ **Resolvido pela `0010`**
    (segredo por instância, guarda de `org_admin` na tela, comparação
    timing-safe, rotação por empresa). Corte limpo: o valor global não é mais
@@ -331,6 +548,22 @@ garantida por tipos, build e revisão. Ver débitos 1 e 6.
    instância cadastrada aquele `count === 1` nunca mais é verdade. Falha
    fechado, então não é perigoso; é código morto esperando remoção. Não foi
    removido nesta entrega porque o bloco acabou de ser auditado.
+11. **`Field` não associa o rótulo ao controle.** `components/ui/input.tsx`
+   renderiza `<Label>` como irmão do input, sem `htmlFor` e sem envolvê-lo:
+   para leitor de tela o campo fica anônimo. A correção sistêmica é `useId()` +
+   `htmlFor` no `Field`, mas ela toca todos os formulários do app, então as
+   telas recentes contornam com `aria-label` no controle. Vale fazer de uma vez.
+12. **Ganhar/perder no detalhe do lead não grava `deal_stage_history`.**
+   `markWon`/`markLost` em `components/crm/deal-detail.tsx` mudam `stage_id` e
+   `status` mas não abrem linha de histórico, ao contrário de toda outra
+   movimentação. O relatório de retenção por etapa perde o fechamento.
+13. **Alguns updates de `deals` não filtram por organização.**
+   `kanban-board.tsx` e `deal-detail.tsx` fazem `.update(...).eq("id", …)` sem
+   `.eq("organization_id", …)`. O RLS segura, mas a regra nº 1 pede defesa em
+   profundidade e uso do índice. O código novo desta rodada já filtra.
+14. **Alvo de toque das setas de reordenar etapa.** `p-0.5` com ícone de
+   14 px em `pipeline-stages-client.tsx` fica bem abaixo dos 32 px do
+   checklist. Some se o item 7 da seção 9 (arrastar para reordenar) for feito.
 
 ---
 
@@ -350,15 +583,19 @@ garantida por tipos, build e revisão. Ver débitos 1 e 6.
 ## 12. Resumo de 30 segundos
 
 > CRM multiempresa Next.js + Supabase, v0.2.0, buildando, migrations até a
-> `0009` aplicadas em produção. A entrega de 2026-08-25/26 trouxe as telas de
-> Etapas do funil, Relatório de entrada de leads, Último lead e Resumo da
-> empresa. Em seguida veio uma rodada de correções, sem versão nova: a principal
-> tapou um **vazamento entre organizações no webhook da UAZAPI**, onde o
-> fallback pegava a primeira instância da tabela inteira. Regra número um:
-> **nada pode vazar dados entre organizações** — filtre por `organization_id`,
-> toda view nova nasce com `security_invoker = on` e rota com `service_role`
-> recusa em vez de adivinhar a organização. Antes de entregar:
-> `npx tsc --noEmit` e `npm run build`, sempre. Pendências no topo da fila:
-> validar em produção o webhook/isolamento da `0010/0011`, implementar a UI
-> multi-instância e então seguir as frentes de criação de funis e ingestão
-> externa de leads.
+> `0013` aplicadas em produção. As telas de Etapas do funil, Relatório de
+> entrada de leads, Último lead e Resumo da empresa vieram em 2026-08-25/26.
+> Depois, uma rodada de correções tapou um **vazamento entre organizações no
+> webhook da UAZAPI**. A rodada mais recente trouxe a `0012` (funil padrão
+> explícito, exclusão de funil que não apaga leads, estrutura de funil restrita
+> a `org_admin`) e a **troca de funil e etapa do lead dentro do atendimento**.
+> Regra número um: **nada pode vazar dados entre organizações** — filtre por
+> `organization_id`, toda view nova nasce com `security_invoker = on`, rota com
+> `service_role` recusa em vez de adivinhar a organização **e checa o papel**, e
+> `update` sob RLS só é sucesso se devolver linha (`.select()`). Antes de
+> entregar: `npx tsc --noEmit` e `npm run build` sempre, mais `npm run test:db`
+> se tiver mexido em migration. Pendências no topo da
+> fila: validar em produção o webhook/isolamento
+> da `0010/0011`. A Frente A está concluída; a próxima entrega funcional
+> recomendada é a Frente B (ingestão externa de leads via n8n), especificada no
+> item 3 da seção 9.

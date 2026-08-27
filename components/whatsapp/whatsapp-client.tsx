@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   cn,
   describeWriteError,
+  firstOpenStage,
   formatCurrency,
   formatDateTime,
   fullName,
@@ -19,11 +20,13 @@ import {
 import type {
   Contact,
   Deal,
+  Pipeline,
   Profile,
   QuickReply,
   WhatsAppConversation,
   WhatsAppMessage,
 } from "@/types";
+import { DealStagePicker } from "@/components/whatsapp/deal-stage-picker";
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -51,11 +54,17 @@ interface Props {
   organizationId: string;
   profileId: string;
   canViewAllConversations: boolean;
+  /** viewer é somente leitura: vê o funil/etapa do lead, mas não move. */
+  canManageDeal: boolean;
   instance: PublicInstance;
   conversations: WhatsAppConversation[];
   quickReplies: QuickReply[];
   members: Profile[];
+  /** Negociações abertas — alimentam "Vincular a lead existente". */
   deals: Deal[];
+  /** Leads já vinculados a conversas que não estão em `deals` (fechados). */
+  linkedDeals: Deal[];
+  pipelines: Pipeline[];
   initialConversationId?: string;
   initialPhone?: string;
 }
@@ -64,11 +73,14 @@ export function WhatsAppClient({
   organizationId,
   profileId,
   canViewAllConversations,
+  canManageDeal,
   instance,
   conversations,
   quickReplies,
   members,
   deals,
+  linkedDeals,
+  pipelines,
   initialConversationId,
   initialPhone,
 }: Props) {
@@ -93,7 +105,15 @@ export function WhatsAppClient({
   const [transferOpen, setTransferOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
+  const [noteError, setNoteError] = useState<string | null>(null);
   const [linkDealId, setLinkDealId] = useState("");
+  const [creatingLead, setCreatingLead] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [dealError, setDealError] = useState<string | null>(null);
+  // Falha de uma movimentação que terminou depois de o vendedor já ter trocado
+  // de conversa. Não é limpa na troca — é justamente ela que o aviso relata.
+  const [detachedError, setDetachedError] = useState<string | null>(null);
   const [transferTo, setTransferTo] = useState("");
   const [transferring, setTransferring] = useState(false);
   const [transferError, setTransferError] = useState<string | null>(null);
@@ -135,19 +155,28 @@ export function WhatsAppClient({
         .limit(500);
       setMessages((data ?? []) as WhatsAppMessage[]);
       setLoadingMessages(false);
-      // Zera não lidas
+      // Zera não lidas. `viewer` não escreve: a policy recusaria e cada
+      // conversa aberta por ele viraria um 403 no log.
+      if (!canManageDeal) return;
       await supabase
         .from("whatsapp_conversations")
         .update({ unread_count: 0 })
         .eq("id", conversationId)
         .eq("organization_id", organizationId);
     },
-    [organizationId, supabase]
+    [organizationId, supabase, canManageDeal]
   );
 
   useEffect(() => {
     if (selectedId) loadMessages(selectedId);
   }, [selectedId, loadMessages]);
+
+  // Mensagem de erro é da conversa em que aconteceu: sem isto, o aviso de uma
+  // conversa reaparece ao abrir a próxima.
+  useEffect(() => {
+    setDealError(null);
+    setLinkError(null);
+  }, [selectedId]);
 
   // Realtime: novas mensagens da conversa aberta
   useEffect(() => {
@@ -209,36 +238,50 @@ export function WhatsAppClient({
 
   async function linkToDeal() {
     if (!selected || !linkDealId) return;
-    await supabase
+    setLinking(true);
+    setLinkError(null);
+    const { data: updated, error: err } = await supabase
       .from("whatsapp_conversations")
       .update({ deal_id: linkDealId })
       .eq("id", selected.id)
-      .eq("organization_id", organizationId);
+      .eq("organization_id", organizationId)
+      .select("id");
+    setLinking(false);
+    if (err || (updated ?? []).length === 0) {
+      // A mensagem mora dentro do modal: no painel de trás ela ficaria coberta
+      // pelo overlay e o vendedor clicaria de novo achando que travou.
+      setLinkError(describeWriteError(err, "Não foi possível vincular a conversa a esta negociação."));
+      return;
+    }
     setLinkOpen(false);
     router.refresh();
   }
 
   async function createLeadFromConversation() {
     if (!selected) return;
-    const { data: pipeline } = await supabase
-      .from("pipelines")
-      .select("id, stages:pipeline_stages(id, order_index, is_won_stage, is_lost_stage)")
-      .eq("organization_id", organizationId)
-      .order("created_at")
-      .limit(1)
-      .single();
-    if (!pipeline) return;
-    const firstStage = (pipeline.stages as { id: string; order_index: number; is_won_stage: boolean; is_lost_stage: boolean }[])
-      .filter((s) => !s.is_won_stage && !s.is_lost_stage)
-      .sort((a, b) => a.order_index - b.order_index)[0];
-    if (!firstStage) return;
+    setCreatingLead(true);
+    setDealError(null);
 
-    const { data: deal } = await supabase
+    // Funil padrão explícito (migration 0012) em vez de "o mais antigo por
+    // created_at", que mudava de significado ao surgir um segundo funil.
+    const pipeline = pipelines.find((p) => p.is_default) ?? null;
+    const stage = firstOpenStage(pipeline?.stages);
+    if (!pipeline || !stage) {
+      setCreatingLead(false);
+      setDealError(
+        pipeline
+          ? `O funil padrão "${pipeline.name}" não tem etapa aberta. Configure em Etapas do funil.`
+          : "Nenhum funil padrão configurado para esta empresa."
+      );
+      return;
+    }
+
+    const { data: deal, error: dealErr } = await supabase
       .from("deals")
       .insert({
         organization_id: organizationId,
         pipeline_id: pipeline.id,
-        stage_id: firstStage.id,
+        stage_id: stage.id,
         contact_id: selected.contact_id,
         responsible_id: profileId,
         title: selected.name ?? `Lead WhatsApp +${selected.phone}`,
@@ -248,14 +291,59 @@ export function WhatsAppClient({
       .select("id")
       .single();
 
-    if (deal) {
-      await supabase
-        .from("whatsapp_conversations")
-        .update({ deal_id: deal.id })
-        .eq("id", selected.id)
-        .eq("organization_id", organizationId);
-      router.push(`/negociacoes/${deal.id}`);
+    if (dealErr || !deal) {
+      setCreatingLead(false);
+      setDealError(describeWriteError(dealErr, "Não foi possível criar o lead desta conversa."));
+      return;
     }
+
+    const { data: linked, error: linkErr } = await supabase
+      .from("whatsapp_conversations")
+      .update({ deal_id: deal.id })
+      .eq("id", selected.id)
+      .eq("organization_id", organizationId)
+      .select("id");
+
+    setCreatingLead(false);
+
+    if (linkErr || (linked ?? []).length === 0) {
+      // O lead existe: diga o que de fato ficou no banco em vez de sugerir
+      // que nada aconteceu — repetir o clique criaria um segundo lead.
+      setDealError(
+        describeWriteError(
+          linkErr,
+          "O lead foi criado, mas não ficou vinculado a esta conversa. Use “Vincular a lead existente”."
+        )
+      );
+      router.refresh();
+      return;
+    }
+
+    // A primeira etapa também abre o histórico: sem esta linha o lead entra no
+    // relatório de retenção sem a entrada inicial, ao contrário de todo lead
+    // movido pelo Kanban, pelo detalhe ou pelo seletor do atendimento.
+    const [{ error: logErr }, { error: histErr }] = await Promise.all([
+      supabase.from("activity_logs").insert({
+        organization_id: organizationId,
+        actor_id: profileId,
+        deal_id: deal.id,
+        type: "deal_created",
+        title: "Lead criado a partir do atendimento",
+        metadata: { origem: "atendimento", conversation_id: selected.id },
+      }),
+      supabase.from("deal_stage_history").insert({
+        deal_id: deal.id,
+        from_stage_id: null,
+        to_stage_id: stage.id,
+        changed_by: profileId,
+      }),
+    ]);
+    if (logErr) console.error("Falha ao gravar activity_logs", logErr);
+    if (histErr) console.error("Falha ao gravar deal_stage_history", histErr);
+
+    // O vendedor continua na conversa: o pedido era mover o lead sem sair do
+    // chat, e o link para a negociação fica logo acima.
+    router.refresh();
   }
 
   async function transfer() {
@@ -263,6 +351,7 @@ export function WhatsAppClient({
     setTransferring(true);
     setTransferError(null);
     let error = null;
+    let updated = false;
     if (selected.deal_id) {
       // A migration 0011 sincroniza todas as conversas do lead pelo trigger.
       // Transferir só uma conversa deixaria o antigo responsável enxergando o
@@ -271,18 +360,22 @@ export function WhatsAppClient({
         .from("deals")
         .update({ responsible_id: transferTo })
         .eq("id", selected.deal_id)
-        .eq("organization_id", organizationId);
+        .eq("organization_id", organizationId)
+        .select("id");
       error = result.error;
+      updated = (result.data ?? []).length > 0;
     } else {
       const result = await supabase
         .from("whatsapp_conversations")
         .update({ assigned_to: transferTo })
         .eq("id", selected.id)
-        .eq("organization_id", organizationId);
+        .eq("organization_id", organizationId)
+        .select("id");
       error = result.error;
+      updated = (result.data ?? []).length > 0;
     }
     setTransferring(false);
-    if (error) {
+    if (error || !updated) {
       setTransferError(
         describeWriteError(error, "Não foi possível transferir o atendimento.")
       );
@@ -294,17 +387,24 @@ export function WhatsAppClient({
 
   async function resolve() {
     if (!selected) return;
-    await supabase
+    setDealError(null);
+    const { data: updated, error: err } = await supabase
       .from("whatsapp_conversations")
       .update({ status: selected.status === "resolved" ? "open" : "resolved" })
       .eq("id", selected.id)
-      .eq("organization_id", organizationId);
+      .eq("organization_id", organizationId)
+      .select("id");
+    if (err || (updated ?? []).length === 0) {
+      setDealError(describeWriteError(err, "Não foi possível alterar o status desta conversa."));
+      return;
+    }
     router.refresh();
   }
 
   async function saveNote() {
     if (!selected || !note.trim()) return;
-    await supabase.from("whatsapp_messages").insert({
+    setNoteError(null);
+    const { error: err } = await supabase.from("whatsapp_messages").insert({
       organization_id: organizationId,
       conversation_id: selected.id,
       direction: "outbound",
@@ -312,8 +412,12 @@ export function WhatsAppClient({
       content: `📝 Nota interna: ${note.trim()}`,
       sent_by: profileId,
     });
+    if (err) {
+      setNoteError(describeWriteError(err, "Não foi possível salvar a nota interna."));
+      return;
+    }
     if (selected.deal_id) {
-      await supabase.from("activity_logs").insert({
+      const { error: logErr } = await supabase.from("activity_logs").insert({
         organization_id: organizationId,
         actor_id: profileId,
         deal_id: selected.deal_id,
@@ -321,6 +425,7 @@ export function WhatsAppClient({
         title: "Nota interna (atendimento)",
         description: note.trim(),
       });
+      if (logErr) console.error("Falha ao gravar activity_logs", logErr);
     }
     setNote("");
     setNoteOpen(false);
@@ -336,8 +441,12 @@ export function WhatsAppClient({
   };
   const st = statusMeta[instance?.status ?? "disconnected"] ?? statusMeta.disconnected;
 
+  // `deals` só tem negociações abertas; o lead fechado da conversa vem em
+  // `linkedDeals`. Sem os dois, uma conversa vinculada parecia não ter lead.
   const linkedDeal = selected?.deal_id
-    ? deals.find((d) => d.id === selected.deal_id)
+    ? deals.find((d) => d.id === selected.deal_id) ??
+      linkedDeals.find((d) => d.id === selected.deal_id) ??
+      null
     : null;
 
   return (
@@ -361,6 +470,24 @@ export function WhatsAppClient({
           Conexão e configurações
         </Link>
       </div>
+
+      {/* Movimentação que falhou depois da troca de conversa: fica no topo,
+          fora do painel da conversa atual, porque é de outro atendimento. */}
+      {detachedError && (
+        <div
+          role="alert"
+          className="mb-3 flex items-start justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs text-rose-700"
+        >
+          <span>{detachedError}</span>
+          <button
+            type="button"
+            onClick={() => setDetachedError(null)}
+            className="shrink-0 font-semibold hover:underline"
+          >
+            Dispensar
+          </button>
+        </div>
+      )}
 
       <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[320px_1fr_300px]">
         {/* ---------------- Lista de conversas ---------------- */}
@@ -491,14 +618,16 @@ export function WhatsAppClient({
                 >
                   <Info className="h-4.5 w-4.5" />
                 </button>
-                <Button
-                  variant={selected.status === "resolved" ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={resolve}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {selected.status === "resolved" ? "Reabrir" : "Resolver"}
-                </Button>
+                {canManageDeal && (
+                  <Button
+                    variant={selected.status === "resolved" ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={resolve}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {selected.status === "resolved" ? "Reabrir" : "Resolver"}
+                  </Button>
+                )}
               </div>
 
               {/* Mensagens */}
@@ -571,6 +700,12 @@ export function WhatsAppClient({
                     {sendError}
                   </p>
                 )}
+                {!canManageDeal ? (
+                  <p className="rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-xs text-ink-faint">
+                    Seu perfil é somente leitura: você acompanha as conversas, mas não envia
+                    mensagens.
+                  </p>
+                ) : (
                 <div className="flex items-end gap-2">
                   <button
                     onClick={() => setQuickOpen(true)}
@@ -608,6 +743,7 @@ export function WhatsAppClient({
                     {!sending && <Send className="h-4.5 w-4.5" />}
                   </Button>
                 </div>
+                )}
               </div>
             </>
           )}
@@ -666,21 +802,54 @@ export function WhatsAppClient({
                   Negociação
                 </p>
                 {linkedDeal ? (
-                  <Link
-                    href={`/negociacoes/${linkedDeal.id}`}
-                    className="block rounded-xl border border-line p-3 transition-colors hover:border-primary-300 hover:bg-primary-50/40"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-sm font-semibold text-ink">{linkedDeal.title}</p>
-                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                    </div>
-                    <p className="mt-1 text-xs font-bold text-emerald-600">
-                      {formatCurrency(linkedDeal.value)}
-                    </p>
-                  </Link>
-                ) : (
+                  <>
+                    <Link
+                      href={`/negociacoes/${linkedDeal.id}`}
+                      className="block rounded-xl border border-line p-3 transition-colors hover:border-primary-300 hover:bg-primary-50/40"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-ink">{linkedDeal.title}</p>
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+                      </div>
+                      <p className="mt-1 text-xs font-bold text-emerald-600">
+                        {formatCurrency(linkedDeal.value)}
+                      </p>
+                    </Link>
+                    {/* key por conversa E lead: o estado e o temporizador do
+                        seletor são por atendimento, e a 0011 permite que o
+                        mesmo lead tenha várias conversas — só o id do lead na
+                        key deixaria a confirmação de uma aparecer na outra. */}
+                    <DealStagePicker
+                      key={`${selected.id}:${linkedDeal.id}`}
+                      deal={linkedDeal}
+                      pipelines={pipelines}
+                      organizationId={organizationId}
+                      profileId={profileId}
+                      conversationId={selected.id}
+                      canManage={canManageDeal}
+                      onDetachedError={(title, message) =>
+                        setDetachedError(`${title}: ${message}`)
+                      }
+                    />
+                  </>
+                ) : selected.deal_id ? (
+                  <p className="text-xs text-ink-faint">
+                    Esta conversa já tem uma negociação vinculada que não está carregada aqui.{" "}
+                    <Link
+                      href={`/negociacoes/${selected.deal_id}`}
+                      className="font-medium text-primary-700 hover:underline"
+                    >
+                      Abrir negociação
+                    </Link>
+                  </p>
+                ) : canManageDeal ? (
                   <div className="space-y-2">
-                    <Button size="sm" className="w-full" onClick={createLeadFromConversation}>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={createLeadFromConversation}
+                      loading={creatingLead}
+                    >
                       <Handshake className="h-3.5 w-3.5" />
                       Criar lead desta conversa
                     </Button>
@@ -694,10 +863,19 @@ export function WhatsAppClient({
                       Vincular a lead existente
                     </Button>
                   </div>
+                ) : (
+                  <p className="text-xs text-ink-faint">Nenhuma negociação vinculada.</p>
+                )}
+                {dealError && (
+                  <p role="alert" className="mt-2 text-xs text-rose-600">
+                    {dealError}
+                  </p>
                 )}
               </div>
 
-              {/* Ações */}
+              {/* Ações — todas escrevem, então ficam fora do alcance do
+                  viewer, que é somente leitura desde a 0003. */}
+              {canManageDeal && (
               <div className="space-y-2 rounded-2xl border border-line bg-white p-4 shadow-(--shadow-card)">
                 <p className="text-xs font-semibold tracking-wide text-ink-faint uppercase">
                   Ações
@@ -730,6 +908,7 @@ export function WhatsAppClient({
                   {selected.status === "resolved" ? "Reabrir conversa" : "Marcar como resolvida"}
                 </Button>
               </div>
+              )}
             </>
           ) : (
             <div className="rounded-2xl border border-dashed border-line bg-white/60 p-6 text-center text-xs text-ink-faint">
@@ -772,11 +951,16 @@ export function WhatsAppClient({
             </option>
           ))}
         </Select>
+        {linkError && (
+          <p role="alert" className="mt-2 text-xs text-rose-600">
+            {linkError}
+          </p>
+        )}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setLinkOpen(false)}>
             Cancelar
           </Button>
-          <Button onClick={linkToDeal} disabled={!linkDealId}>
+          <Button onClick={linkToDeal} disabled={!linkDealId} loading={linking}>
             Vincular
           </Button>
         </div>
@@ -815,6 +999,11 @@ export function WhatsAppClient({
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
+        {noteError && (
+          <p role="alert" className="mt-2 text-xs text-rose-600">
+            {noteError}
+          </p>
+        )}
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setNoteOpen(false)}>
             Cancelar

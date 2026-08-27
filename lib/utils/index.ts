@@ -81,3 +81,22 @@ export function describeWriteError(err: unknown, fallback: string) {
   if (err) console.error(fallback, err);
   return fallback;
 }
+
+/**
+ * Primeira etapa aberta de um funil, na ordem em que o usuário a enxerga.
+ *
+ * "Aberta" exclui as etapas de ganho e perda: fechar negociação é ato
+ * deliberado, com confirmação e motivo, e nunca efeito colateral de mover o
+ * lead. É o destino usado ao trocar um lead de funil e ao criar lead sem
+ * escolha explícita de etapa — e devolve `null` quando o funil só tem etapas
+ * de fechamento, caso em que o chamador precisa recusar antes de gravar.
+ */
+export function firstOpenStage<T extends { order_index: number; is_won_stage: boolean; is_lost_stage: boolean }>(
+  stages: T[] | null | undefined
+): T | null {
+  return (
+    [...(stages ?? [])]
+      .filter((s) => !s.is_won_stage && !s.is_lost_stage)
+      .sort((a, b) => a.order_index - b.order_index)[0] ?? null
+  );
+}
