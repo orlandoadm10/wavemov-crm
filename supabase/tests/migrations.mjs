@@ -1432,6 +1432,82 @@ console.log("\n== 16. Fila ordenada e plantão (0017) ==");
   });
 }
 
+console.log("\n== 17. Migração aplicada sobre base COM DADOS ==");
+{
+  // POR QUE ESTE BLOCO EXISTE
+  // A primeira versão da 0017 atualizava `method` ANTES de derrubar o `check`
+  // antigo, que só aceitava `weighted_round_robin`. Em produção isso explodiu
+  // com 23514 na primeira execução. Aqui não tinha explodido: as migrations
+  // rodam contra um banco vazio, então o `update` não atingia linha nenhuma e
+  // passava.
+  //
+  // Esta é a lacuna real da suíte — ela prova que o SQL é válido, não que ele
+  // sobrevive aos dados que o cliente já tem. O bloco abaixo reconstrói o
+  // estado de uma base com a 0016 aplicada e regras criadas, e reexecuta a
+  // 0017 inteira por cima.
+  const arquivo0017 = path.join(MIG, "0017_fila_ordenada_e_plantao.sql");
+  const sql0017 = readFileSync(arquivo0017, "utf8");
+
+  // Volta a tabela ao estado pós-0016: check antigo e regras com o método
+  // antigo. Há regras reais aqui — as das empresas A, B, D, E e F.
+  // A ORDEM AQUI É A MESMA ARMADILHA QUE A MIGRATION CAIU, e a primeira versão
+  // deste bloco também caiu nela: instalar o `check` antigo antes de reverter
+  // os dados falha com 23514 no `ATRewriteTable`, porque as linhas ainda estão
+  // no valor novo. Constraint depois do dado, sempre.
+  await db.exec(
+    `alter table public.lead_distribution_rules
+       drop constraint if exists lead_distribution_rules_method_check;`
+  );
+  await db.exec(`update public.lead_distribution_rules set method = 'weighted_round_robin';`);
+  await db.exec(`
+    alter table public.lead_distribution_rules
+      add constraint lead_distribution_rules_method_check
+      check (method in ('weighted_round_robin'));
+    alter table public.lead_distribution_rules
+      alter column method set default 'weighted_round_robin';
+  `);
+
+  const antes = await umaLinha(
+    `select count(*) as n from public.lead_distribution_rules where method = 'weighted_round_robin'`
+  );
+  if (Number(antes.n) > 0) ok(`base reconstruída com ${antes.n} regra(s) no método antigo`);
+  else fail("a simulação precisa de regras existentes para valer alguma coisa");
+
+  try {
+    await db.exec(sql0017);
+    ok("a 0017 aplica sobre base COM DADOS (era exatamente o que quebrava)");
+  } catch (e) {
+    fail("a 0017 falhou sobre base com dados", e.message.split("\n")[0]);
+  }
+
+  const depois = await umaLinha(
+    `select count(*) filter (where method = 'ordered_queue') as novas,
+            count(*) as total
+       from public.lead_distribution_rules`
+  );
+  if (Number(depois.novas) === Number(depois.total))
+    ok("todas as regras existentes migraram para o método novo");
+  else fail("regras não migradas", JSON.stringify(depois));
+
+  // Reexecutar não pode bagunçar a ordem já configurada.
+  const ordemPreservada = await db.query(
+    `select rule_id, position, count(*) as n
+       from public.lead_distribution_participants
+      group by rule_id, position having count(*) > 1`
+  );
+  if (ordemPreservada.rows.length === 0)
+    ok("reaplicar a 0017 não duplica posições dentro de uma regra");
+  else fail("posições duplicadas após reaplicar", JSON.stringify(ordemPreservada.rows));
+
+  // E o cursor de quem já estava distribuindo não pode voltar para -1.
+  const cursor = await umaLinha(
+    `select queue_position, queue_uses from public.lead_distribution_rules
+      where queue_position >= 0 limit 1`
+  );
+  if (cursor) ok(`o cursor de uma regra em uso sobrevive à reaplicação (posição ${cursor.queue_position})`);
+  else fail("o cursor foi zerado ao reaplicar a migration");
+}
+
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);
 await db.close();
 process.exit(falhas === 0 ? 0 : 1);

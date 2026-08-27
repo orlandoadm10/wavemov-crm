@@ -7,6 +7,16 @@ Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 Migration escrita e validada. **PENDENTE de aplicação.** O motor ainda usa o
 algoritmo da `0016` — ver o aviso no fim desta entrada.
 
+> **Corrigido após falhar na primeira execução do cliente** (`ERROR: 23514 …
+> lead_distribution_rules_method_check`): a migration atualizava `method` para
+> `ordered_queue` **antes** de derrubar o `check` antigo, que só aceitava
+> `weighted_round_robin`. O `test:db` não pegou porque as migrations rodam
+> contra um banco **vazio** — sem regra nenhuma, o `update` não atinge linha e
+> passa. Só quebra em base com dado, que é a única que importa. Ordem
+> corrigida (derruba, migra, instala) e o bloco 17 do teste passou a
+> reconstruir uma base com regras no método antigo e reexecutar a migration
+> inteira por cima.
+
 ### Por que a mudança
 
 A `0016` escolhia o responsável por uma sequência **derivada**: participantes
@@ -49,7 +59,8 @@ sentido numa fila.
 
 ### Validação
 
-`npm run test:db` **133 asserções** (eram 118), 15 novas no bloco 16: cursor
+`npm run test:db` **137 asserções** (eram 118), 15 novas no bloco 16 e 4 no
+bloco 17 (migração sobre base com dados). Bloco 16: cursor
 inicial, posições distintas, plantão nascendo ligado, **quem sai do plantão é
 pulado sem as posições dos outros mudarem**, retomada da posição ao voltar,
 `seller` que não desliga o próprio plantão mas lê, compare-and-swap do cursor,

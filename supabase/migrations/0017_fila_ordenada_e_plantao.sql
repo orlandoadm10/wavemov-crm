@@ -121,14 +121,28 @@ comment on column public.lead_distribution_rules.assignments_count is
 -- O método antigo não tem mais implementação: deixá-lo aceito criaria uma
 -- regra que o motor não sabe servir, e a falha apareceria como lead sem
 -- responsável — silenciosa, do jeito que este projeto já pagou caro para
--- evitar. A migração dos dados vem antes da troca do `check`.
+-- evitar.
+--
+-- ORDEM IMPORTA, E A PRIMEIRA VERSÃO DESTA MIGRATION ERRAVA AQUI.
+-- O `check` antigo só aceita `weighted_round_robin`. Atualizar os dados antes
+-- de removê-lo faz o próprio constraint recusar o valor novo:
+--
+--   ERROR: 23514: new row for relation "lead_distribution_rules" violates
+--   check constraint "lead_distribution_rules_method_check"
+--
+-- O erro não apareceu no `test:db` porque lá as migrations rodam contra um
+-- banco vazio — sem regra nenhuma, o `update` não atinge linha e passa. Só
+-- explode em base com dado, que é a única que importa. O bloco 17 do teste
+-- passou a reproduzir exatamente esse estado.
+--
+-- Então: derruba o check primeiro, migra os dados, e só então instala o novo.
 -- ------------------------------------------------------------
+alter table public.lead_distribution_rules
+  drop constraint if exists lead_distribution_rules_method_check;
+
 update public.lead_distribution_rules
    set method = 'ordered_queue'
  where method <> 'ordered_queue';
-
-alter table public.lead_distribution_rules
-  drop constraint if exists lead_distribution_rules_method_check;
 
 do $$
 begin
