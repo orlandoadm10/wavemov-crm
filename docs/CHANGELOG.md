@@ -2,6 +2,62 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — Frente C: schema da distribuição automática (`0016`)
+
+Migration escrita e validada. **PENDENTE de aplicação pelo cliente** — nenhum
+código depende dela ainda. O motor e a tela de configuração vêm na sequência.
+
+### Problema
+
+Lead que entra sem responsável é **invisível** para quem deveria atendê-lo: a
+policy da `0011` devolve a negociação para `org_admin`/`viewer`/admin global ou
+para quem é o `responsible_id`, mais ninguém. E o lead nasce órfão em dois dos
+três caminhos de entrada — `register-form-lead.ts` grava o
+`default_responsible_id` do formulário, que é opcional, e o webhook da UAZAPI
+nem passa o campo. Quando esse lead responde no WhatsApp, o trigger da `0011`
+copia o nulo para `assigned_to` e a conversa também some da lista do vendedor.
+
+### Adicionado — migration `0016`
+
+- **`lead_distribution_rules`** — regras por organização, avaliadas por
+  prioridade crescente; a regra `is_fallback` (uma por empresa, índice único
+  parcial) é sempre a última e não aceita condições. Condições configuráveis:
+  **origem** (`public_form`/`external_ingest`/`whatsapp`) e **formulário**,
+  combinadas com E. `assignments_count` é o bilhete do rodízio, incrementado
+  atomicamente — duas ingestões simultâneas recebem números diferentes e não
+  caem no mesmo vendedor.
+- **`lead_distribution_participants`** — quem entra no rodízio e com que peso
+  (1..100). Trigger recusa quem não é membro ativo da organização da regra e
+  quem é `viewer` (somente leitura não trabalha lead).
+- **`lead_distribution_log`** — auditoria, com **snapshots** de `rule_name`,
+  `assigned_to_name` e `candidates`: renomear ou apagar uma regra não reescreve
+  a história. `reason` cobre também os casos sem distribuição (`no_rule`,
+  `no_candidates`), que são os que o administrador precisa ver para corrigir a
+  configuração.
+- **Guarda entre organizações**: a condição `form_id` de uma regra tem de
+  apontar para formulário da mesma empresa.
+- **Empresa e membro novos**: `provision_organization_defaults` passou a criar
+  a regra padrão e inscrever quem já é membro (o `org_admin` é inserido
+  **antes** do provisionamento em `create_organization_for_current_user`, então
+  só o trigger não bastaria); um trigger em `organization_members` inscreve
+  quem entra depois. Só no INSERT — no UPDATE, quem o admin tirou do rodízio
+  voltaria sozinho.
+
+### Decisões
+
+- **"Filtro por empresa" é isolamento, não condição**: cada organização tem as
+  próprias regras. As condições são origem e formulário.
+- **Não existe método "responsável fixo"**: uma regra com um participante já é
+  isso. A coluna `method` existe com um único valor implementado, para que
+  acrescentar outro seja `check` novo + ramo no motor, não reescrita.
+
+### Validação
+
+`npm run test:db` — **118 asserções** (eram 91), 27 novas no bloco 15: todas as
+invariantes acima, o bilhete atômico e sequencial, papéis (`seller` lê a regra
+mas não edita, não altera o próprio peso, não lê nem reescreve a auditoria — no
+log o privilégio é revogado, mais forte que RLS) e isolamento A/B.
+
 ## 2026-08-27 — correções da auditoria de QA da Frente B
 
 Auditoria do `qa-engineer` sobre tudo entre `ea30a2d` e `4c68408`. **Sem

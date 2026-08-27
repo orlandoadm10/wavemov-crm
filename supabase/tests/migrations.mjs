@@ -907,6 +907,327 @@ console.log("\n== 14. Respostas do lead e external_id com maiúscula (0015) ==")
   await db.query(`delete from public.forms where organization_id = $1`, [ORG_E]);
 }
 
+console.log("\n== 15. Distribuição automática de leads (0016) ==");
+{
+  // ---- Backfill ----
+  const regraA = await umaLinha(
+    `select id, name, is_fallback, priority, method, assignments_count
+       from public.lead_distribution_rules where organization_id = $1`,
+    [ORG_A]
+  );
+  if (regraA && regraA.is_fallback === true && regraA.method === "weighted_round_robin")
+    ok("organização com membros elegíveis nasceu com regra padrão ativa");
+  else fail("backfill da regra padrão", JSON.stringify(regraA));
+
+  const participantesA = await db.query(
+    `select p.profile_id, p.weight, p.is_active
+       from public.lead_distribution_participants p where p.rule_id = $1`,
+    [regraA.id]
+  );
+  // Empresa A tem org_admin + seller ativos; `viewer` não existe nela.
+  if (participantesA.rows.length === 2 && participantesA.rows.every((r) => r.weight === 1))
+    ok("todos os membros elegíveis entraram no rodízio com peso 1");
+  else fail("participantes do backfill", JSON.stringify(participantesA.rows));
+
+  // ---- Invariantes da regra ----
+  await esperaErro(
+    "duas regras padrão na mesma organização são recusadas",
+    () =>
+      db.query(
+        `insert into public.lead_distribution_rules (organization_id, name, is_fallback)
+           values ($1, 'Outra padrão', true)`,
+        [ORG_A]
+      ),
+    /lead_distribution_rules_fallback_key|duplicate/i
+  );
+
+  await esperaErro(
+    "regra padrão com condição é recusada (ela existe para pegar o resto)",
+    () =>
+      db.query(
+        `update public.lead_distribution_rules set origin = 'external_ingest' where id = $1`,
+        [regraA.id]
+      ),
+    /regra padrão não pode ter condições/i
+  );
+
+  await esperaErro(
+    "método inexistente é recusado",
+    () =>
+      db.query(
+        `insert into public.lead_distribution_rules (organization_id, name, method)
+           values ($1, 'Invalida', 'sorteio')`,
+        [ORG_A]
+      ),
+    /lead_distribution_rules_method_check|check constraint/i
+  );
+
+  await esperaErro(
+    "origem fora do domínio é recusada",
+    () =>
+      db.query(
+        `insert into public.lead_distribution_rules (organization_id, name, origin)
+           values ($1, 'Invalida', 'telepatia')`,
+        [ORG_A]
+      ),
+    /origin_check|check constraint/i
+  );
+
+  // ---- A guarda que impede vínculo entre organizações ----
+  const funilB2 = await umaLinha(
+    `select id from public.pipelines where organization_id = $1 limit 1`,
+    [ORG_B]
+  );
+  const formB2 = await umaLinha(
+    `insert into public.forms (organization_id, name, slug, pipeline_id)
+       values ($1, 'Form da B', 'form-da-b-0016', $2) returning id`,
+    [ORG_B, funilB2.id]
+  );
+  await esperaErro(
+    "regra da empresa A não pode condicionar ao formulário da empresa B",
+    () =>
+      db.query(
+        `insert into public.lead_distribution_rules (organization_id, name, form_id)
+           values ($1, 'Cruzada', $2)`,
+        [ORG_A, formB2.id]
+      ),
+    /não pertence a esta organização/i
+  );
+
+  // ---- A guarda dos participantes ----
+  const pAdminBLocal = await perfil(adminB);
+  await esperaErro(
+    "membro de outra organização não entra no rodízio",
+    () =>
+      db.query(
+        `insert into public.lead_distribution_participants (rule_id, profile_id) values ($1, $2)`,
+        [regraA.id, pAdminBLocal]
+      ),
+    /não é membro desta organização/i
+  );
+
+  await esperaErro(
+    "peso fora de 1..100 é recusado",
+    () =>
+      db.query(
+        `update public.lead_distribution_participants set weight = 10000 where rule_id = $1`,
+        [regraA.id]
+      ),
+    /weight_check|check constraint/i
+  );
+
+  // `viewer` não pode receber lead: ele não consegue trabalhar o registro.
+  await db.exec(`insert into auth.users (email, raw_user_meta_data) values ('viewer.a@teste.com', '{}');`);
+  const viewerA = await uid("viewer.a@teste.com");
+  const pViewerA = await perfil(viewerA);
+  await db.query(
+    `insert into public.organization_members (organization_id, profile_id, role) values ($1,$2,'viewer')`,
+    [ORG_A, pViewerA]
+  );
+  await esperaErro(
+    "perfil somente leitura não entra no rodízio",
+    () =>
+      db.query(
+        `insert into public.lead_distribution_participants (rule_id, profile_id) values ($1, $2)`,
+        [regraA.id, pViewerA]
+      ),
+    /somente leitura não pode receber leads/i
+  );
+
+  // Membro inativo também não.
+  await db.query(
+    `update public.organization_members set is_active = false where organization_id = $1 and profile_id = $2`,
+    [ORG_A, pViewerA]
+  );
+  await db.query(
+    `update public.organization_members set role = 'seller' where organization_id = $1 and profile_id = $2`,
+    [ORG_A, pViewerA]
+  );
+  await esperaErro(
+    "membro inativo não entra no rodízio",
+    () =>
+      db.query(
+        `insert into public.lead_distribution_participants (rule_id, profile_id) values ($1, $2)`,
+        [regraA.id, pViewerA]
+      ),
+    /está inativa nesta organização/i
+  );
+
+  // ---- O bilhete do rodízio é atômico e nunca repete ----
+  const bilhetes = [];
+  for (let i = 0; i < 5; i++) {
+    const r = await umaLinha(
+      `update public.lead_distribution_rules
+          set assignments_count = assignments_count + 1
+        where id = $1 returning assignments_count`,
+      [regraA.id]
+    );
+    bilhetes.push(Number(r.assignments_count));
+  }
+  if (new Set(bilhetes).size === 5 && bilhetes[4] - bilhetes[0] === 4)
+    ok(`o bilhete do rodízio é único e sequencial (${bilhetes.join(", ")})`);
+  else fail("bilhetes do rodízio", JSON.stringify(bilhetes));
+
+  // ---- Papéis ----
+  await comoUsuario(sellerA, async () => {
+    const leitura = await db.query(
+      `select id, name from public.lead_distribution_rules where organization_id = $1`,
+      [ORG_A]
+    );
+    if (leitura.rows.length === 1) ok("seller LÊ a regra da própria empresa (sabe se está no rodízio)");
+    else fail("seller não leu a regra da própria empresa", JSON.stringify(leitura.rows));
+
+    const escrita = await db.query(
+      `update public.lead_distribution_rules set name = 'Invadida' where id = $1 returning id`,
+      [regraA.id]
+    );
+    if (escrita.rows.length === 0) ok("seller NÃO edita a regra");
+    else fail("seller editou a regra de distribuição");
+
+    await esperaErro(
+      "seller não cria regra",
+      () =>
+        db.query(
+          `insert into public.lead_distribution_rules (organization_id, name) values ($1, 'Do seller')`,
+          [ORG_A]
+        ),
+      /row-level security|violates/i
+    );
+
+    const peso = await db.query(
+      `update public.lead_distribution_participants set weight = 99 where rule_id = $1 returning id`,
+      [regraA.id]
+    );
+    if (peso.rows.length === 0) ok("seller NÃO altera o próprio peso");
+    else fail("seller alterou o peso do rodízio");
+  });
+
+  await comoUsuario(adminA, async () => {
+    const r = await db.query(
+      `update public.lead_distribution_rules set name = 'Rodízio comercial' where id = $1 returning id`,
+      [regraA.id]
+    );
+    if (r.rows.length === 1) ok("org_admin edita a regra da própria empresa");
+    else fail("org_admin não conseguiu editar a regra");
+  });
+
+  // ---- Auditoria ----
+  const dealParaLog = await umaLinha(
+    `select id from public.deals where organization_id = $1 limit 1`,
+    [ORG_A]
+  );
+  const pSellerALocal = await perfil(sellerA);
+  await db.query(
+    `insert into public.lead_distribution_log
+       (organization_id, deal_id, rule_id, rule_name, method, origin, assigned_to,
+        assigned_to_name, candidates, ticket, reason)
+     values ($1,$2,$3,'Rodízio comercial','weighted_round_robin','external_ingest',$4,
+             'Sergio', $5::jsonb, 7, 'rule_matched')`,
+    [
+      ORG_A,
+      dealParaLog?.id ?? null,
+      regraA.id,
+      pSellerALocal,
+      JSON.stringify([{ profile_id: pSellerALocal, name: "Sergio", weight: 1 }]),
+    ]
+  );
+  ok("o motor registra a distribuição com snapshot dos candidatos");
+
+  await esperaErro(
+    "motivo fora do domínio é recusado no log",
+    () =>
+      db.query(
+        `insert into public.lead_distribution_log (organization_id, origin, reason)
+           values ($1, 'external_ingest', 'porque sim')`,
+        [ORG_A]
+      ),
+    /reason_check|check constraint/i
+  );
+
+  // O snapshot é o ponto da tabela: apagar a regra não pode apagar a história.
+  const regraDescartavel = await umaLinha(
+    `insert into public.lead_distribution_rules (organization_id, name, priority, origin)
+       values ($1, 'Campanha de agosto', 10, 'external_ingest') returning id`,
+    [ORG_A]
+  );
+  await db.query(
+    `insert into public.lead_distribution_log
+       (organization_id, rule_id, rule_name, method, origin, reason)
+     values ($1,$2,'Campanha de agosto','weighted_round_robin','external_ingest','rule_matched')`,
+    [ORG_A, regraDescartavel.id]
+  );
+  await db.query(`delete from public.lead_distribution_rules where id = $1`, [regraDescartavel.id]);
+  const sobreviveu = await umaLinha(
+    `select rule_id, rule_name from public.lead_distribution_log where rule_name = 'Campanha de agosto'`
+  );
+  if (sobreviveu && sobreviveu.rule_id === null && sobreviveu.rule_name === "Campanha de agosto")
+    ok("apagar a regra não apaga a auditoria — o nome fica no snapshot");
+  else fail("auditoria perdida ao apagar a regra", JSON.stringify(sobreviveu));
+
+  await comoUsuario(sellerA, async () => {
+    const r = await db.query(`select id from public.lead_distribution_log where organization_id = $1`, [
+      ORG_A,
+    ]);
+    if (r.rows.length === 0) ok("seller NÃO lê o log de distribuição (é dado de gestão)");
+    else fail("seller leu o log de distribuição", JSON.stringify(r.rows));
+
+    // Aqui o `revoke` da seção 5 é mais forte que o RLS: em vez de devolver
+    // zero linhas, o Postgres recusa o privilégio. Auditoria não se edita.
+    await esperaErro(
+      "seller NÃO reescreve a auditoria (privilégio revogado, não só RLS)",
+      () =>
+        db.query(`update public.lead_distribution_log set assigned_to = null where organization_id = $1`, [
+          ORG_A,
+        ]),
+      /permission denied/i
+    );
+    await esperaErro(
+      "e não insere linha de auditoria",
+      () =>
+        db.query(
+          `insert into public.lead_distribution_log (organization_id, origin, reason)
+             values ($1, 'external_ingest', 'rule_matched')`,
+          [ORG_A]
+        ),
+      /permission denied/i
+    );
+  });
+
+  await comoUsuario(adminA, async () => {
+    const r = await db.query(`select id from public.lead_distribution_log where organization_id = $1`, [
+      ORG_A,
+    ]);
+    if (r.rows.length >= 1) ok("org_admin lê o log de distribuição");
+    else fail("org_admin não leu o log");
+  });
+
+  // ---- Isolamento entre organizações ----
+  await comoUsuario(adminB, async () => {
+    const regras = await db.query(
+      `select id from public.lead_distribution_rules where organization_id = $1`,
+      [ORG_A]
+    );
+    if (regras.rows.length === 0) ok("admin da empresa B não LÊ regras da empresa A");
+    else fail("vazamento de regras entre organizações", JSON.stringify(regras.rows));
+
+    const logs = await db.query(
+      `select id from public.lead_distribution_log where organization_id = $1`,
+      [ORG_A]
+    );
+    if (logs.rows.length === 0) ok("admin da empresa B não LÊ a auditoria da empresa A");
+    else fail("vazamento de auditoria entre organizações", JSON.stringify(logs.rows));
+
+    const escrita = await db.query(
+      `update public.lead_distribution_rules set name = 'Invadida' where id = $1 returning id`,
+      [regraA.id]
+    );
+    if (escrita.rows.length === 0) ok("e não edita a regra da empresa A, mesmo conhecendo o UUID");
+    else fail("admin da B editou regra da A");
+  });
+
+  await db.query(`delete from public.forms where id = $1`, [formB2.id]);
+}
+
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);
 await db.close();
 process.exit(falhas === 0 ? 0 : 1);
