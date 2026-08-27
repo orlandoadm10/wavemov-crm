@@ -173,6 +173,15 @@ export async function commitQueueAdvance(
     .eq("id", ruleId)
     .eq("queue_position", de.position)
     .eq("queue_uses", de.uses)
+    // `assignments_count` também entra na condição, e não só no `set`.
+    //
+    // Sem isto ele era um read-modify-write desprotegido, e havia um caso em
+    // que o cursor não pegava a corrida: regra com UM participante de peso 1 —
+    // o responsável fixo, que é comum. Ali o cursor fica parado em `{0,1}`
+    // para sempre, as duas requisições simultâneas passam pelas duas condições
+    // de cursor, leem o mesmo total e gravam o mesmo número. O contador
+    // perdia incrementos em silêncio.
+    .eq("assignments_count", totalAtual)
     .select("id")
     .maybeSingle();
 
@@ -206,7 +215,7 @@ export interface DistributionAudit {
   assignedToName: string | null;
   candidates: { profile_id: string; name: string; weight: number }[];
   ticket: number | null;
-  reason: "rule_matched" | "form_default" | "no_rule" | "no_candidates";
+  reason: "rule_matched" | "form_default" | "no_rule" | "no_candidates" | "contention";
 }
 
 /**

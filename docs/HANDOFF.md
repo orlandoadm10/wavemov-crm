@@ -21,8 +21,10 @@ dela.
 A `0014` (ingestão externa) e a `0015` (respostas do lead) estão
 **aplicadas** — confirmação do cliente em 2026-08-27, cada uma antes de
 qualquer código depender dela. A `0016` (distribuição automática) também está **aplicada** — confirmação em
-2026-08-27. A `0017` (fila ordenada e plantão) também está **aplicada**, e o motor e as
-telas já a usam.
+2026-08-27. A `0017` (fila ordenada e plantão) também está **aplicada**. A **`0018`
+(auditoria e reparo de posições) NÃO está aplicada** — ela conserta dados que a
+tela gravou errado; até rodar, regras com participantes empatados em
+`position = 0` continuam entregando todos os leads a uma pessoa só.
 **Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`. O projeto
 está ligado ao Git: **push em `main` = deploy de produção**, sem passo manual.
 
@@ -238,7 +240,7 @@ npm run test:db     # supabase/tests/migrations.mjs
 
 Aplica `supabase/migrations/*.sql` do zero, na ordem, num Postgres descartável
 (**PGlite** — Postgres real em WASM, sem Docker, sem tocar em banco de verdade)
-e roda **138 asserções** de comportamento por cima: isolamento entre
+e roda **145 asserções** de comportamento por cima: isolamento entre
 organizações, papéis, invariantes do funil padrão, recusas de exclusão,
 coerência funil/etapa, idempotência e — desde a `0014` — a credencial de
 ingestão fora do alcance de `authenticated` e a chave de evento por
@@ -715,7 +717,7 @@ externa em produção.
 ## 10. Débitos técnicos conhecidos
 
 1. **Quase sem teste do código da aplicação.** O banco tem `npm run test:db`
-   (138 asserções sobre as migrations, incluindo leitura e escrita cruzada
+   (145 asserções sobre as migrations, incluindo leitura e escrita cruzada
    entre organizações, e o bloco 17, que aplica a migration mais recente sobre
    uma base COM dados — a lacuna que deixou a 0017 quebrar na primeira
    execução do cliente). O runner do outro lado **já foi escolhido**:

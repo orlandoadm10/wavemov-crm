@@ -127,17 +127,23 @@ async function resolveStageId(admin: AdminClient, form: TargetForm): Promise<str
 }
 
 /**
- * Negociação ABERTA que este contato já tem no MESMO funil.
+ * Negociação ABERTA que este contato já tem, vinda do MESMO formulário.
  *
  * A mesma pessoa preenchendo o Typeform e depois clicando no anúncio do Meta é
  * o caso normal de captação paga, e cada submissão abria um card novo. Com o
  * rodízio ligado isso vira dois vendedores ligando para o mesmo telefone.
  *
+ * POR QUE POR FORMULÁRIO, E NÃO POR FUNIL
+ * A primeira versão casava por funil, e engolia lead legítimo: dois
+ * formulários diferentes ("Plano Individual" e "Plano Empresarial") apontando
+ * para o mesmo funil faziam a segunda submissão virar uma linha de histórico
+ * dentro de um card que já estava em Follow-up com outro responsável. O
+ * vendedor não recebia nada, e a única pista ficava dentro do card. Interesse
+ * em outro produto é lead novo — a duplicata que interessa é a MESMA campanha
+ * chegando duas vezes.
+ *
  * Ganha, perdida e arquivada NÃO bloqueiam card novo: recompra e nova cotação
  * são leads legítimos, e tratá-los como duplicata esconderia venda.
- *
- * A regra é a mesma que o webhook da UAZAPI já aplica; a ingestão é que não a
- * tinha.
  */
 async function findOpenDeal(
   admin: AdminClient,
@@ -146,6 +152,24 @@ async function findOpenDeal(
 ): Promise<string | null> {
   if (!form.pipeline_id) return null;
 
+  // A ligação com o formulário é a submissão anterior: `deals` não guarda
+  // `form_id`, e criar essa coluna agora seria migration para um dado que já
+  // é derivável.
+  const { data: anteriores, error: submissoesError } = await admin
+    .from("form_submissions")
+    .select("deal_id")
+    .eq("form_id", form.id)
+    .not("deal_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (submissoesError || !anteriores?.length) {
+    if (submissoesError) {
+      console.error("[lead-ingestion] falha ao procurar submissões anteriores", submissoesError);
+    }
+    return null;
+  }
+
   const { data, error } = await admin
     .from("deals")
     .select("id")
@@ -153,6 +177,10 @@ async function findOpenDeal(
     .eq("pipeline_id", form.pipeline_id)
     .eq("contact_id", contactId)
     .eq("status", "open")
+    .in(
+      "id",
+      anteriores.map((a) => a.deal_id as string)
+    )
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

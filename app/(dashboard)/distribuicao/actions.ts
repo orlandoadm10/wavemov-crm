@@ -150,6 +150,39 @@ export async function upsertParticipantAction(input: unknown): Promise<Distribut
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
 
   const supabase = await createClient();
+
+  // A POSIÇÃO PRECISA SER CALCULADA AQUI.
+  //
+  // `position` é `not null default 0` (0017), e o `max(position)+1` só existe
+  // no trigger que inscreve quem entra na organização — que não roda quando o
+  // administrador adiciona alguém pela tela. Sem este cálculo, todos os
+  // participantes de uma regra nova nasciam na posição 0, e `pickNext` virava
+  // ponto fixo: `find(p => p.position > 0)` não acha ninguém, cai no
+  // `?? fila[0]`, e a MESMA pessoa recebe todos os leads da regra para sempre.
+  // A auditoria registrava `rule_matched` com todos os candidatos, então nada
+  // denunciava o problema.
+  //
+  // No conflito a posição existente é preservada: reeditar o peso de alguém
+  // não pode mandá-lo para o fim da fila.
+  const { data: existente } = await supabase
+    .from("lead_distribution_participants")
+    .select("position")
+    .eq("rule_id", parsed.data.ruleId)
+    .eq("profile_id", parsed.data.profileId)
+    .maybeSingle();
+
+  let posicao = existente?.position as number | undefined;
+  if (posicao === undefined) {
+    const { data: ultimo } = await supabase
+      .from("lead_distribution_participants")
+      .select("position")
+      .eq("rule_id", parsed.data.ruleId)
+      .order("position", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    posicao = ultimo ? Number(ultimo.position) + 1 : 0;
+  }
+
   const { data, error } = await supabase
     .from("lead_distribution_participants")
     .upsert(
@@ -157,6 +190,7 @@ export async function upsertParticipantAction(input: unknown): Promise<Distribut
         rule_id: parsed.data.ruleId,
         profile_id: parsed.data.profileId,
         weight: parsed.data.weight,
+        position: posicao,
         is_active: true,
       },
       { onConflict: "rule_id,profile_id" }
@@ -293,8 +327,29 @@ export async function reorderParticipantsAction(input: unknown): Promise<Distrib
     return { error: "A ordem foi gravada só em parte. Confira a fila e tente novamente." };
   }
 
+  // O CURSOR PRECISA VOLTAR AO INÍCIO.
+  //
+  // Ele guarda uma POSIÇÃO, e a renumeração acabou de dar outro significado a
+  // cada número. Mantê-lo faria a fila retomar no lugar errado: com o cursor
+  // em 2 (alguém acabou de receber) e essa pessoa movida para o topo, o
+  // avanço não acha `position > 2`, dá a volta e entrega o lead seguinte para
+  // ela de novo — dois seguidos, pulando os outros.
+  //
+  // Reiniciar é a escolha honesta: perde-se a continuidade de uma volta, uma
+  // única vez, no momento em que o administrador deliberadamente mudou a
+  // ordem. Traduzir a posição antiga para a nova pareceria mais esperto e
+  // seria adivinhação sobre o que ele quis dizer.
+  const { error: cursorError } = await supabase
+    .from("lead_distribution_rules")
+    .update({ queue_position: -1, queue_uses: 0 })
+    .eq("id", parsed.data.ruleId)
+    .eq("organization_id", session.organization.id);
+  if (cursorError) {
+    console.error("[distribuicao] ordem gravada, cursor não reiniciado", cursorError);
+  }
+
   revalidatePath("/distribuicao");
-  return { success: "Ordem da fila atualizada." };
+  return { success: "Ordem da fila atualizada. O próximo lead vai para o primeiro da fila." };
 }
 
 const onDutySchema = z.object({

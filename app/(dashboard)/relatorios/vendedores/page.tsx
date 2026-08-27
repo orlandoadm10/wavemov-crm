@@ -17,6 +17,41 @@ export const dynamic = "force-dynamic";
 
 type Search = Promise<{ periodo?: string }>;
 
+/**
+ * O PostgREST corta em `max_rows = 1000` (`supabase/config.toml`).
+ *
+ * As agregações desta tela são feitas em memória, então sem paginar uma
+ * organização com mais de mil leads no período teria os números calculados
+ * sobre uma amostra ARBITRÁRIA — e sem `order` nem sequer é a amostra mais
+ * recente. É justamente o relatório que o cliente vai usar para conferir se o
+ * rodízio é justo: um número errado aqui vira decisão errada sobre a equipe.
+ *
+ * Paginar com `range` é a correção barata. Uma view agregada no banco seria
+ * mais eficiente e é o caminho quando o volume justificar — está registrado
+ * como débito.
+ */
+const PAGE = 1000;
+const MAX_PAGES = 20;
+
+async function fetchAll<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>
+): Promise<{ rows: T[]; truncated: boolean }> {
+  const rows: T[] = [];
+  for (let pagina = 0; pagina < MAX_PAGES; pagina++) {
+    const { data, error } = await build(pagina * PAGE, (pagina + 1) * PAGE - 1);
+    if (error) {
+      console.error("[rendimento] falha ao paginar", error);
+      return { rows, truncated: true };
+    }
+    const lote = data ?? [];
+    rows.push(...lote);
+    if (lote.length < PAGE) return { rows, truncated: false };
+  }
+  // Estourou o teto: melhor avisar na tela que exibir número incompleto como
+  // se fosse completo.
+  return { rows, truncated: true };
+}
+
 /** O que a tabela precisa saber de cada pessoa. */
 export interface SellerRow {
   profileId: string;
@@ -82,48 +117,62 @@ export default async function RendimentoPorVendedorPage({
     );
   }
 
-  const [
-    { data: membersRaw },
-    { data: dealsRaw },
-    { data: tasksRaw },
-    { data: notesRaw },
-    { data: participantsRaw },
-  ] = await Promise.all([
-    supabase
-      .from("organization_members")
-      .select("role, on_duty, profile:profiles(*)")
-      .eq("organization_id", orgId)
-      .eq("is_active", true),
-    // Só as colunas que entram na conta. `created_at` recorta o período de
-    // ENTRADA do lead: o relatório responde "dos leads que entraram no período,
-    // como cada vendedor se saiu", que é a pergunta que o rodízio levanta.
-    supabase
-      .from("deals")
-      .select("responsible_id, status, value")
-      .eq("organization_id", orgId)
-      .gte("created_at", fromISO)
-      .lte("created_at", toISO),
-    supabase
-      .from("tasks")
-      .select("assigned_to, status, due_at")
-      .eq("organization_id", orgId)
-      .eq("status", "pending"),
-    supabase
-      .from("activity_logs")
-      .select("actor_id")
-      .eq("organization_id", orgId)
-      .eq("type", "note")
-      .gte("created_at", fromISO)
-      .lte("created_at", toISO),
-    // Peso vigente: soma dos pesos do participante nas regras ATIVAS. Um
-    // vendedor pode estar em mais de uma regra (a padrão e a de uma campanha).
-    supabase
-      .from("lead_distribution_participants")
-      .select("profile_id, weight, is_active, rule:lead_distribution_rules!inner(organization_id, is_active)")
-      .eq("is_active", true)
-      .eq("rule.organization_id", orgId)
-      .eq("rule.is_active", true),
-  ]);
+  const [{ data: membersRaw }, deals, tasks, notes, { data: participantsRaw }] =
+    await Promise.all([
+      supabase
+        .from("organization_members")
+        .select("role, on_duty, profile:profiles(*)")
+        .eq("organization_id", orgId)
+        .eq("is_active", true),
+      // Só as colunas que entram na conta. `created_at` recorta o período de
+      // ENTRADA do lead: o relatório responde "dos leads que entraram no
+      // período, como cada vendedor se saiu", que é a pergunta que o rodízio
+      // levanta. `order` fixo para a paginação ser estável.
+      fetchAll<{ responsible_id: string | null; status: string; value: number | null }>(
+        (from, to) =>
+          supabase
+            .from("deals")
+            .select("responsible_id, status, value")
+            .eq("organization_id", orgId)
+            .gte("created_at", fromISO)
+            .lte("created_at", toISO)
+            .order("id")
+            .range(from, to)
+      ),
+      fetchAll<{ assigned_to: string | null; due_at: string | null }>((from, to) =>
+        supabase
+          .from("tasks")
+          .select("assigned_to, status, due_at")
+          .eq("organization_id", orgId)
+          .eq("status", "pending")
+          .order("id")
+          .range(from, to)
+      ),
+      fetchAll<{ actor_id: string | null }>((from, to) =>
+        supabase
+          .from("activity_logs")
+          .select("actor_id")
+          .eq("organization_id", orgId)
+          .eq("type", "note")
+          .gte("created_at", fromISO)
+          .lte("created_at", toISO)
+          .order("id")
+          .range(from, to)
+      ),
+      // Leads consecutivos vigentes: soma dos pesos do participante nas regras
+      // ATIVAS. Um vendedor pode estar em mais de uma regra.
+      supabase
+        .from("lead_distribution_participants")
+        .select("profile_id, weight, is_active, rule:lead_distribution_rules!inner(organization_id, is_active)")
+        .eq("is_active", true)
+        .eq("rule.organization_id", orgId)
+        .eq("rule.is_active", true),
+    ]);
+
+  const dealsRaw = deals.rows;
+  const tasksRaw = tasks.rows;
+  const notesRaw = notes.rows;
+  const truncado = deals.truncated || tasks.truncated || notes.truncated;
 
   const members = (
     (membersRaw ?? []) as unknown as { role: string; on_duty: boolean; profile: Profile }[]
@@ -161,11 +210,7 @@ export default async function RendimentoPorVendedorPage({
   // número que denuncia configuração de distribuição incompleta.
   let semResponsavel = 0;
 
-  for (const deal of (dealsRaw ?? []) as {
-    responsible_id: string | null;
-    status: string;
-    value: number | null;
-  }[]) {
+  for (const deal of dealsRaw) {
     if (!deal.responsible_id) {
       semResponsavel++;
       continue;
@@ -180,7 +225,7 @@ export default async function RendimentoPorVendedorPage({
     else if (deal.status === "open") linha.open++;
   }
 
-  for (const tarefa of (tasksRaw ?? []) as { assigned_to: string | null; due_at: string | null }[]) {
+  for (const tarefa of tasksRaw) {
     if (!tarefa.assigned_to) continue;
     const linha = porPessoa.get(tarefa.assigned_to);
     if (!linha) continue;
@@ -188,7 +233,7 @@ export default async function RendimentoPorVendedorPage({
     if (tarefa.due_at && new Date(tarefa.due_at) < agora) linha.tasksOverdue++;
   }
 
-  for (const nota of (notesRaw ?? []) as { actor_id: string | null }[]) {
+  for (const nota of notesRaw) {
     if (!nota.actor_id) continue;
     const linha = porPessoa.get(nota.actor_id);
     if (linha) linha.notes++;
@@ -274,6 +319,14 @@ export default async function RendimentoPorVendedorPage({
           icon={<Target className="h-5 w-5 text-emerald-500" />}
         />
       </div>
+
+      {truncado && (
+        <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          O período tem mais dados do que esta tela consegue somar de uma vez. Os números
+          abaixo estão <b>incompletos</b> — escolha um período menor para conferir a
+          distribuição com precisão.
+        </p>
+      )}
 
       {linhas.length === 0 ? (
         <EmptyState

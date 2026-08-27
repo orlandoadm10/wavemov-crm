@@ -52,9 +52,16 @@ export default async function DistribuicaoPage() {
     await Promise.all([
       supabase
         .from("lead_distribution_rules")
+        // `position` é obrigatório aqui: sem ela a fila chega `undefined` no
+        // cliente, o `sort` vira no-op (NaN é tratado como 0) e a ordem exibida
+        // passa a ser a que o PostgREST devolveu — não a que o administrador
+        // configurou. Pior: um clique em ↑ regravaria essa ordem arbitrária
+        // por cima da real. O `order` no recurso embutido é a segunda metade
+        // da correção; sem ele o embed não tem ordenação garantida.
         .select(
-          "*, participants:lead_distribution_participants(id, profile_id, weight, is_active, profile:profiles(id, first_name, last_name))"
+          "*, participants:lead_distribution_participants(id, profile_id, weight, position, is_active, profile:profiles(id, first_name, last_name))"
         )
+        .order("position", { referencedTable: "lead_distribution_participants" })
         .eq("organization_id", orgId)
         .order("is_fallback")
         .order("priority"),

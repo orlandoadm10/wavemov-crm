@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Building2,
+  Scale,
   CheckSquare,
   Contact,
   FileText,
@@ -22,4 +23,8 @@ export const NAV_ITEMS = [
   { href: "/contatos", label: "Contatos", icon: Contact },
   { href: "/pessoas", label: "Pessoas", icon: Users },
   { href: "/formularios", label: "Formulários", icon: FileText },
+  // Decide quem atende cada lead que entra. Estava alcançável só por dois
+  // saltos a partir de /relatorios — profundidade demais para a configuração
+  // que determina se o vendedor recebe trabalho.
+  { href: "/distribuicao", label: "Distribuição", icon: Scale },
 ] as const;

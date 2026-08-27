@@ -157,5 +157,11 @@ export async function POST(request: Request) {
 
   // Sem `deal_url` na resposta: o n8n não tem sessão no CRM e o link só
   // serviria para vazar identificadores internos para o sistema de origem.
-  return NextResponse.json({ ok: true, duplicate: false });
+  //
+  // `deduplicated` é diferente de `duplicate`: o evento é novo (por isso não é
+  // `duplicate`), mas caiu numa negociação que já existia. Quem monta o fluxo
+  // precisa conseguir distinguir "criou lead" de "anexou a um lead aberto" —
+  // sem isso, a contagem de leads do n8n diverge da do CRM e ninguém sabe por
+  // quê.
+  return NextResponse.json({ ok: true, duplicate: false, deduplicated: result.deduplicated });
 }

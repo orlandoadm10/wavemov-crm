@@ -49,7 +49,12 @@ const REASON_META: Record<string, { label: string; tone: "green" | "blue" | "amb
   no_candidates: {
     label: "Sem participantes",
     tone: "red",
-    hint: "A regra casou, mas não havia ninguém no rodízio. O lead entrou SEM responsável.",
+    hint: "A regra casou, mas ninguém estava elegível: fila vazia ou todo mundo fora do plantão. O lead entrou SEM responsável.",
+  },
+  contention: {
+    label: "Disputa pela vez",
+    tone: "red",
+    hint: "Havia gente de plantão, mas leads simultâneos disputaram a mesma posição da fila e a vez não se resolveu a tempo. O lead entrou SEM responsável.",
   },
 };
 
@@ -65,14 +70,15 @@ export function DistributionAuditTable({
   const visiveis = useMemo(
     () =>
       apenasProblemas
-        ? entries.filter((e) => e.reason === "no_rule" || e.reason === "no_candidates")
+        ? entries.filter((e) =>
+            ["no_rule", "no_candidates", "contention"].includes(e.reason)
+          )
         : entries,
     [entries, apenasProblemas]
   );
 
-  const problemas = entries.filter(
-    (e) => e.reason === "no_rule" || e.reason === "no_candidates"
-  ).length;
+  const SEM_RESPONSAVEL = ["no_rule", "no_candidates", "contention"];
+  const problemas = entries.filter((e) => SEM_RESPONSAVEL.includes(e.reason)).length;
 
   return (
     <Card>
@@ -109,7 +115,7 @@ export function DistributionAuditTable({
               <Th>Responsável</Th>
               <Th>Motivo</Th>
               <Th className="text-center">Candidatos</Th>
-              <Th></Th>
+              <Th><span className="sr-only">Ações</span></Th>
             </THead>
             <TBody>
               {visiveis.map((entry) => {

@@ -2,6 +2,95 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — correções da auditoria de QA da Frente C
+
+Auditoria do `qa-engineer` sobre `20a9319..38c1315`. **Sem achado de isolamento
+multiempresa.** Dois bloqueadores e três Altos, todos corrigidos.
+**Migration `0018` PENDENTE de aplicação.**
+
+### Corrigido — bloqueadores
+
+- **A tela de distribuição não lia `position`.** O embed em
+  `app/(dashboard)/distribuicao/page.tsx` não pedia a coluna, e o
+  `as unknown as` fazia o `tsc` aceitar. No cliente `position` chegava
+  `undefined`, o `sort` virava no-op (`NaN` é tratado como 0) e a ordem exibida
+  passava a ser a do PostgREST — não a configurada. Pior: um clique em ↑
+  regravava essa ordem arbitrária **por cima da real**, e a tela dizia "Ordem
+  da fila atualizada". Corrigido com `position` no select e `order` no recurso
+  embutido.
+- **Participante adicionado pela tela nascia em `position = 0`.** O
+  `max(position)+1` só existia no trigger de entrada na organização. Com todo
+  mundo empatado em 0 a fila vira **ponto fixo**: `find(p => p.position > 0)`
+  não acha ninguém, cai no `?? fila[0]`, e a MESMA pessoa recebe todos os leads
+  daquela regra para sempre — com `rule_matched` e todos os candidatos na
+  auditoria, então nada denunciava. A action passou a calcular a posição,
+  preservando a existente no conflito.
+
+### Corrigido — altos
+
+- **Contenção virava "Sem participantes".** Esgotadas as tentativas do
+  compare-and-swap, o lead entrava órfão e a auditoria dizia "não havia ninguém
+  no rodízio" — falso com a equipe inteira de plantão, e mandando o
+  administrador procurar no lugar errado. Agora tem motivo próprio
+  (`contention`, migration `0018`), leva os candidatos junto como prova de que
+  havia gente, e o laço ganhou **espera crescente com jitter** — sem ela os
+  perdedores de uma rajada recomeçavam no mesmo instante e colidiam de novo.
+- **`/relatorios/vendedores` truncava em 1000 linhas.** As agregações são
+  feitas em memória e o PostgREST corta em `max_rows`; sem `order`, nem era a
+  amostra mais recente. Justamente o relatório usado para conferir se o rodízio
+  é justo. Passou a paginar com `range` e a **avisar na tela** quando estoura o
+  teto.
+- **A deduplicação engolia lead legítimo.** Casava por funil: dois formulários
+  distintos apontando para o mesmo funil faziam a segunda submissão virar linha
+  de histórico dentro de um card já em Follow-up com outro responsável. Passou
+  a casar pelo **mesmo formulário** — interesse em outro produto é lead novo. E
+  `deduplicated` ganhou consumidor: a resposta da ingestão agora distingue
+  "criou lead" de "anexou a um lead aberto".
+
+### Corrigido — médios e menores
+
+- **Reordenar a fila reinicia o cursor.** Ele guarda uma posição, e a
+  renumeração deu outro significado a cada número: sem reiniciar, quem acabou
+  de receber recebia de novo.
+- **`assignments_count` entrou na condição do compare-and-swap.** Era
+  read-modify-write desprotegido, e no caso do responsável fixo (um
+  participante, peso 1) o cursor nunca recusa ninguém — duas requisições liam o
+  mesmo total e gravavam o mesmo número.
+- Campo de peso passou a recarregar na falha (era não controlado e mantinha o
+  valor recusado na tela); selo de plantão virou `role="switch"` com
+  `aria-checked`, `aria-label` nominativo, foco visível e alvo de 36 px;
+  `/distribuicao` entrou na **navegação**; o webhook do WhatsApp passou a
+  gravar `lead_assigned` no histórico como as outras origens; a coluna de ações
+  da auditoria ganhou rótulo para leitor de tela.
+
+### Migration `0018` — pendente
+
+- `lead_distribution_log.deal_id` passou de `on delete cascade` para
+  **`on delete set null`**: apagar a negociação apagava a prova de para quem ela
+  tinha sido distribuída — exatamente a pergunta que a tabela existe para
+  responder numa disputa. O comentário da `0016` já dizia `set null`; o SQL
+  fazia o contrário.
+- Motivo `contention` no `check` de `reason`.
+- **Reparo das posições duplicadas** já gravadas pela tela, com reinício do
+  cursor das regras afetadas, numa única instrução — a primeira versão
+  renumerava num comando e reiniciava no seguinte, que já não achava as
+  duplicatas recém-eliminadas.
+
+### Sobre posições duplicadas no domínio
+
+`pickNext` **não** tenta se defender delas, e há um teste documentando isso: o
+cursor guarda uma posição, duas pessoas na mesma posição são indistinguíveis
+para ele, e renumerar dentro do domínio quebraria a propriedade que sustenta o
+plantão — as posições precisam ser estáveis para que tirar alguém não desloque
+os outros. Duplicata é **estado inválido**: impedido na action e reparado pela
+`0018`.
+
+### Validação
+
+`npm run test:db` **145 asserções** (eram 138), 7 novas no bloco 18.
+`npm run test:unit` **65 testes**. `tsc` limpo, `build` sem erro,
+`git diff --check` OK.
+
 ## 2026-08-27 — motor da fila ordenada e plantão na tela
 
 Migration `0017` **aplicada pelo cliente**. O motor e a interface passaram a

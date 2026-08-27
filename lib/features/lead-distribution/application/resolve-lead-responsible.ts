@@ -93,13 +93,27 @@ export async function resolveLeadResponsible({
   // avançou no meio, a vez passou a ser de OUTRA pessoa, e insistir na escolha
   // antiga entregaria dois leads seguidos para a mesma. Refazer a decisão é o
   // comportamento correto, não um custo.
+  let ultimosCandidatos: DistributionAudit["candidates"] = [];
+
   for (let tentativa = 0; tentativa < CURSOR_MAX_ATTEMPTS; tentativa++) {
+    // Espera crescente com jitter antes de repetir.
+    //
+    // Sem ela, os perdedores de uma rajada recomeçam todos no mesmo instante e
+    // colidem de novo — o padrão que faz as cinco tentativas se esgotarem numa
+    // campanha movimentada, que é justamente quando a distribuição não pode
+    // falhar. O jitter existe para não sincronizar os concorrentes.
+    if (tentativa > 0) {
+      const espera = 15 * 2 ** (tentativa - 1) + Math.floor(Math.random() * 15);
+      await new Promise((resolve) => setTimeout(resolve, espera));
+    }
+
     const fila = await loadEligibleQueue(admin, regra.id, organizationId);
     const candidatos = fila.map((p) => ({
       profile_id: p.profileId,
       name: p.name,
       weight: p.weight,
     }));
+    ultimosCandidatos = candidatos;
 
     if (fila.length === 0) {
       // Ninguém de plantão. O lead entra sem responsável e a auditoria diz por
@@ -145,11 +159,20 @@ export async function resolveLeadResponsible({
     };
   }
 
+  // MOTIVO PRÓPRIO, COM OS CANDIDATOS.
+  //
+  // Antes isto virava `no_candidates`, que na tela diz "a regra casou, mas não
+  // havia ninguém no rodízio" — uma frase falsa quando a equipe inteira estava
+  // de plantão, e que manda o administrador procurar no lugar errado. Os
+  // candidatos vão junto justamente para provar que havia gente.
   console.error(
     "[distribuicao] contenção alta na fila: vez não obtida em",
     CURSOR_MAX_ATTEMPTS,
     "tentativas",
-    { ruleId: regra.id }
+    { ruleId: regra.id, candidatos: ultimosCandidatos.length }
   );
-  return { responsibleId: null, audit: { ...comRegra, reason: "no_candidates" } };
+  return {
+    responsibleId: null,
+    audit: { ...comRegra, candidates: ultimosCandidatos, reason: "contention" },
+  };
 }

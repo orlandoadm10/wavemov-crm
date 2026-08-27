@@ -1508,6 +1508,123 @@ console.log("\n== 17. Migração aplicada sobre base COM DADOS ==");
   else fail("o cursor foi zerado ao reaplicar a migration");
 }
 
+console.log("\n== 18. Auditoria e reparo de posições (0018) ==");
+{
+  const arquivo0018 = path.join(MIG, "0018_auditoria_da_distribuicao.sql");
+  const sql0018 = readFileSync(arquivo0018, "utf8");
+
+  const regra18 = await umaLinha(
+    `select id from public.lead_distribution_rules where organization_id = $1 and is_fallback`,
+    [ORG_A]
+  );
+
+  // ---- Apagar o lead não pode apagar a auditoria ----
+  const dealDescartavel = await umaLinha(
+    `insert into public.deals (organization_id, pipeline_id, stage_id, title)
+     select $1, p.id, s.id, 'Lead para apagar'
+       from public.pipelines p
+       join public.pipeline_stages s on s.pipeline_id = p.id and not s.is_won_stage and not s.is_lost_stage
+      where p.organization_id = $1 and p.is_default
+      limit 1
+     returning id`,
+    [ORG_A]
+  );
+  await db.query(
+    `insert into public.lead_distribution_log
+       (organization_id, deal_id, rule_id, rule_name, method, origin, assigned_to_name, reason)
+     values ($1,$2,$3,'Regra do teste','ordered_queue','external_ingest','Sergio','rule_matched')`,
+    [ORG_A, dealDescartavel.id, regra18.id]
+  );
+  await db.query(`delete from public.deals where id = $1`, [dealDescartavel.id]);
+
+  const auditoria = await umaLinha(
+    `select deal_id, assigned_to_name from public.lead_distribution_log where rule_name = 'Regra do teste'`
+  );
+  if (auditoria && auditoria.deal_id === null && auditoria.assigned_to_name === "Sergio")
+    ok("apagar a negociação NÃO apaga a auditoria da distribuição dela");
+  else fail("auditoria perdida ao apagar o lead", JSON.stringify(auditoria));
+
+  // ---- Motivo próprio para contenção ----
+  const contencao = await db.query(
+    `insert into public.lead_distribution_log (organization_id, origin, reason)
+       values ($1, 'external_ingest', 'contention') returning id`,
+    [ORG_A]
+  );
+  if (contencao.rows.length === 1)
+    ok("o motivo `contention` é aceito (contenção deixou de ser diagnosticada como sem participantes)");
+  else fail("contention recusado pelo check");
+
+  await esperaErro(
+    "motivo inventado continua recusado",
+    () =>
+      db.query(
+        `insert into public.lead_distribution_log (organization_id, origin, reason)
+           values ($1, 'external_ingest', 'porque sim')`,
+        [ORG_A]
+      ),
+    /reason_check|check constraint/i
+  );
+
+  // ---- Reparo das posições duplicadas ----
+  //
+  // Reconstrói o estado que a tela produzia antes da correção: todo mundo em
+  // `position = 0`, com o cursor já em uso.
+  await db.query(`update public.lead_distribution_participants set position = 0 where rule_id = $1`, [
+    regra18.id,
+  ]);
+  await db.query(
+    `update public.lead_distribution_rules set queue_position = 0, queue_uses = 1 where id = $1`,
+    [regra18.id]
+  );
+
+  const antesDoReparo = await umaLinha(
+    `select count(*) as n from public.lead_distribution_participants where rule_id = $1 and position = 0`,
+    [regra18.id]
+  );
+  if (Number(antesDoReparo.n) > 1) ok(`estado inválido reconstruído: ${antesDoReparo.n} pessoas na posição 0`);
+  else fail("a simulação precisa de mais de um participante empatado");
+
+  await db.exec(sql0018);
+
+  const depoisDoReparo = await db.query(
+    `select position from public.lead_distribution_participants where rule_id = $1 order by position`,
+    [regra18.id]
+  );
+  const posicoes18 = depoisDoReparo.rows.map((r) => Number(r.position));
+  if (new Set(posicoes18).size === posicoes18.length)
+    ok(`posições duplicadas foram reparadas (${posicoes18.join(", ")})`);
+  else fail("duplicatas sobreviveram ao reparo", JSON.stringify(posicoes18));
+
+  const cursorReparado = await umaLinha(
+    `select queue_position, queue_uses from public.lead_distribution_rules where id = $1`,
+    [regra18.id]
+  );
+  if (Number(cursorReparado.queue_position) === -1 && Number(cursorReparado.queue_uses) === 0)
+    ok("o cursor da regra reparada é reiniciado — ele apontava para um número que mudou de dono");
+  else fail("cursor não reiniciado após o reparo", JSON.stringify(cursorReparado));
+
+  // Reaplicar não pode mexer em quem já está correto.
+  const antes = JSON.stringify(
+    (
+      await db.query(
+        `select profile_id, position from public.lead_distribution_participants where rule_id = $1 order by position`,
+        [regra18.id]
+      )
+    ).rows
+  );
+  await db.exec(sql0018);
+  const depois = JSON.stringify(
+    (
+      await db.query(
+        `select profile_id, position from public.lead_distribution_participants where rule_id = $1 order by position`,
+        [regra18.id]
+      )
+    ).rows
+  );
+  if (antes === depois) ok("reaplicar a 0018 não mexe em fila já correta");
+  else fail("a 0018 não é idempotente", `${antes} -> ${depois}`);
+}
+
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);
 await db.close();
 process.exit(falhas === 0 ? 0 : 1);

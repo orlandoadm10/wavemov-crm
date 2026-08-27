@@ -114,3 +114,35 @@ test("peso reduzido abaixo do já consumido faz a fila avançar na hora", () => 
   const escolha = pickNext([p("Ana", 0, 1), BRUNO, CARLA], { position: 0, uses: 2 });
   assert.equal(escolha?.participant.name, "Bruno");
 });
+
+test("posições DUPLICADAS degeneram a fila — por isso são estado inválido", () => {
+  // Este teste documenta um LIMITE, não um recurso.
+  //
+  // O cursor guarda uma POSIÇÃO. Duas pessoas na mesma posição são
+  // indistinguíveis para ele, e a fila trava: `find(p => p.position > 0)` não
+  // acha ninguém e cai no `?? fila[0]` para sempre.
+  //
+  // Foi exatamente o defeito que a auditoria encontrou — a tela adicionava
+  // todo participante em `position = 0` — e a correção é impedir o estado
+  // inválido (a action calcula `max(position)+1`) e reparar o que já existe
+  // (migration 0018), NÃO fazer o domínio adivinhar.
+  //
+  // Se alguém for "consertar" isto renumerando a fila dentro de `pickNext`,
+  // vai quebrar a propriedade que sustenta o plantão: as posições precisam ser
+  // estáveis para que tirar uma pessoa não desloque as outras.
+  const empatados = [p("Ana", 0), p("Bruno", 0), p("Carla", 0)];
+  const { recebidos } = distribuir(empatados, 4);
+  assert.equal(
+    new Set(recebidos).size,
+    1,
+    "com posições empatadas a fila degenera — é o motivo de elas serem proibidas"
+  );
+});
+
+test("posições distintas garantem que todo mundo recebe", () => {
+  // A invariante que o sistema realmente promete, e que a action e a 0018
+  // passaram a garantir.
+  const { recebidos } = distribuir([p("Ana", 0), p("Bruno", 1), p("Carla", 2)], 6);
+  assert.equal(new Set(recebidos).size, 3);
+  assert.deepEqual(recebidos, ["Ana", "Bruno", "Carla", "Ana", "Bruno", "Carla"]);
+});

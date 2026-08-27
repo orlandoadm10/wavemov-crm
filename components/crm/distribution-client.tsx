@@ -91,6 +91,11 @@ export function DistributionClient({
       const r = await acao();
       if (r.error) {
         setMessage({ type: "error", text: r.error });
+        // Recarrega mesmo na falha: os campos de peso são não controlados
+        // (`defaultValue`), então sem isto a tela seguiria exibindo o número
+        // que o usuário digitou enquanto o banco tem outro — e descobrir isso
+        // dependeria de recarregar a página na mão.
+        router.refresh();
         return;
       }
       setMessage({ type: "ok", text: r.success ?? "Pronto." });
@@ -387,6 +392,10 @@ function RuleCard({
                 </span>
 
                 <button
+                  type="button"
+                  role="switch"
+                  aria-checked={p.on_duty}
+                  aria-label={`Plantão de ${nomeDe(p)}`}
                   onClick={() =>
                     onParticipant(() =>
                       setOnDutyAction({ profileId: p.profile_id, onDuty: !p.on_duty })
@@ -398,7 +407,7 @@ function RuleCard({
                       ? "De plantão — recebe leads. Clique para tirar da fila sem perder a posição."
                       : "Fora do plantão — é pulado na fila. Clique para religar."
                   }
-                  className="rounded-lg px-1 py-1 disabled:opacity-50"
+                  className="flex h-9 items-center rounded-lg px-2 transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:opacity-50"
                 >
                   <Badge tone={p.on_duty ? "green" : "slate"} dot>
                     {p.on_duty ? "Plantão" : "Fora"}

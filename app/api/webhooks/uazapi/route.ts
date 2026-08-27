@@ -364,6 +364,22 @@ export async function POST(request: Request) {
 
           if (dealId) {
             await recordDistribution(admin, organizationId, dealId, distribuicao.audit);
+
+            // A mesma linha de histórico que as outras duas origens gravam.
+            // Sem ela, o vendedor que recebe um lead de WhatsApp vê o card
+            // aparecer na fila dele sem nenhuma explicação — e, pelas outras
+            // origens, vê.
+            if (distribuicao.responsibleId && distribuicao.audit.reason === "rule_matched") {
+              await admin.from("activity_logs").insert({
+                organization_id: organizationId,
+                deal_id: dealId,
+                type: "lead_assigned",
+                title: `Lead distribuído para ${distribuicao.audit.assignedToName ?? "responsável"}`,
+                description: distribuicao.audit.ruleName
+                  ? `Regra: ${distribuicao.audit.ruleName}`
+                  : null,
+              });
+            }
           }
         }
       }
