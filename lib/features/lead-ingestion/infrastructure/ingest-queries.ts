@@ -14,6 +14,32 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 const UNIQUE_VIOLATION = "23505";
 
 /**
+ * Tetos do `metadata` da ingestão.
+ *
+ * `data` já era cortado por valor em `sanitizeSubmission`; `metadata` não
+ * tinha teto nenhum. Um fluxo mal mapeado no n8n que despeje o payload bruto
+ * da origem gravaria o jsonb inteiro — e ele viaja para o navegador no detalhe
+ * do lead e no atendimento. O corte é por valor e por total, e o que sobra
+ * ainda é muito maior que qualquer formulário real.
+ */
+const MAX_METADATA_VALUE = 8_000;
+const MAX_METADATA_KEYS = 60;
+
+/**
+ * Corta o `metadata` antes de gravar, preservando o começo de cada valor.
+ *
+ * Truncar é melhor que recusar: o lead entra, e o que se perde é a cauda de um
+ * campo que ninguém ia ler. Recusar perderia o lead inteiro.
+ */
+function limitMetadata(metadata: Record<string, string>): Record<string, string> {
+  const recortado: Record<string, string> = {};
+  for (const [key, value] of Object.entries(metadata).slice(0, MAX_METADATA_KEYS)) {
+    recortado[key] = value.slice(0, MAX_METADATA_VALUE);
+  }
+  return recortado;
+}
+
+/**
  * Organização dona do segredo apresentado, ou `null`.
  *
  * O lookup usa o índice único de `organization_ingest_secrets.secret`: um
@@ -150,7 +176,7 @@ export async function claimIngestSubmission(
       external_event_id: input.externalEventId,
       source: "external_ingest",
       raw_data: input.clean,
-      metadata: input.metadata,
+      metadata: limitMetadata(input.metadata),
     })
     .select("id")
     .single();

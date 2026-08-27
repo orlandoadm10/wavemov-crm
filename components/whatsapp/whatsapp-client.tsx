@@ -62,7 +62,6 @@ type Filter = "all" | "unread" | "open" | "mine" | "unassigned";
  */
 const CONVERSATION_WINDOW = 500;
 
-
 interface Props {
   organizationId: string;
   profileId: string;

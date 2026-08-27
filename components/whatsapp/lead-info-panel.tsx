@@ -88,6 +88,7 @@ export function LeadInfoPanel({
         formExternalId={formExternalId}
         hasSubmission={hasSubmission}
         canEdit={canEdit}
+        onSaved={setMetadata}
         compact
       />
     </div>

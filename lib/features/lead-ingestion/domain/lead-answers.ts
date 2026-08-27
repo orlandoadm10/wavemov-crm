@@ -27,10 +27,20 @@ export interface LeadInfo {
    * `r-lista`…), ou `null` quando não havia bloco.
    *
    * A tela NUNCA mostra este nome — é detalhe da origem, não informação do
-   * lead. Ele existe porque a edição precisa gravar de volta na MESMA chave,
-   * sem inventar uma segunda nem apagar o resto do `metadata`.
+   * lead.
    */
   answersKey: string | null;
+  /**
+   * TODAS as chaves cujo conteúdo foi para `answers`.
+   *
+   * `answers` é uma lista achatada: se a origem mandar dois campos com
+   * quebra de linha (o bloco do Typeform e, digamos, uma mensagem livre do
+   * lead), as linhas dos dois entram na mesma lista. A edição precisa saber
+   * disso — gravar o texto editado só na primeira chave deixaria a segunda
+   * intacta e o conteúdo dela apareceria duas vezes no próximo carregamento,
+   * de forma cumulativa a cada Salvar.
+   */
+  blockKeys: string[];
 }
 
 /**
@@ -94,22 +104,22 @@ function unescapeNewlines(value: string): string {
 }
 
 /**
- * Todo valor com mais de uma linha é bloco de respostas. Sem exceção.
+ * É bloco de respostas por FORMA (mais de uma linha) ou por IDENTIDADE (é a
+ * chave em que o CRM grava o que o usuário edita).
  *
- * A regra é essa, e não "a maioria das linhas tem `:`", por uma razão de
- * produto: o nome da chave da origem (`r_lista`, `r-lista`) NUNCA pode
- * aparecer na tela. Enquanto a classificação dependia do conteúdo, bastava um
- * dado fora do previsto — uma resposta que o lead escreveu em duas linhas, uma
- * pergunta sem dois-pontos — para o bloco inteiro cair nos extras e ser
- * desenhado como `R lista: <texto gigante>`.
+ * A parte da forma resolve o que vem da origem: rotular um texto de várias
+ * linhas com o nome técnico da chave nunca é o que se quer; tratá-lo como
+ * respostas, mesmo mal formatado, sempre é.
  *
- * Rotular um texto de várias linhas com o nome técnico da chave nunca é o que
- * se quer; tratá-lo como respostas, mesmo mal formatado, sempre é. As linhas
- * sem separador viram resposta sem pergunta, e o conteúdo aparece do mesmo
- * jeito.
+ * A parte da identidade conserta um defeito que só aparecia depois da
+ * edição: se o usuário apagasse linhas até sobrar uma, o valor deixava de ter
+ * "mais de uma linha", virava extra rotulado — com `R lista` de volta na tela
+ * — e, pior, a caixa de edição reabria VAZIA, de modo que o Salvar seguinte
+ * apagava a última informação que restava. Uma vez que a chave é a do CRM,
+ * ela é bloco independentemente de quantas linhas tenha.
  */
-function isAnswerBlock(lines: string[]): boolean {
-  return lines.length > 1;
+function isAnswerBlock(key: string, lines: string[]): boolean {
+  return lines.length > 1 || key === DEFAULT_ANSWERS_KEY;
 }
 
 /**
@@ -137,10 +147,11 @@ function humanizeKey(key: string): string {
 export function parseLeadInfo(metadata: unknown): LeadInfo {
   const answers: LeadAnswer[] = [];
   const extras: LeadAnswer[] = [];
+  const blockKeys: string[] = [];
   let answersKey: string | null = null;
 
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    return { answers, extras, answersKey };
+    return { answers, extras, answersKey, blockKeys };
   }
 
   for (const [key, rawValue] of Object.entries(metadata as Record<string, unknown>)) {
@@ -155,8 +166,9 @@ export function parseLeadInfo(metadata: unknown): LeadInfo {
 
     const lines = value.split("\n").filter((l) => l.trim());
 
-    if (isAnswerBlock(lines)) {
+    if (isAnswerBlock(key, lines)) {
       answersKey ??= key;
+      blockKeys.push(key);
       for (const line of lines) {
         const parsed = parseAnswerLine(line);
         if (parsed) answers.push(parsed);
@@ -166,7 +178,7 @@ export function parseLeadInfo(metadata: unknown): LeadInfo {
     }
   }
 
-  return { answers, extras, answersKey };
+  return { answers, extras, answersKey, blockKeys };
 }
 
 /** Há algo que valha desenhar? Evita renderizar um card vazio. */
@@ -185,6 +197,43 @@ export function serializeLeadAnswers(answers: LeadAnswer[]): string {
   return answers
     .map((a) => (a.question ? `${a.question}: ${a.answer}` : a.answer))
     .join("\n");
+}
+
+/**
+ * O `metadata` que deve ser gravado depois de o usuário editar as respostas.
+ *
+ * CONSOLIDA: apaga TODAS as chaves que alimentavam `answers` e escreve o texto
+ * editado numa única chave, a do CRM (`DEFAULT_ANSWERS_KEY`). Duas razões, as
+ * duas vindas de defeitos reais:
+ *
+ * 1. Gravar só na primeira chave deixava as outras intactas, e o conteúdo
+ *    delas — que já estava na caixa de edição — voltava a ser somado na
+ *    leitura seguinte. Salvar sem mudar nada duplicava linhas, de forma
+ *    cumulativa, e o histórico registrava alterações que ninguém fez.
+ * 2. Escrever sempre na mesma chave dá IDENTIDADE ao bloco. Sem isso, apagar
+ *    linhas até sobrar uma fazia o valor deixar de parecer bloco, virar extra
+ *    rotulado com o nome técnico da chave e reabrir a edição vazia — o Salvar
+ *    seguinte apagava o que restava.
+ *
+ * Tudo que NÃO é bloco (utm, enriquecimento, ids da origem) é preservado
+ * intacto.
+ */
+export function applyEditedAnswers(
+  metadata: unknown,
+  blockText: string
+): Record<string, unknown> {
+  const base =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? { ...(metadata as Record<string, unknown>) }
+      : {};
+
+  for (const key of parseLeadInfo(metadata).blockKeys) delete base[key];
+
+  const texto = blockText.trim();
+  if (texto) base[DEFAULT_ANSWERS_KEY] = texto;
+  else delete base[DEFAULT_ANSWERS_KEY];
+
+  return base;
 }
 
 /**

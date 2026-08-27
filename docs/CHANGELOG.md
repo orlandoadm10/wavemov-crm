@@ -2,6 +2,56 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — correções da auditoria de QA da Frente B
+
+Auditoria do `qa-engineer` sobre tudo entre `ea30a2d` e `4c68408`. **Sem
+achado de isolamento multiempresa** — o núcleo da Frente B está correto. Os
+três Altos abaixo eram do recurso de edição das Informações do Lead, todos
+reproduzidos contra o código real antes da correção. **Sem migration.**
+
+### Corrigido
+
+- **[Alto] O card do atendimento não refletia a edição salva, e a edição
+  seguinte desfazia a anterior.** Ali as informações vivem em estado de
+  cliente, não em prop de Server Component: `revalidatePath` não alcançava
+  nada. A tela dizia "atualizado" mostrando o valor antigo, e o lápis semeava
+  a caixa a partir dele — o Salvar seguinte revertia a edição, com registro no
+  histórico dizendo que o valor voltou. `updateLeadInfoAction` passou a
+  devolver o `metadata` gravado, propagado por `onSaved`.
+- **[Alto] Editar até sobrar uma linha destruía o bloco.** O valor deixava de
+  ter "mais de uma linha", virava extra rotulado — com `R lista` de volta na
+  tela — e a caixa reabria **vazia**, de modo que o Salvar seguinte apagava o
+  que restava. O bloco passou a ter identidade além de forma: a chave do CRM é
+  bloco independentemente da contagem de linhas.
+- **[Alto] `metadata` com dois valores multilinha duplicava a cada Salvar.** O
+  texto editado ia só para a primeira chave e a segunda ficava intacta, então
+  seu conteúdo voltava a ser somado na leitura seguinte, de forma cumulativa, e
+  o histórico registrava alterações que ninguém fez. A edição passou a
+  consolidar: apaga todas as chaves de bloco e grava numa só.
+- **[Médio] Um `null` no payload derrubava o lead inteiro com 400 permanente.**
+  Origens reais mandam `null` em campo opcional não preenchido e o Meta manda
+  estruturas aninhadas; o n8n reentregava, tomava 400 de novo, e o lead se
+  perdia. `data` e `metadata` passaram por um schema tolerante que descarta o
+  que não é texto **antes** da validação — a decisão já estava escrita em
+  `form-payload.ts`, era a validação que não a respeitava.
+- **[Médio] `metadata` da ingestão sem teto de tamanho.** Um fluxo mal mapeado
+  gravaria o payload bruto inteiro, que depois trafega para o navegador. Corte
+  por valor (8.000) e por número de chaves (60), truncando em vez de recusar.
+- **[Médio] A tela dizia "apenas letras minúsculas"** desde a `0015`, que passou
+  a aceitar maiúsculas. O operador "traduzia" o id do Typeform e o n8n recebia
+  404. Os três textos foram alinhados, avisando que a caixa precisa ser idêntica
+  à da origem.
+- **[Baixo]** Alvo de toque do lápis de 28 px → 36 px; `role="alert"` e
+  `try/catch` no `navigator.clipboard` do painel de integração (rejeita em
+  contexto não seguro e o clique não dava retorno nenhum).
+
+### Validação
+
+- `npm run test:unit` **42 testes** (eram 30). Dois arquivos novos:
+  `lead-answers-edit.test.mts` (os três Altos, cada teste falha na versão
+  anterior) e `ingest-schema.test.mts` (tolerância a `null` e aninhamento).
+- `npx tsc --noEmit` limpo; `npm run build` sem erro; `npm run test:db` 91.
+
 ## 2026-08-27 — quebras de linha escapadas do n8n
 
 **Sem migration.** Corrige a causa real de "as respostas do lead aparecem num
@@ -17,8 +67,10 @@ bloco só, rotuladas com o nome da chave".
   era reconhecido como respostas e ia para o card secundário desenhado como
   `R lista: <texto gigante>` — com o card principal vazio. `parseLeadInfo`
   passou a desfazer `
-`, `
-` e `` escapados antes de qualquer decisão.
+`, `
+
+` e `
+` escapados antes de qualquer decisão.
 - **O nome da chave da origem não pode mais virar rótulo, por regra e não por
   heurística**: todo valor de várias linhas é bloco de respostas. Antes a
   classificação dependia do conteúdo, então qualquer dado fora do previsto

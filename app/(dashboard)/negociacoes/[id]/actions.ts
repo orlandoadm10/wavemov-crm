@@ -1,7 +1,7 @@
 "use server";
 
 import {
-  DEFAULT_ANSWERS_KEY,
+  applyEditedAnswers,
   diffLeadAnswers,
   parseLeadInfo,
 } from "@/lib/features/lead-ingestion/domain/lead-answers";
@@ -9,7 +9,20 @@ import { getSessionContext } from "@/lib/services/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 
-export type LeadInfoUpdateResult = { error?: string; success?: string };
+export type LeadInfoUpdateResult = {
+  error?: string;
+  success?: string;
+  /**
+   * O `metadata` efetivamente gravado.
+   *
+   * A tela de atendimento carrega as informações para estado do cliente, não
+   * como prop de Server Component: ali `revalidatePath` não alcança nada e o
+   * card continuaria mostrando o valor antigo depois de salvar — e a edição
+   * seguinte partiria desse valor obsoleto, desfazendo a anterior. Devolver o
+   * que foi gravado é o que fecha esse buraco.
+   */
+  metadata?: Record<string, unknown>;
+};
 
 /** Teto do bloco. Não é limite de negócio: é o que impede um POST absurdo. */
 const MAX_BLOCK_LENGTH = 20_000;
@@ -99,19 +112,27 @@ export async function updateLeadInfoAction(
   const metadataAtual = (submission.metadata ?? {}) as Record<string, unknown>;
   const infoAntes = parseLeadInfo(metadataAtual);
 
-  // Grava de volta na MESMA chave em que a origem mandou o bloco, preservando
-  // todo o resto do `metadata` (utm, enriquecimento, ids). Inventar uma chave
-  // nova deixaria dois blocos convivendo e a tela mostraria os dois.
-  const chave = infoAntes.answersKey ?? DEFAULT_ANSWERS_KEY;
-  const texto = blockText.trim();
-  const metadataNovo = { ...metadataAtual, [chave]: texto };
+  // Consolida em uma única chave e preserva tudo que não é bloco — ver
+  // `applyEditedAnswers`, que carrega o porquê.
+  const metadataNovo = applyEditedAnswers(metadataAtual, blockText);
 
   const infoDepois = parseLeadInfo(metadataNovo);
   const mudancas = diffLeadAnswers(infoAntes.answers, infoDepois.answers);
 
   if (mudancas.length === 0) {
-    // Nada mudou: não suja o histórico com uma linha vazia de informação.
-    return { success: "Nenhuma alteração a salvar." };
+    // Nada mudou no conteúdo. Ainda assim grava, porque a consolidação de
+    // chaves pode ter acontecido — e devolve o metadata para a tela não ficar
+    // com uma versão diferente da do banco.
+    const { error: consolidateError } = await admin
+      .from("form_submissions")
+      .update({ metadata: metadataNovo })
+      .eq("id", submission.id)
+      .select("id")
+      .maybeSingle();
+    if (consolidateError) {
+      console.error("[lead-info] falha ao consolidar metadata", consolidateError);
+    }
+    return { success: "Nenhuma alteração a salvar.", metadata: metadataNovo };
   }
 
   const { data: updated, error: updateError } = await admin
@@ -151,5 +172,5 @@ export async function updateLeadInfoAction(
 
   revalidatePath(`/negociacoes/${dealId}`);
   revalidatePath("/atendimento");
-  return { success: "Informações do lead atualizadas." };
+  return { success: "Informações do lead atualizadas.", metadata: metadataNovo };
 }

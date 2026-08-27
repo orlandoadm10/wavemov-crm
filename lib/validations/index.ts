@@ -105,6 +105,36 @@ export const publicSubmissionSchema = z.record(
 );
 
 /**
+ * Mesmo contrato, mas TOLERANTE a lixo de integração.
+ *
+ * Origens reais mandam `null` no campo opcional que o lead não preencheu, e o
+ * Meta manda estruturas aninhadas (`field_data: [...]`). Com o schema estrito,
+ * um único `"email": null` derrubava a requisição inteira com 400 — o n8n
+ * reentregava, tomava 400 de novo, e o lead se perdia. Recusar um lead inteiro
+ * por causa de um campo que nem seria usado é o pior desfecho possível.
+ *
+ * A decisão já estava escrita em `form-payload.ts` ("chave desconhecida é
+ * descartada em silêncio de propósito"); a validação é que não a respeitava.
+ * Aqui as chaves não aproveitáveis são removidas ANTES do `z.record`, e
+ * `sanitizeSubmission` segue decidindo o que entra, contra os `form_fields`.
+ *
+ * Continua 400 quando o corpo não é objeto — aí não há o que aproveitar.
+ */
+const descartaValoresNaoTextuais = (valor: unknown) => {
+  if (!valor || typeof valor !== "object" || Array.isArray(valor)) return valor;
+  return Object.fromEntries(
+    Object.entries(valor as Record<string, unknown>).filter(
+      ([, v]) => typeof v === "string" || typeof v === "number" || typeof v === "boolean"
+    )
+  );
+};
+
+export const tolerantSubmissionSchema = z.preprocess(
+  descartaValoresNaoTextuais,
+  publicSubmissionSchema
+);
+
+/**
  * `forms.external_id` — mesma regra do `check` do banco (0014, ampliada pela
  * 0015 para aceitar maiúsculas).
  *
@@ -138,7 +168,7 @@ export const externalIdSchema = z
 export const externalLeadIngestSchema = z.object({
   form_external_id: externalIdSchema,
   event_id: z.string().min(1).max(200),
-  data: publicSubmissionSchema,
+  data: tolerantSubmissionSchema,
   /**
    * Bloco livre com o que a origem contou sobre o lead — no Typeform e no
    * Meta Lead Ads é aqui que vêm as RESPOSTAS do formulário, empacotadas numa
@@ -151,7 +181,7 @@ export const externalLeadIngestSchema = z.object({
    *
    * Opcional: o fluxo que não mandar nada continua válido.
    */
-  metadata: publicSubmissionSchema.optional(),
+  metadata: tolerantSubmissionSchema.optional(),
 });
 
 // ---------------- WhatsApp ----------------

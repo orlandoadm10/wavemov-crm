@@ -59,7 +59,7 @@ function describeFormWriteError(err: unknown, fallback: string) {
   }
   if (code === "23514" && details.includes("forms_external_id_format")) {
     if (err) console.error(fallback, err);
-    return "Identificador de integração inválido: use de 3 a 64 caracteres, apenas letras minúsculas, números, hífen ou sublinhado.";
+    return "Identificador de integração inválido: use de 3 a 64 caracteres — letras, números, hífen ou sublinhado.";
   }
   return describeWriteError(err, fallback);
 }
@@ -177,7 +177,7 @@ export function FormsClient({
     const trimmedExternalId = externalId.trim();
     if (trimmedExternalId && !EXTERNAL_ID_PATTERN.test(trimmedExternalId)) {
       return setError(
-        "Identificador de integração inválido: use de 3 a 64 caracteres, apenas letras minúsculas, números, hífen ou sublinhado."
+        "Identificador de integração inválido: use de 3 a 64 caracteres — letras, números, hífen ou sublinhado."
       );
     }
     setSaving(true);
@@ -460,8 +460,9 @@ export function FormsClient({
             <p id="external-id-hint" className="-mt-2 text-xs text-ink-faint">
               Preencha para receber leads deste formulário por um fluxo do n8n. É o valor
               que vai em <code className="rounded bg-slate-100 px-1">form_external_id</code>.
-              Minúsculas, números, hífen ou sublinhado. Deixe vazio se o formulário só for
-              usado pela página pública.
+              Cole o id da origem <b>exatamente como ele é</b> — maiúsculas e minúsculas
+              contam, e trocar a caixa faz o n8n receber 404. Letras, números, hífen ou
+              sublinhado. Deixe vazio se o formulário só for usado pela página pública.
             </p>
           </div>
 

@@ -38,10 +38,20 @@ export function ExternalIngestPanel({
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [rotating, startRotate] = useTransition();
 
+  // `navigator.clipboard` rejeita em contexto não seguro (http em rede local,
+  // por exemplo). Sem o catch, o clique não dava retorno nenhum e o operador
+  // ficava achando que copiou.
   async function copy(value: string, key: string) {
-    await navigator.clipboard.writeText(value);
-    setCopied(key);
-    setTimeout(() => setCopied((c) => (c === key ? null : c)), 2000);
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(key);
+      setTimeout(() => setCopied((c) => (c === key ? null : c)), 2000);
+    } catch {
+      setMessage({
+        type: "error",
+        text: "O navegador bloqueou a cópia. Selecione o texto e copie manualmente.",
+      });
+    }
   }
 
   // A organização vai pela sessão do servidor dentro da action — nada de
@@ -260,6 +270,7 @@ export function ExternalIngestPanel({
 
         {message && (
           <p
+            role={message.type === "error" ? "alert" : undefined}
             className={
               message.type === "ok"
                 ? "rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"

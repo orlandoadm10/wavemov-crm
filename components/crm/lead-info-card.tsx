@@ -31,6 +31,7 @@ export function LeadInfoCard({
   formExternalId = null,
   hasSubmission = false,
   canEdit = false,
+  onSaved,
   className,
   compact = false,
 }: {
@@ -46,6 +47,13 @@ export function LeadInfoCard({
    */
   hasSubmission?: boolean;
   canEdit?: boolean;
+  /**
+   * Chamado com o `metadata` gravado. Obrigatório para quem mantém as
+   * informações em estado de cliente (o painel do atendimento): lá
+   * `router.refresh()` não alcança nada, e sem isto o card seguiria mostrando
+   * o valor antigo — e a próxima edição partiria dele, desfazendo esta.
+   */
+  onSaved?: (metadata: Record<string, unknown>) => void;
   className?: string;
   /** Versão do atendimento: densidade maior, sem moldura de Card. */
   compact?: boolean;
@@ -81,6 +89,9 @@ export function LeadInfoCard({
       }
       setEditing(false);
       setMessage({ type: "ok", text: result.success ?? "Informações atualizadas." });
+      if (result.metadata) onSaved?.(result.metadata);
+      // Atualiza quem recebe as informações como prop de Server Component
+      // (o detalhe do lead). Inofensivo para o atendimento, que usa `onSaved`.
       router.refresh();
     });
   }
@@ -139,7 +150,7 @@ export function LeadInfoCard({
   const lapis = editavel && !editing && (
     <button
       onClick={abrirEdicao}
-      className="rounded-lg p-1.5 text-ink-faint transition-colors hover:bg-slate-100 hover:text-primary-700"
+      className="-m-1 flex h-9 w-9 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-slate-100 hover:text-primary-700"
       aria-label="Editar informações do lead"
     >
       <Pencil className="h-4 w-4" />
