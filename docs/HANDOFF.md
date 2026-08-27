@@ -132,10 +132,8 @@ cliente — o cliente não autorizou lead de teste na base real nesta rodada. O
 smoke test da seção 9.2 continua sendo o próximo passo, e é o único item da
 Frente B ainda em aberto.
 
-Sem cobertura de teste: **nada exercita o middleware**. Foi exatamente onde o
-defeito acima morava por meses. Um teste de rota que confirme que os três
-caminhos de `/api` públicos não redirecionam vale mais que a próxima
-asserção de banco.
+Coberto desde 2026-08-27 por `lib/supabase/public-paths.test.mts`, verificado
+contra o próprio defeito: removendo `/api/forms` da lista, o teste falha.
 
 A rodada anterior — o **histórico do lead separado das conversas** — está
 validada, commitada e em produção; as migrations `0012` e `0013` seguem
@@ -712,10 +710,13 @@ externa em produção.
    (91 asserções sobre as migrations, incluindo leitura e escrita cruzada
    entre organizações). O runner do outro lado **já foi escolhido**:
    `npm run test:unit` usa `node --test` com o type stripping nativo do Node,
-   sem dependência nova — hoje cobre só o parser das respostas do lead
-   (`lib/features/lead-ingestion/domain/lead-answers.test.mts`). Continua sem
-   cobertura: componente, rota de API, server action e **o middleware**, que
-   é onde morava o defeito dos formulários públicos.
+   sem dependência nova. Hoje cobre o parser das respostas do lead
+   (`lib/features/lead-ingestion/domain/lead-answers.test.mts`) e a política
+   de caminhos públicos do middleware
+   (`lib/supabase/public-paths.test.mts`) — este último **falha de propósito
+   quando uma rota nova de `app/api/` não declara** se exige sessão, que é a
+   forma de o defeito dos formulários públicos não voltar. Continua sem
+   cobertura: componente, corpo das rotas de API e server action.
 2. **Peso do stack de formulários.** `/contatos` (207 kB) e `/perfil` (204 kB)
    carregam `react-hook-form` + `zod` + `@hookform/resolvers` em telas com um
    formulário simples. Trocar por `useActionState` nas telas mais leves

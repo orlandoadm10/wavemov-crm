@@ -2,6 +2,39 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — cobertura do middleware
+
+Fecha a lacuna que permitiu o defeito dos formulários públicos: a política de
+caminhos públicos não tinha teste nenhum. **Sem migration.**
+
+### Adicionado
+
+- `lib/supabase/public-paths.ts` — `PUBLIC_PATHS` e `isPublicPath` extraídos de
+  `middleware.ts`, sem dependência de Next ou Supabase, para poderem ser
+  testados.
+- `lib/supabase/public-paths.test.mts` — 6 testes. O mais importante varre
+  `app/api/**` e **falha diante de qualquer rota nova não declarada** numa
+  tabela explícita de decisão: não dá para adivinhar se uma rota futura deve
+  ser pública, dá para obrigar quem a criou a decidir.
+
+### Alterado
+
+- O casamento passou a ser **por segmento**, não por prefixo de string.
+  `startsWith("/api/forms")` também aceitaria `/api/formsecretos` — uma rota
+  futura com nome parecido nasceria pública sem ninguém decidir isso. Nenhuma
+  rota existente muda de comportamento; o teste enumera todas para provar.
+
+### Validação
+
+- Os testes foram verificados **contra o defeito real**: removendo
+  `/api/forms` da lista, dois testes falham com
+  `/api/forms/valor-concreto/submit deveria ser público`; criando uma rota de
+  API sem declará-la, a varredura falha.
+- Smoke test local com `npm run dev`: as três rotas públicas de `/api` chegam
+  ao handler (404/401/401) e `/dashboard`, `/atendimento`, `/formularios`,
+  `/api/uazapi/send` e `/api/session/org` seguem em 307.
+- `npx tsc --noEmit` limpo; `npm run build` sem erro; `npm run test:unit` 15/15.
+
 ## 2026-08-27 — Informações do Lead e external_id com maiúscula
 
 Vinda do primeiro uso real da ingestão externa (Typeform e Meta Lead Ads via
