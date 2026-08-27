@@ -2,6 +2,19 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — Frente B publicada em produção
+
+- Commit em produção passou de `e957dd6` para `61a4690`.
+- Verificado contra `https://wavemov-crm.vercel.app` depois do deploy:
+  `/api/ingest/leads` responde `401` sem cabeçalho e com credencial inválida;
+  `/api/forms/<slug>/submit` responde `404` para slug inexistente (**antes
+  respondia 307 para `/login`** — é a prova do bug corrigido);
+  `/api/webhooks/uazapi` segue em `401`, sem regressão; `/dashboard` continua
+  em `307` e `/login` em `200`.
+- **Ainda sem prova real**: nenhuma chamada com credencial válida foi feita. Os
+  caminhos de sucesso, duplicata e 404 por empresa errada dependem do smoke
+  test com o n8n.
+
 ## 2026-08-27 — Frente B: ingestão externa de leads (n8n)
 
 Migration `0014_ingestao_externa_de_leads.sql` **aplicada pelo cliente** em

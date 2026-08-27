@@ -9,11 +9,11 @@
 
 **Última atualização:** 2026-08-27
 **Versão:** `0.2.0` (sem bump)
-**Estado do repositório:** **Frente B (ingestão externa de leads via n8n)
-implementada e não commitada** — árvore suja em `main`, ver seção 2. A última
-publicação em produção é a rodada do histórico do lead (Atividades ×
-Conversas), de 2026-08-27; Frente A (funil padrão `0012`/`0013`) entregue e
-aplicada antes dela.
+**Estado do repositório:** árvore limpa em `main`, sincronizada com
+`origin/main` e **igual ao que está em produção** (`61a4690`). A Frente B
+(ingestão externa de leads via n8n) foi implementada e **publicada** em
+2026-08-27; Frente A (funil padrão `0012`/`0013`) entregue e aplicada antes
+dela.
 **Repositório:** `https://github.com/orlandoadm10/wavemov-crm`
 **Supabase:** projeto `crmjidbr` (`qzdcxyhvvikmtupouzlm`) — migrations
 `0001`…`0013` **aplicadas** (confirmação do cliente em 2026-08-26).
@@ -37,9 +37,8 @@ consistência visual valem mais que recursos novos.
 
 ## 2. Estado atual (encerramento de 2026-08-27)
 
-**Atenção: a árvore NÃO está limpa.** A Frente B foi implementada nesta rodada
-e ainda não foi commitada nem publicada. O que está em produção continua sendo
-`e957dd6` (histórico do lead), então **produção e repositório divergem**.
+Árvore limpa em `main`, nada pendente de push. A Frente B foi implementada e
+publicada nesta rodada (`ea30a2d` → `61a4690`).
 
 Arquivos da rodada:
 
@@ -55,10 +54,32 @@ Arquivos da rodada:
 | `components/forms/forms-client.tsx` | campo `external_id`, escritas confirmadas, banner de erro |
 | `lib/validations/index.ts`, `types/index.ts` | contrato do payload e do `external_id` |
 
+| `lib/supabase/middleware.ts` | correção de bug anterior à rodada (ver abaixo) |
+
 Gates executados nesta rodada: `npx tsc --noEmit` limpo, `npm run build` com 29
 rotas sem erro, `npm run test:db` com **78 asserções e zero falhas**.
 
-Foi corrigido nesta rodada um defeito **anterior a ela**: `lib/supabase/
+### Publicação em produção (2026-08-27, segunda do dia)
+
+| Item | Antes | Depois |
+| --- | --- | --- |
+| Commit em produção | `e957dd6` | `61a4690` |
+
+Verificação real contra `https://wavemov-crm.vercel.app`, depois do deploy:
+
+```
+POST /api/ingest/leads      sem cabeçalho        → 401 Credencial ausente
+POST /api/ingest/leads      credencial inválida  → 401 Credencial inválida
+POST /api/forms/x/submit    slug inexistente     → 404 (era 307 → /login)
+POST /api/webhooks/uazapi   corpo vazio          → 401 (sem regressão)
+GET  /dashboard                                  → 307 (segue protegida)
+GET  /login                                      → 200
+```
+
+A terceira linha é a prova do bug corrigido: antes desta publicação aquela rota
+respondia 307 para `/login` em produção.
+
+**Defeito corrigido, anterior a esta rodada.** `lib/supabase/
 middleware.ts` não listava `/api/forms` como caminho público, então toda
 submissão de formulário público de um visitante deslogado era redirecionada
 para `/login` — que responde 200 com HTML, deixando `res.ok` verdadeiro. A
@@ -66,18 +87,12 @@ página mostrava "Recebido com sucesso" e **nenhum lead era gravado**. A rota
 nova de ingestão caía no mesmo buraco; foi assim que apareceu. Vale checar com
 o cliente se há queda inexplicada de leads por formulário no histórico.
 
-Verificado com o servidor de desenvolvimento rodando (`npm run dev`):
-
-```
-POST /api/ingest/leads        sem cabeçalho        → 401 Credencial ausente
-POST /api/ingest/leads        credencial inválida  → 401 Credencial inválida
-POST /api/forms/x/submit      slug inexistente     → 404 Formulário não encontrado
-```
-
 **Ainda não validado**: nenhuma chamada com credencial válida foi feita, em
-nenhum ambiente — os caminhos de sucesso, de duplicata e de 404 por empresa
-errada seguem sem prova real, porque exigem escrever na base do cliente. O
-smoke test da seção 9.2 continua sendo o próximo passo.
+nenhum ambiente. Os caminhos de **sucesso**, de **duplicata** e de **404 por
+empresa errada** seguem sem prova real, porque exigem escrever na base do
+cliente — o cliente não autorizou lead de teste na base real nesta rodada. O
+smoke test da seção 9.2 continua sendo o próximo passo, e é o único item da
+Frente B ainda em aberto.
 
 Sem cobertura de teste: **nada exercita o middleware**. Foi exatamente onde o
 defeito acima morava por meses. Um teste de rota que confirme que os três
@@ -731,21 +746,23 @@ externa em produção.
 ## 12. Resumo de 30 segundos
 
 > CRM multiempresa Next.js + Supabase, v0.2.0, buildando, migrations até a
-> `0014` aplicadas no Supabase. **A árvore NÃO está limpa**: a Frente B
-> (ingestão externa de leads via n8n) foi implementada em 2026-08-27 e ainda
-> não foi commitada nem publicada — produção segue em `e957dd6`. A rodada
-> adiciona `POST /api/ingest/leads` (credencial por organização no cabeçalho
+> `0014` aplicadas. Em 2026-08-27 a **Frente B** (ingestão externa de leads via
+> n8n) foi implementada e publicada: repositório, origin e produção estão em
+> `61a4690`, árvore limpa. A rodada adiciona `POST /api/ingest/leads` (credencial por organização no cabeçalho
 > `x-webhook-secret`, formulário escolhido por `form_external_id`, idempotência
 > por formulário + evento, funil e etapa sempre os do CRM) e o painel de
 > integração em `/formularios`, restrito a `org_admin`. A regra de criação de
 > lead a partir de formulário virou `lib/features/lead-ingestion/`,
-> compartilhada com a página pública `/f/[slug]`.
+> compartilhada com a página pública `/f/[slug]`. A mesma rodada corrigiu um
+> defeito antigo e caro: `/api/forms` não estava em `PUBLIC_PATHS` do
+> middleware, e **toda submissão de formulário público era perdida em
+> silêncio** enquanto a página dizia "Recebido com sucesso".
 > Regra número um: **nada pode vazar dados entre organizações** — filtre por
 > `organization_id`, toda view nova nasce com `security_invoker = on`, rota com
 > `service_role` recusa em vez de adivinhar a organização **e checa o papel**, e
 > `update` sob RLS só é sucesso se devolver linha (`.select()`). Antes de
 > entregar: `npx tsc --noEmit` e `npm run build` sempre, mais `npm run test:db`
-> se tiver mexido em migration. No topo da fila: publicar esta rodada e fazer o
-> smoke test real do n8n descrito na seção 9.2 — nenhuma chamada externa de
-> verdade foi feita ainda. Depois, validar em produção o webhook/isolamento da
+> se tiver mexido em migration. No topo da fila: o smoke test real do n8n
+> descrito na seção 9.2 — nenhuma chamada com credencial válida foi feita ainda,
+> em nenhum ambiente. Depois, validar em produção o webhook/isolamento da
 > `0010/0011`.
