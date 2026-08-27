@@ -2,6 +2,39 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — quebras de linha escapadas do n8n
+
+**Sem migration.** Corrige a causa real de "as respostas do lead aparecem num
+bloco só, rotuladas com o nome da chave".
+
+### Corrigido
+
+- **O n8n grava o bloco com `
+` escapado** — barra invertida seguida de `n`,
+  dois caracteres — e não com quebra de linha de verdade. Conferido no dado de
+  produção: `r_lista` chegou com **464 caracteres numa única linha**. Como o
+  parser separava por quebra real, o bloco nunca tinha mais de uma linha, não
+  era reconhecido como respostas e ia para o card secundário desenhado como
+  `R lista: <texto gigante>` — com o card principal vazio. `parseLeadInfo`
+  passou a desfazer `
+`, `
+` e `` escapados antes de qualquer decisão.
+- **O nome da chave da origem não pode mais virar rótulo, por regra e não por
+  heurística**: todo valor de várias linhas é bloco de respostas. Antes a
+  classificação dependia do conteúdo, então qualquer dado fora do previsto
+  reabria o mesmo defeito. Valor de uma linha só continua sendo par rotulado —
+  é o caso da UTM, onde o rótulo ajuda.
+
+### Validação
+
+- O parser corrigido foi executado **contra as linhas reais gravadas em
+  produção**: 10 respostas no card principal, `Utm` no card secundário, chave
+  de edição `r_lista` reconhecida. Antes: 0 respostas e um extra rotulado.
+- `npm run test:unit` **30 testes** (eram 22). O arquivo
+  `escaped-newlines.test.mts` reproduz o payload exatamente como o n8n o envia,
+  usando `String.raw` para que a barra invertida sobreviva ao código-fonte.
+- `npx tsc --noEmit` limpo; `npm run build` sem erro; `npm run test:db` 91.
+
 ## 2026-08-27 — Informações do Lead editáveis e últimas mensagens no atendimento
 
 Ajustes vindos do primeiro lead real recebido pelo Typeform. **Sem migration.**

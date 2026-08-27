@@ -169,3 +169,29 @@ test("números e booleanos do payload viram texto sem sumir", () => {
     ["4", "true"]
   );
 });
+
+test("o nome da chave da origem NUNCA vira rótulo na tela", () => {
+  // Regra de produto, nao heuristica: qualquer valor de varias linhas e bloco
+  // de respostas. Antes, um bloco "mal formatado" caia nos extras e a tela
+  // desenhava "R lista: <texto gigante>" — exatamente o que o cliente recusou.
+  const malFormatados = [
+    { "r-lista": "sem dois pontos aqui\nnem aqui" },
+    { r_lista: "Pergunta: resposta\nlinha solta\noutra linha solta" },
+    { qualquer_chave_tecnica: "linha um\nlinha dois\nlinha tres" },
+  ];
+  for (const metadata of malFormatados) {
+    const info = parseLeadInfo(metadata);
+    assert.equal(info.extras.length, 0, `virou extra rotulado: ${JSON.stringify(metadata)}`);
+    assert.ok(info.answers.length > 0, "o conteudo nao pode sumir");
+  }
+});
+
+test("valor de uma linha só continua sendo extra rotulado", () => {
+  // Utm e genero sao pares curtos de verdade: ali o rotulo ajuda.
+  const info = parseLeadInfo({ utm: "source=META ADS&medium=RJ", genero: "Indefinido" });
+  assert.deepEqual(
+    info.extras.map((e) => e.question),
+    ["Utm", "Genero"]
+  );
+  assert.equal(info.answers.length, 0);
+});

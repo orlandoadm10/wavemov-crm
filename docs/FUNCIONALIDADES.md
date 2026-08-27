@@ -133,13 +133,19 @@ veio, e a interpretação acontece só na leitura.
 
 **Como o bloco é lido** (`lib/features/lead-ingestion/domain/lead-answers.ts`):
 
-- O critério é a **forma do valor, não o nome da chave**: um valor com mais de
-  uma linha em que a **maioria** delas tem `:` vira lista de respostas. Por
+- **Quebras de linha escapadas são desfeitas primeiro.** O n8n entrega o bloco
+  com `
+` literal (barra invertida + `n`), não com quebra real — no dado de
+  produção, 464 caracteres numa linha só. Sem isso nada mais funciona.
+- O critério é a **forma do valor, não o nome da chave**: todo valor com mais
+  de uma linha vira lista de respostas. Por
   isso `r_lista` (Typeform) e `r-lista` (Meta) funcionam sem que o código
   conheça nenhum dos dois nomes — e uma origem futura também funcionará. A
-  regra da maioria (antes era "todas as linhas") existe porque uma resposta
-  escrita em duas linhas pelo lead derrubava o bloco inteiro para os extras, e
-  a tela passava a mostrar o nome cru da chave da origem como rótulo.
+  A regra é absoluta, e não uma heurística sobre o conteúdo, porque o nome
+  técnico da chave (`r_lista`) **nunca** pode aparecer na tela: enquanto a
+  classificação dependia do conteúdo, qualquer dado fora do previsto o trazia
+  de volta. Valor de uma linha só continua sendo par rotulado — é o caso da
+  UTM, onde o rótulo ajuda.
 - A divisão é pelo **primeiro** `:`, porque as perguntas terminam em `?` ou `:`
   e são as respostas que costumam conter dois-pontos
   (`Custo do plano: Até R$ 4.000: negociável`).
@@ -148,7 +154,7 @@ veio, e a interpretação acontece só na leitura.
 - Valores vazios ou só com espaços são descartados: o `utm` chega como `""` ou
   `"  "` nos dois payloads reais.
 
-Coberto por `npm run test:unit` (16 testes sobre os payloads reais de Typeform
+Coberto por `npm run test:unit` (24 testes sobre os payloads reais de Typeform
 e Meta Lead Ads, incluindo a ida e volta do texto editável e as regras do diff
 que alimenta o histórico).
 

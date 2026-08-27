@@ -78,22 +78,38 @@ function parseAnswerLine(line: string): LeadAnswer | null {
 }
 
 /**
- * Um valor com várias linhas é bloco de respostas quando a MAIORIA delas tem
- * separador.
+ * Desfaz quebras de linha ESCAPADAS.
  *
- * A versão anterior exigia `": "` (com espaço) em TODAS as linhas, e era
- * frágil demais para dado real: uma única resposta escrita em duas linhas pelo
- * lead, ou um `"?:"` sem espaço depois, derrubava o bloco inteiro para os
- * extras — e aí a tela mostrava o nome cru da chave da origem, `r-lista`, como
- * se fosse informação do lead.
+ * O n8n entrega o bloco do Typeform com `\n` literal — barra invertida seguida
+ * de `n`, dois caracteres — e não com quebra de linha de verdade. Conferido no
+ * dado gravado em produção: `r_lista` chegou com 464 caracteres numa única
+ * linha. Sem esta normalização o bloco nunca tem mais de uma linha, nunca é
+ * reconhecido como respostas e acaba desenhado como `R lista: <texto gigante>`
+ * — que foi exatamente o defeito relatado.
  *
- * Aceita `":"` sem espaço e tolera linhas soltas, que `parseAnswerLine`
- * preserva como resposta sem pergunta.
+ * Trata também `\r\n`, porque origem que escapa `\n` costuma escapar o par.
+ */
+function unescapeNewlines(value: string): string {
+  return value.replace(/\\r\\n|\\n|\\r/g, "\n");
+}
+
+/**
+ * Todo valor com mais de uma linha é bloco de respostas. Sem exceção.
+ *
+ * A regra é essa, e não "a maioria das linhas tem `:`", por uma razão de
+ * produto: o nome da chave da origem (`r_lista`, `r-lista`) NUNCA pode
+ * aparecer na tela. Enquanto a classificação dependia do conteúdo, bastava um
+ * dado fora do previsto — uma resposta que o lead escreveu em duas linhas, uma
+ * pergunta sem dois-pontos — para o bloco inteiro cair nos extras e ser
+ * desenhado como `R lista: <texto gigante>`.
+ *
+ * Rotular um texto de várias linhas com o nome técnico da chave nunca é o que
+ * se quer; tratá-lo como respostas, mesmo mal formatado, sempre é. As linhas
+ * sem separador viram resposta sem pergunta, e o conteúdo aparece do mesmo
+ * jeito.
  */
 function isAnswerBlock(lines: string[]): boolean {
-  if (lines.length < 2) return false;
-  const comSeparador = lines.filter((l) => l.includes(":")).length;
-  return comSeparador * 2 >= lines.length;
+  return lines.length > 1;
 }
 
 /**
@@ -132,7 +148,9 @@ export function parseLeadInfo(metadata: unknown): LeadInfo {
     // Ids da origem não são informação do lead: a referência visual é o id do
     // formulário, que a tela lê de `forms.external_id`.
     if (isOriginIdKey(key)) continue;
-    const value = String(rawValue).trim();
+    // Normaliza ANTES de qualquer decisão: é a diferença entre um bloco de
+    // respostas e uma única linha de 464 caracteres.
+    const value = unescapeNewlines(String(rawValue)).trim();
     if (!value) continue;
 
     const lines = value.split("\n").filter((l) => l.trim());
