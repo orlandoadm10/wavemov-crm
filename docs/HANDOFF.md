@@ -7,16 +7,18 @@
 > Depois: `README.md` (setup), `docs/FUNCIONALIDADES.md` (o que existe) e
 > `DESIGN_GUIDE.md` (contrato visual).
 
-**Última atualização:** 2026-08-26
+**Última atualização:** 2026-08-27
 **Versão:** `0.2.0` (sem bump)
-**Estado do repositório:** árvore limpa em `main` (`778ce5e`); rodada do
-histórico do lead (Atividades × Conversas) commitada em 2026-08-26; Frente A
-(funil padrão `0012`/`0013` e movimentação no atendimento) entregue e aplicada.
+**Estado do repositório:** árvore limpa em `main`, sincronizada com
+`origin/main` e **igual ao que está em produção**; rodada do histórico do lead
+(Atividades × Conversas) publicada em 2026-08-27; Frente A (funil padrão
+`0012`/`0013` e movimentação no atendimento) entregue e aplicada.
 **Repositório:** `https://github.com/orlandoadm10/wavemov-crm`
 **Supabase:** projeto `crmjidbr` (`qzdcxyhvvikmtupouzlm`) — migrations
 `0001`…`0012` **aplicadas** (confirmação do cliente em 2026-08-26).
 A `0013` também está **aplicada** (confirmação do cliente em 2026-08-26).
-**Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`
+**Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`. O projeto
+está ligado ao Git: **push em `main` = deploy de produção**, sem passo manual.
 
 ---
 
@@ -31,13 +33,35 @@ consistência visual valem mais que recursos novos.
 
 ---
 
-## 2. Estado atual (encerramento de 2026-08-26)
+## 2. Estado atual (encerramento de 2026-08-27)
 
-Árvore de trabalho limpa em `main` (`778ce5e`). A rodada mais recente — o
-**histórico do lead separado das conversas** — está validada e commitada; as
-migrations `0012` e `0013` seguem aplicadas em produção, e o código publicado
-cobre funil padrão, administração de funis e troca de funil/etapa no
-atendimento.
+Árvore de trabalho limpa em `main`, sem nada pendente de push. A rodada mais
+recente — o **histórico do lead separado das conversas** — está validada,
+commitada **e em produção**; as migrations `0012` e `0013` seguem aplicadas, e o
+código publicado cobre funil padrão, administração de funis e troca de
+funil/etapa no atendimento.
+
+### Publicação em produção (2026-08-27)
+
+O `main` local estava dois commits à frente do `origin/main`; o push disparou o
+build da Vercel e o alias de produção passou a apontar para ele.
+
+| Item | Antes | Depois |
+| --- | --- | --- |
+| Commit em produção | `08aca41` | `e957dd6` |
+| Deployment | `wavemov-6vohjuzi7` | `wavemov-4w4qn0gqy` (Ready, 59s) |
+
+Validação real, na ordem em que foi executada:
+
+```
+npx tsc --noEmit                     → limpo (exit 0)
+npm run build                        → 28 rotas, sem erro
+git push origin main                 → 08aca41..e957dd6
+curl -o /dev/null -w '%{http_code}'  → /login 200, / 307 (redirect de sessão)
+```
+
+**Nada a aplicar no banco nesta publicação** — a rodada não tocou em
+`supabase/migrations/`.
 
 ### Rodada mais recente — histórico do lead separado das conversas (`778ce5e`)
 
@@ -537,6 +561,33 @@ Auditar pelo menos estes pontos: `app/api/webhooks/uazapi/route.ts`,
    foram validados.
 8. `npx tsc --noEmit` e `npm run build` passam antes de qualquer deploy.
 
+### 9.2 Frente B — terreno levantado em 2026-08-27
+
+Reconhecimento feito, **nenhuma linha escrita**. A frente está aberta e
+aguardando comando do cliente. O que já foi verificado no código, para o
+próximo agente não repetir a busca:
+
+- **`forms.external_id` não existe.** `grep -rn external_id --include=*.sql
+  supabase/` não retorna nada. A frente começa por uma migration `0014`:
+  `external_id` globalmente único, coluna de origem, segredo por organização e
+  idempotência **por formulário + evento** — não por evento apenas, porque
+  fluxos diferentes do n8n podem reutilizar o mesmo identificador na origem.
+- **Padrão de segredo a reusar:** `supabase/migrations/0010_webhook_secret_por_instancia.sql`
+  — `generate_webhook_secret()`, dois `gen_random_uuid()` (244 bits), prefixo
+  `wmv_`, guardado em tabela revogada de `anon`/`authenticated`. O mesmo
+  raciocínio vale aqui e é **bloqueador**: o segredo da Frente B não pode morar
+  em `organizations`, que é lida com `select *` em `getSessionContext()` e
+  viaja inteira como prop até `components/layout/top-nav.tsx`.
+- **Rota-modelo:** `app/api/forms/[slug]/submit/route.ts` (150 linhas) já faz
+  service role + sanitização por `form_fields`, reuso de contato por
+  telefone/e-mail e `normalizePhone`. O endpoint novo herda essa espinha, mas
+  troca o slug público por autenticação via segredo e mapeamento explícito de
+  funil/etapa.
+- **Decisões já fechadas** estão no item 3 da seção 9 e continuam valendo: id do
+  formulário colado manualmente; funil novo não vira padrão; formulário ausente
+  ou inativo responde 404; a resposta não inclui `deal_url`; erro de id
+  duplicado nunca revela a empresa proprietária.
+
 ---
 
 ## 10. Débitos técnicos conhecidos
@@ -617,7 +668,9 @@ Auditar pelo menos estes pontos: `app/api/webhooks/uazapi/route.ts`,
 ## 12. Resumo de 30 segundos
 
 > CRM multiempresa Next.js + Supabase, v0.2.0, buildando, migrations até a
-> `0013` aplicadas em produção. A rodada mais recente (`778ce5e`, árvore limpa)
+> `0013` aplicadas em produção. Em 2026-08-27 o `main` foi publicado
+> (`08aca41` → `e957dd6`, deployment `wavemov-4w4qn0gqy`): repositório, origin e
+> produção estão no mesmo commit, árvore limpa. A rodada publicada
 > separou o **histórico do lead** em **Atividades** (timeline operacional sem
 > mensagens de WhatsApp) e **Conversas** (thread por conversa, carregada sob
 > demanda, somente leitura, sem `raw_payload` no navegador). Antes dela: funil
@@ -633,4 +686,5 @@ Auditar pelo menos estes pontos: `app/api/webhooks/uazapi/route.ts`,
 > fila: validar em produção o webhook/isolamento
 > da `0010/0011`. A Frente A está concluída; a próxima entrega funcional
 > recomendada é a Frente B (ingestão externa de leads via n8n), especificada no
-> item 3 da seção 9.
+> item 3 da seção 9 — o terreno já foi levantado na seção 9.2 e ela aguarda
+> apenas o comando do cliente para começar.

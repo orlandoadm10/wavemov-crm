@@ -2,6 +2,18 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — publicação em produção
+
+### Publicado
+
+- A rodada do **histórico do lead separado das conversas** foi para produção.
+  Commit em produção passou de `08aca41` para `e957dd6`; deployment
+  `wavemov-4w4qn0gqy`, alias `https://wavemov-crm.vercel.app`.
+- Sem mudança de código e **sem migration a aplicar**: `0001`…`0013` seguem
+  como estavam.
+- Verificado antes do push: `npx tsc --noEmit` limpo, `npm run build` com 28
+  rotas sem erro. Depois do deploy: `/login` 200 e `/` 307 (redirect de sessão).
+
 ## 2026-08-26 — histórico do lead separado das conversas
 
 ### Alterado
