@@ -2,6 +2,71 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — Frente B: ingestão externa de leads (n8n)
+
+Migration `0014_ingestao_externa_de_leads.sql` **aplicada pelo cliente** em
+2026-08-27, antes de qualquer código depender dela.
+
+### Adicionado
+
+- **`POST /api/ingest/leads`** — endpoint genérico chamado pelo n8n.
+  Autenticação por `x-webhook-secret` (credencial por organização), formulário
+  escolhido por `form_external_id` no corpo, idempotência por `event_id`.
+  Contrato completo, tabela de respostas e regras de isolamento em
+  `docs/FUNCIONALIDADES.md`.
+- **Painel "Ingestão externa de leads (n8n)"** em `/formularios`, restrito a
+  `org_admin`: endpoint, credencial oculta com revelar/copiar, exemplo de
+  corpo, formulários conectados e rotação com confirmação.
+- **Campo "Identificador de integração"** no modal do formulário, validado
+  contra o mesmo padrão do `check` do banco antes de tentar gravar.
+- Migration `0014`: `forms.external_id` (único global, índice parcial),
+  `organization_ingest_secrets` (revogada de `anon`/`authenticated`, RLS sem
+  policy), `form_submissions.external_event_id` + `source` com único parcial
+  `(form_id, external_event_id)`.
+
+### Corrigido
+
+- **Formulários públicos não gravavam lead nenhum — e diziam que sim.**
+  `/api/forms/[slug]/submit` não estava na lista de caminhos públicos do
+  middleware, então a requisição de um visitante deslogado era redirecionada
+  para `/login`. O `fetch` da página seguia o redirect, `/login` respondia
+  **200 com HTML**, `res.ok` ficava verdadeiro e o visitante via "Recebido com
+  sucesso! 🎉" enquanto nada era escrito. Defeito anterior a esta rodada,
+  encontrado ao testar a rota de ingestão, que caía no mesmo buraco.
+  `PUBLIC_PATHS` passou a incluir `/api/forms` e `/api/ingest`, com o critério
+  de entrada documentado no próprio arquivo: só entra aqui rota que autentica
+  por conta própria.
+
+### Alterado
+
+- A submissão passa a ser gravada **antes** do contato e da negociação nos dois
+  caminhos de entrada. Na página pública isso preserva o que a pessoa digitou
+  quando a criação do lead falha; na ingestão externa é a trava de idempotência.
+- Falha ao criar a negociação deixou de ser silenciosa em `/f/[slug]`: a rota
+  responde `500` em vez de `ok`.
+- `/formularios`: salvar e ativar/desativar formulário agora filtram por
+  `organization_id` e confirmam a linha afetada com `.select()`. Ativar e
+  desativar tinham falha silenciosa — e `is_active` passou a decidir se um
+  fluxo do n8n entrega ou recebe `404`. Erros das ações da lista aparecem num
+  banner; antes só o modal tinha onde mostrá-los.
+
+### Interno
+
+- Regra de criação de lead a partir de formulário extraída para
+  `lib/features/lead-ingestion/` (`domain/form-payload.ts`,
+  `application/register-form-lead.ts`,
+  `infrastructure/ingest-queries.ts`). A página pública e a ingestão externa
+  compartilham sanitização, reuso de contato, escolha de etapa e registro no
+  histórico em vez de duplicá-los.
+
+### Validação
+
+- `npx tsc --noEmit` limpo; `npm run build` com 29 rotas sem erro.
+- `npm run test:db`: **78 asserções, zero falhas**, incluindo 20 novas no
+  bloco 13 — revoke da tabela de credenciais para `org_admin` e `seller`,
+  colisão global de `external_id` entre empresas, formato recusado,
+  idempotência por par formulário + evento e submissão pública intocada.
+
 ## 2026-08-27 — publicação em produção
 
 ### Publicado

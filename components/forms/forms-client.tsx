@@ -8,6 +8,7 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
 import { describeWriteError, formatDateTime, fullName, slugify } from "@/lib/utils";
+import { EXTERNAL_ID_PATTERN } from "@/lib/validations";
 import type { Form, FormField, Pipeline, Profile } from "@/types";
 import {
   ArrowDown,
@@ -38,6 +39,31 @@ const DEFAULT_FIELDS: DraftField[] = [
   { label: "WhatsApp", field_key: "phone", field_type: "phone", is_required: true, options: [] },
 ];
 
+/**
+ * Erros de escrita do formulário, traduzidos.
+ *
+ * O `external_id` é único na base INTEIRA, então a colisão pode ser com o
+ * formulário de outra empresa. A mensagem diz apenas que o identificador está
+ * ocupado — nunca por quem: a resposta crua do PostgREST cita o índice e, com
+ * ela, quem tentasse adivinhar identificadores descobriria quais já existem
+ * fora da própria conta.
+ */
+function describeFormWriteError(err: unknown, fallback: string) {
+  const code = (err as { code?: string } | null)?.code;
+  const details = `${(err as { message?: string } | null)?.message ?? ""}${
+    (err as { details?: string } | null)?.details ?? ""
+  }`;
+  if (code === "23505" && details.includes("forms_external_id_key")) {
+    if (err) console.error(fallback, err);
+    return "Esse identificador de integração já está em uso. Escolha outro.";
+  }
+  if (code === "23514" && details.includes("forms_external_id_format")) {
+    if (err) console.error(fallback, err);
+    return "Identificador de integração inválido: use de 3 a 64 caracteres, apenas letras minúsculas, números, hífen ou sublinhado.";
+  }
+  return describeWriteError(err, fallback);
+}
+
 export function FormsClient({
   organizationId,
   forms,
@@ -65,6 +91,7 @@ export function FormsClient({
   const [pipelineId, setPipelineId] = useState("");
   const [stageId, setStageId] = useState("");
   const [responsibleId, setResponsibleId] = useState("");
+  const [externalId, setExternalId] = useState("");
   const [fields, setFields] = useState<DraftField[]>(DEFAULT_FIELDS);
 
   const filtered = useMemo(() => {
@@ -85,6 +112,7 @@ export function FormsClient({
     setPipelineId(pipelines[0]?.id ?? "");
     setStageId("");
     setResponsibleId("");
+    setExternalId("");
     setFields(DEFAULT_FIELDS.map((f) => ({ ...f })));
     setError(null);
     setModalOpen(true);
@@ -97,6 +125,7 @@ export function FormsClient({
     setPipelineId(form.pipeline_id ?? pipelines[0]?.id ?? "");
     setStageId(form.stage_id ?? "");
     setResponsibleId(form.default_responsible_id ?? "");
+    setExternalId(form.external_id ?? "");
     setFields(
       (form.fields ?? [])
         .sort((a, b) => a.order_index - b.order_index)
@@ -144,6 +173,13 @@ export function FormsClient({
     if (name.trim().length < 2) return setError("Informe o nome do formulário.");
     if (!pipelineId) return setError("Selecione o funil de destino.");
     if (fields.length === 0) return setError("Adicione ao menos um campo.");
+
+    const trimmedExternalId = externalId.trim();
+    if (trimmedExternalId && !EXTERNAL_ID_PATTERN.test(trimmedExternalId)) {
+      return setError(
+        "Identificador de integração inválido: use de 3 a 64 caracteres, apenas letras minúsculas, números, hífen ou sublinhado."
+      );
+    }
     setSaving(true);
 
     const payload = {
@@ -152,14 +188,24 @@ export function FormsClient({
       pipeline_id: pipelineId,
       stage_id: stageId || stageOptions[0]?.id || null,
       default_responsible_id: responsibleId || null,
+      external_id: trimmedExternalId || null,
     };
 
     let formId = editing?.id;
     if (editing) {
-      const { error: err } = await supabase.from("forms").update(payload).eq("id", editing.id);
-      if (err) {
+      // `.eq("organization_id")` além do id, e `.select()` para confirmar a
+      // linha: sob RLS um update que não atinge nada volta sem erro, e sem a
+      // conferência a tela anunciaria "salvo" sobre uma escrita recusada.
+      const { data: updated, error: err } = await supabase
+        .from("forms")
+        .update(payload)
+        .eq("id", editing.id)
+        .eq("organization_id", organizationId)
+        .select("id")
+        .maybeSingle();
+      if (err || !updated) {
         setSaving(false);
-        return setError(describeWriteError(err, "Não foi possível salvar o formulário."));
+        return setError(describeFormWriteError(err, "Não foi possível salvar o formulário."));
       }
     } else {
       const slug = `${slugify(name)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -170,7 +216,7 @@ export function FormsClient({
         .single();
       if (err || !created) {
         setSaving(false);
-        return setError(describeWriteError(err, "Não foi possível criar o formulário."));
+        return setError(describeFormWriteError(err, "Não foi possível criar o formulário."));
       }
       formId = created.id;
     }
@@ -206,8 +252,27 @@ export function FormsClient({
     router.refresh();
   }
 
+  // `is_active` passou a decidir se um fluxo do n8n entrega ou recebe 404
+  // (migration 0014): desativar em silêncio, sem conferir a linha, deixaria o
+  // operador convencido de que cortou uma integração que segue recebendo.
   async function toggleActive(form: Form) {
-    await supabase.from("forms").update({ is_active: !form.is_active }).eq("id", form.id);
+    const { data, error: err } = await supabase
+      .from("forms")
+      .update({ is_active: !form.is_active })
+      .eq("id", form.id)
+      .eq("organization_id", organizationId)
+      .select("id")
+      .maybeSingle();
+    if (err || !data) {
+      setError(
+        describeFormWriteError(
+          err,
+          `Não foi possível ${form.is_active ? "desativar" : "ativar"} o formulário.`
+        )
+      );
+      return;
+    }
+    setError(null);
     router.refresh();
   }
 
@@ -235,6 +300,15 @@ export function FormsClient({
           Novo formulário
         </Button>
       </div>
+
+      {/* O erro do modal é desenhado dentro dele; este banner cobre as ações
+          da lista (ativar/desativar), que acontecem com o modal fechado e
+          antes só falhavam em silêncio. */}
+      {error && !modalOpen && (
+        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {error}
+        </p>
+      )}
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -287,6 +361,14 @@ export function FormsClient({
                     <dt className="text-ink-faint">Etapa</dt>
                     <dd className="font-medium text-ink">{stage?.name ?? "Primeira etapa"}</dd>
                   </div>
+                  {form.external_id && (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-ink-faint">Integração</dt>
+                      <dd className="min-w-0 truncate font-mono font-medium text-ink" title={form.external_id}>
+                        {form.external_id}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
 
                 <div className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-4">
@@ -366,6 +448,21 @@ export function FormsClient({
                 ))}
               </Select>
             </Field>
+            <Field label="Identificador de integração (opcional)">
+              <Input
+                placeholder="ex.: meta-lead-ads"
+                value={externalId}
+                onChange={(e) => setExternalId(e.target.value)}
+                aria-label="Identificador de integração"
+                aria-describedby="external-id-hint"
+              />
+            </Field>
+            <p id="external-id-hint" className="-mt-2 text-xs text-ink-faint">
+              Preencha para receber leads deste formulário por um fluxo do n8n. É o valor
+              que vai em <code className="rounded bg-slate-100 px-1">form_external_id</code>.
+              Minúsculas, números, hífen ou sublinhado. Deixe vazio se o formulário só for
+              usado pela página pública.
+            </p>
           </div>
 
           {/* Construtor de campos */}

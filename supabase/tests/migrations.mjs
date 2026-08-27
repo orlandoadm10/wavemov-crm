@@ -639,6 +639,175 @@ console.log("\n== 12. Primeiro funil de uma empresa sem nenhum (estado vazio de 
   });
 }
 
+console.log("\n== 13. Ingestão externa de leads (0014) ==");
+{
+  // As organizações deste arquivo nascem DEPOIS das migrations, então não
+  // passaram pelo backfill do bloco 5 da 0014 — é exatamente o caso da
+  // empresa criada em produção depois da migration, cujo segredo é criado
+  // sob demanda pela tela. O teste faz o mesmo caminho.
+  await db.query(`insert into public.organization_ingest_secrets (organization_id) values ($1), ($2)`, [ORG_A, ORG_B]);
+
+  const segredos = await db.query(
+    `select organization_id, secret from public.organization_ingest_secrets where organization_id in ($1,$2)`,
+    [ORG_A, ORG_B]
+  );
+  const valores = segredos.rows.map((r) => r.secret);
+  if (valores.length === 2 && valores[0] !== valores[1] && valores.every((s) => s.startsWith("wmv_")))
+    ok("cada organização recebe um segredo próprio, com o prefixo wmv_");
+  else fail("segredos gerados", JSON.stringify(segredos.rows));
+
+  // O lookup da rota: o segredo resolve UMA organização, sempre.
+  const dono = await umaLinha(`select organization_id from public.organization_ingest_secrets where secret = $1`, [
+    valores[0],
+  ]);
+  if (dono && segredos.rows.some((r) => r.organization_id === dono.organization_id))
+    ok("o segredo resolve exatamente uma organização (lookup da rota de ingestão)");
+  else fail("segredo não resolveu a organização");
+
+  await esperaErro(
+    "dois segredos iguais são recusados pelo índice único",
+    () =>
+      db.query(`update public.organization_ingest_secrets set secret = $1 where organization_id = $2`, [
+        valores[0],
+        ORG_B,
+      ]),
+    /organization_ingest_secrets_secret_key|duplicate/i
+  );
+
+  // O ativo mais sensível da migration: membro logado não pode chegar perto.
+  await comoUsuario(adminA, async () => {
+    await esperaErro(
+      "org_admin autenticado NÃO lê a tabela de segredos pelo PostgREST",
+      () => db.query(`select secret from public.organization_ingest_secrets`),
+      /permission denied|permissão/i
+    );
+  });
+  await comoUsuario(sellerA, async () => {
+    await esperaErro(
+      "seller tampouco — nem o segredo da própria empresa",
+      () => db.query(`select secret from public.organization_ingest_secrets where organization_id = $1`, [ORG_A]),
+      /permission denied|permissão/i
+    );
+  });
+
+  // ---- forms.external_id ----
+  const funilA = await umaLinha(`select id from public.pipelines where organization_id = $1 and is_default`, [ORG_A]);
+  const funilB = await umaLinha(`select id from public.pipelines where organization_id = $1 and is_default`, [ORG_B]);
+
+  const formA = await umaLinha(
+    `insert into public.forms (organization_id, name, slug, pipeline_id, external_id)
+       values ($1, 'Meta Lead Ads', 'meta-lead-ads-a', $2, 'meta-lead-ads') returning id`,
+    [ORG_A, funilA.id]
+  );
+  ok("formulário da empresa A nasce com external_id");
+
+  // O ponto que o handoff manda nunca vazar: a colisão é global, e a empresa
+  // B só pode saber que o identificador está ocupado — jamais por quem.
+  await esperaErro(
+    "empresa B não consegue reutilizar o external_id da empresa A",
+    () =>
+      db.query(
+        `insert into public.forms (organization_id, name, slug, pipeline_id, external_id)
+           values ($1, 'Copia', 'copia-b', $2, 'meta-lead-ads')`,
+        [ORG_B, funilB.id]
+      ),
+    /forms_external_id_key|duplicate/i
+  );
+
+  for (const invalido of ["Meta-Lead", "com espaco", "ab", "-comeca-com-hifen", "acentuaç"]) {
+    await esperaErro(
+      `external_id inválido recusado: ${JSON.stringify(invalido)}`,
+      () =>
+        db.query(
+          `insert into public.forms (organization_id, name, slug, pipeline_id, external_id)
+             values ($1, 'Invalido', $2, $3, $4)`,
+          [ORG_A, `slug-${Math.random().toString(36).slice(2)}`, funilA.id, invalido]
+        ),
+      /forms_external_id_format/i
+    );
+  }
+
+  const semExternal = await db.query(
+    `insert into public.forms (organization_id, name, slug, pipeline_id)
+       values ($1, 'Publico 1', 'publico-1', $2), ($1, 'Publico 2', 'publico-2', $2) returning id`,
+    [ORG_A, funilA.id]
+  );
+  if (semExternal.rows.length === 2)
+    ok("vários formulários sem external_id convivem (o único é parcial)");
+  else fail("formulários sem external_id colidiram");
+
+  // ---- Idempotência por formulário + evento ----
+  const formB = await umaLinha(
+    `insert into public.forms (organization_id, name, slug, pipeline_id, external_id)
+       values ($1, 'Planilha', 'planilha-b', $2, 'planilha-b') returning id`,
+    [ORG_B, funilB.id]
+  );
+
+  const sub1 = await umaLinha(
+    `insert into public.form_submissions (form_id, raw_data, external_event_id, source)
+       values ($1, '{}'::jsonb, 'evt-1', 'external_ingest') returning id, source`,
+    [formA.id]
+  );
+  ok("primeira entrega do evento evt-1 grava a submissão");
+
+  await esperaErro(
+    "reentrega do MESMO evento no MESMO formulário é recusada (idempotência)",
+    () =>
+      db.query(
+        `insert into public.form_submissions (form_id, raw_data, external_event_id, source)
+           values ($1, '{}'::jsonb, 'evt-1', 'external_ingest')`,
+        [formA.id]
+      ),
+    /form_submissions_form_event_key|duplicate/i
+  );
+
+  const original = await umaLinha(
+    `select id from public.form_submissions where form_id = $1 and external_event_id = 'evt-1'`,
+    [formA.id]
+  );
+  if (original.id === sub1.id) ok("a reentrega reencontra a submissão original (a rota devolve o mesmo resultado)");
+  else fail("submissão original não foi reencontrada");
+
+  // A razão de a chave ser o PAR: fluxos diferentes reutilizam identificador.
+  const sub2 = await db.query(
+    `insert into public.form_submissions (form_id, raw_data, external_event_id, source)
+       values ($1, '{}'::jsonb, 'evt-1', 'external_ingest') returning id`,
+    [formB.id]
+  );
+  if (sub2.rows.length === 1)
+    ok("o mesmo evt-1 em OUTRO formulário entra normalmente (chave é formulário + evento)");
+  else fail("evento de outro formulário foi recusado");
+
+  const publicas = await db.query(
+    `insert into public.form_submissions (form_id, raw_data)
+       values ($1, '{}'::jsonb), ($1, '{}'::jsonb) returning id, source, external_event_id`,
+    [formA.id]
+  );
+  if (publicas.rows.length === 2 && publicas.rows.every((r) => r.source === "public_form" && r.external_event_id === null))
+    ok("submissões da página pública continuam entrando sem chave de evento, com source public_form");
+  else fail("submissões públicas", JSON.stringify(publicas.rows));
+
+  await esperaErro(
+    "source fora do domínio é recusado",
+    () =>
+      db.query(`insert into public.form_submissions (form_id, raw_data, source) values ($1, '{}'::jsonb, 'sei-la')`, [
+        formA.id,
+      ]),
+    /form_submissions_source_check/i
+  );
+
+  // Isolamento de leitura das submissões continua valendo com as colunas novas.
+  await comoUsuario(sellerA, async () => {
+    const r = await db.query(`select id from public.form_submissions where form_id = $1`, [formB.id]);
+    if (r.rows.length === 0) ok("seller da empresa A não lê submissões de formulário da empresa B");
+    else fail("vazamento de submissões entre organizações", JSON.stringify(r.rows));
+  });
+
+  // Sai limpo: o bloco 9 (cascata) e futuros blocos não devem herdar estes dados.
+  await db.query(`delete from public.form_submissions where form_id in ($1,$2)`, [formA.id, formB.id]);
+  await db.query(`delete from public.forms where organization_id in ($1,$2)`, [ORG_A, ORG_B]);
+}
+
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);
 await db.close();
 process.exit(falhas === 0 ? 0 : 1);

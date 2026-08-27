@@ -9,14 +9,16 @@
 
 **Última atualização:** 2026-08-27
 **Versão:** `0.2.0` (sem bump)
-**Estado do repositório:** árvore limpa em `main`, sincronizada com
-`origin/main` e **igual ao que está em produção**; rodada do histórico do lead
-(Atividades × Conversas) publicada em 2026-08-27; Frente A (funil padrão
-`0012`/`0013` e movimentação no atendimento) entregue e aplicada.
+**Estado do repositório:** **Frente B (ingestão externa de leads via n8n)
+implementada e não commitada** — árvore suja em `main`, ver seção 2. A última
+publicação em produção é a rodada do histórico do lead (Atividades ×
+Conversas), de 2026-08-27; Frente A (funil padrão `0012`/`0013`) entregue e
+aplicada antes dela.
 **Repositório:** `https://github.com/orlandoadm10/wavemov-crm`
 **Supabase:** projeto `crmjidbr` (`qzdcxyhvvikmtupouzlm`) — migrations
-`0001`…`0012` **aplicadas** (confirmação do cliente em 2026-08-26).
-A `0013` também está **aplicada** (confirmação do cliente em 2026-08-26).
+`0001`…`0013` **aplicadas** (confirmação do cliente em 2026-08-26).
+A `0014` (ingestão externa) está **aplicada** — confirmação do cliente em
+2026-08-27, antes de qualquer código depender dela.
 **Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`. O projeto
 está ligado ao Git: **push em `main` = deploy de produção**, sem passo manual.
 
@@ -35,11 +37,57 @@ consistência visual valem mais que recursos novos.
 
 ## 2. Estado atual (encerramento de 2026-08-27)
 
-Árvore de trabalho limpa em `main`, sem nada pendente de push. A rodada mais
-recente — o **histórico do lead separado das conversas** — está validada,
-commitada **e em produção**; as migrations `0012` e `0013` seguem aplicadas, e o
-código publicado cobre funil padrão, administração de funis e troca de
-funil/etapa no atendimento.
+**Atenção: a árvore NÃO está limpa.** A Frente B foi implementada nesta rodada
+e ainda não foi commitada nem publicada. O que está em produção continua sendo
+`e957dd6` (histórico do lead), então **produção e repositório divergem**.
+
+Arquivos da rodada:
+
+| Arquivo | Estado |
+|---|---|
+| `supabase/migrations/0014_ingestao_externa_de_leads.sql` | novo — **já aplicado no Supabase** |
+| `supabase/tests/migrations.mjs` | +20 asserções (bloco 13) |
+| `lib/features/lead-ingestion/**` (3 arquivos) | novo — domínio, caso de uso, infraestrutura |
+| `app/api/ingest/leads/route.ts` | novo — endpoint do n8n |
+| `app/api/forms/[slug]/submit/route.ts` | reescrito sobre o caso de uso compartilhado |
+| `app/(dashboard)/formularios/{page,actions}.tsx/ts` | credencial (só `org_admin`) + rotação |
+| `components/forms/external-ingest-panel.tsx` | novo — painel de integração |
+| `components/forms/forms-client.tsx` | campo `external_id`, escritas confirmadas, banner de erro |
+| `lib/validations/index.ts`, `types/index.ts` | contrato do payload e do `external_id` |
+
+Gates executados nesta rodada: `npx tsc --noEmit` limpo, `npm run build` com 29
+rotas sem erro, `npm run test:db` com **78 asserções e zero falhas**.
+
+Foi corrigido nesta rodada um defeito **anterior a ela**: `lib/supabase/
+middleware.ts` não listava `/api/forms` como caminho público, então toda
+submissão de formulário público de um visitante deslogado era redirecionada
+para `/login` — que responde 200 com HTML, deixando `res.ok` verdadeiro. A
+página mostrava "Recebido com sucesso" e **nenhum lead era gravado**. A rota
+nova de ingestão caía no mesmo buraco; foi assim que apareceu. Vale checar com
+o cliente se há queda inexplicada de leads por formulário no histórico.
+
+Verificado com o servidor de desenvolvimento rodando (`npm run dev`):
+
+```
+POST /api/ingest/leads        sem cabeçalho        → 401 Credencial ausente
+POST /api/ingest/leads        credencial inválida  → 401 Credencial inválida
+POST /api/forms/x/submit      slug inexistente     → 404 Formulário não encontrado
+```
+
+**Ainda não validado**: nenhuma chamada com credencial válida foi feita, em
+nenhum ambiente — os caminhos de sucesso, de duplicata e de 404 por empresa
+errada seguem sem prova real, porque exigem escrever na base do cliente. O
+smoke test da seção 9.2 continua sendo o próximo passo.
+
+Sem cobertura de teste: **nada exercita o middleware**. Foi exatamente onde o
+defeito acima morava por meses. Um teste de rota que confirme que os três
+caminhos de `/api` públicos não redirecionam vale mais que a próxima
+asserção de banco.
+
+A rodada anterior — o **histórico do lead separado das conversas** — está
+validada, commitada e em produção; as migrations `0012` e `0013` seguem
+aplicadas, e o código publicado cobre funil padrão, administração de funis e
+troca de funil/etapa no atendimento.
 
 ### Publicação em produção (2026-08-27)
 
@@ -131,9 +179,11 @@ npm run test:db     # supabase/tests/migrations.mjs
 
 Aplica `supabase/migrations/*.sql` do zero, na ordem, num Postgres descartável
 (**PGlite** — Postgres real em WASM, sem Docker, sem tocar em banco de verdade)
-e roda **59 asserções** de comportamento por cima: isolamento entre
+e roda **78 asserções** de comportamento por cima: isolamento entre
 organizações, papéis, invariantes do funil padrão, recusas de exclusão,
-coerência funil/etapa e idempotência. O ambiente Supabase é imitado com o
+coerência funil/etapa, idempotência e — desde a `0014` — a credencial de
+ingestão fora do alcance de `authenticated` e a chave de evento por
+formulário. O ambiente Supabase é imitado com o
 mínimo — schema `auth`, `auth.uid()` lendo um GUC e os papéis
 `anon`/`authenticated`/`service_role`/`authenticator`.
 
@@ -443,17 +493,15 @@ A qualidade do front hoje é garantida por tipos, build e revisão. Ver débitos
    cobertos. O que sobrou de propósito, e continua valendo como próximo passo:
    arrastar para reordenar etapas (item 7) e a decisão sobre o modal
    "Configurar Visualização do CRM" (item 6).
-3. **Frente B — ingestão externa de leads.** Endpoint genérico chamado pelo
-   n8n, com segredo por organização, `forms.external_id` globalmente único,
-   origem, idempotência por evento e mapeamento explícito de funil/etapa.
-   Uma organização pode ter vários formulários; cada formulário corresponde a
-   um webhook/fluxo próprio no n8n. O gestor do n8n cria esse fluxo, adapta o
-   payload da origem ao contrato canônico do CRM e informa o `external_id` do
-   formulário. A idempotência deve ser por formulário + evento, pois fluxos
-   diferentes podem reutilizar o mesmo identificador na origem.
-   Decisões fechadas: id do formulário é colado manualmente; funil novo não
-   vira padrão; formulário ausente ou inativo responde 404; a resposta não
-   inclui `deal_url`; erro de id duplicado nunca revela a empresa proprietária.
+3. ~~**Frente B — ingestão externa de leads.**~~ **IMPLEMENTADA, não
+   publicada.** Migration `0014` aplicada; `POST /api/ingest/leads` no ar no
+   código; painel de integração em `/formularios` restrito a `org_admin`. As
+   cinco decisões fechadas foram respeitadas: id colado manualmente, funil e
+   etapa sempre os do formulário, formulário ausente **ou inativo ou de outra
+   empresa** responde 404 indistinguível, resposta sem `deal_url`, colisão de
+   id nunca revela a empresa dona. Contrato completo em
+   `docs/FUNCIONALIDADES.md`. **Falta**: commit, publicação e o smoke test
+   real com o n8n (ver seção 9.2).
 4. **Interface multi-instância.** A configuração ainda gerencia somente a
    instância mais antiga; listar instâncias, status e URL/segredo individual.
    Antecipar este item apenas se houver necessidade operacional imediata de
@@ -561,38 +609,53 @@ Auditar pelo menos estes pontos: `app/api/webhooks/uazapi/route.ts`,
    foram validados.
 8. `npx tsc --noEmit` e `npm run build` passam antes de qualquer deploy.
 
-### 9.2 Frente B — terreno levantado em 2026-08-27
+### 9.2 Frente B — o que foi construído e o que falta validar
 
-Reconhecimento feito, **nenhuma linha escrita**. A frente está aberta e
-aguardando comando do cliente. O que já foi verificado no código, para o
-próximo agente não repetir a busca:
+**Implementada em 2026-08-27, não publicada.** Contrato do endpoint, tabela de
+respostas e regras de isolamento estão em `docs/FUNCIONALIDADES.md`; aqui fica
+só o que um sucessor precisa saber para não refazer decisão.
 
-- **`forms.external_id` não existe.** `grep -rn external_id --include=*.sql
-  supabase/` não retorna nada. A frente começa por uma migration `0014`:
-  `external_id` globalmente único, coluna de origem, segredo por organização e
-  idempotência **por formulário + evento** — não por evento apenas, porque
-  fluxos diferentes do n8n podem reutilizar o mesmo identificador na origem.
-- **Padrão de segredo a reusar:** `supabase/migrations/0010_webhook_secret_por_instancia.sql`
-  — `generate_webhook_secret()`, dois `gen_random_uuid()` (244 bits), prefixo
-  `wmv_`, guardado em tabela revogada de `anon`/`authenticated`. O mesmo
-  raciocínio vale aqui e é **bloqueador**: o segredo da Frente B não pode morar
-  em `organizations`, que é lida com `select *` em `getSessionContext()` e
-  viaja inteira como prop até `components/layout/top-nav.tsx`.
-- **Rota-modelo:** `app/api/forms/[slug]/submit/route.ts` (150 linhas) já faz
-  service role + sanitização por `form_fields`, reuso de contato por
-  telefone/e-mail e `normalizePhone`. O endpoint novo herda essa espinha, mas
-  troca o slug público por autenticação via segredo e mapeamento explícito de
-  funil/etapa.
-- **Decisões já fechadas** estão no item 3 da seção 9 e continuam valendo: id do
-  formulário colado manualmente; funil novo não vira padrão; formulário ausente
-  ou inativo responde 404; a resposta não inclui `deal_url`; erro de id
-  duplicado nunca revela a empresa proprietária.
+Decisões de desenho tomadas nesta rodada (as cinco do item 3 já vinham
+fechadas):
 
----
+- **Credencial por organização, em tabela própria** (`organization_ingest_
+  secrets`), não em `organizations` e não por formulário. Uma empresa tem vários
+  fluxos; o que a chamada precisa provar é "falo pela empresa X". Rotação fecha
+  todos os fluxos daquela empresa de uma vez.
+- **Segredo no cabeçalho `x-webhook-secret`**, não na query como no webhook da
+  UAZAPI: a URL é a mesma para toda a base e entraria em log de acesso.
+- **Idempotência nas colunas de `form_submissions`**, sem tabela de eventos: a
+  submissão já é o registro do evento, e a reentrega reencontra a original.
+- **Funil e etapa sempre os do formulário.** O payload não os escolhe.
+
+Ponto que a próxima pessoa mais provavelmente vai errar: `findFormByExternalId`
+busca **em toda a base**, de propósito, e quem confere a organização é a rota.
+Mover esse filtro para dentro da consulta pareceria mais seguro e seria pior —
+um `external_id` de outra empresa devolveria "não encontrado", igual a um id
+inexistente, e uma credencial apontando para a base errada nunca apareceria no
+log.
+
+**O que falta, em ordem:**
+
+1. Commit e publicação (push em `main` = deploy).
+2. **Smoke test real com o n8n**, que é o único item que nenhum teste cobre:
+   gerar a credencial em `/formularios`, criar um formulário com
+   `external_id`, disparar o fluxo, conferir o lead no funil configurado,
+   reenviar o **mesmo** `event_id` e confirmar `duplicate: true` sem lead novo.
+3. Conferir com credencial da empresa A contra um `external_id` da empresa B:
+   tem de responder 404, e o log do servidor deve registrar
+   `external_id pertence a outra organização`.
+4. Desativar o formulário e confirmar que a chamada passa a receber 404.
+
+Débito assumido: a rota **não tem limite de taxa**. A credencial é de 244 bits e
+o formato do `external_id` é restrito, então não há alvo prático para força
+bruta, mas um fluxo n8n em laço escreve sem freio na base da própria empresa.
+Condição objetiva de remoção: quando houver mais de um cliente usando ingestão
+externa em produção.
 
 ## 10. Débitos técnicos conhecidos
 
-1. **Sem teste do código da aplicação.** O banco tem `npm run test:db` (59
+1. **Sem teste do código da aplicação.** O banco tem `npm run test:db` (78
    asserções sobre as migrations, incluindo leitura e escrita cruzada entre
    organizações). O que falta é o outro lado: nenhum teste cobre componente,
    rota de API ou server action. O caminho barato é continuar acrescentando
@@ -668,23 +731,21 @@ próximo agente não repetir a busca:
 ## 12. Resumo de 30 segundos
 
 > CRM multiempresa Next.js + Supabase, v0.2.0, buildando, migrations até a
-> `0013` aplicadas em produção. Em 2026-08-27 o `main` foi publicado
-> (`08aca41` → `e957dd6`, deployment `wavemov-4w4qn0gqy`): repositório, origin e
-> produção estão no mesmo commit, árvore limpa. A rodada publicada
-> separou o **histórico do lead** em **Atividades** (timeline operacional sem
-> mensagens de WhatsApp) e **Conversas** (thread por conversa, carregada sob
-> demanda, somente leitura, sem `raw_payload` no navegador). Antes dela: funil
-> padrão `0012`/`0013` e troca de funil/etapa no atendimento; correção do
-> **vazamento entre organizações no webhook da UAZAPI**; telas de Etapas do
-> funil, Relatórios, Último lead e Resumo da empresa.
+> `0014` aplicadas no Supabase. **A árvore NÃO está limpa**: a Frente B
+> (ingestão externa de leads via n8n) foi implementada em 2026-08-27 e ainda
+> não foi commitada nem publicada — produção segue em `e957dd6`. A rodada
+> adiciona `POST /api/ingest/leads` (credencial por organização no cabeçalho
+> `x-webhook-secret`, formulário escolhido por `form_external_id`, idempotência
+> por formulário + evento, funil e etapa sempre os do CRM) e o painel de
+> integração em `/formularios`, restrito a `org_admin`. A regra de criação de
+> lead a partir de formulário virou `lib/features/lead-ingestion/`,
+> compartilhada com a página pública `/f/[slug]`.
 > Regra número um: **nada pode vazar dados entre organizações** — filtre por
 > `organization_id`, toda view nova nasce com `security_invoker = on`, rota com
 > `service_role` recusa em vez de adivinhar a organização **e checa o papel**, e
 > `update` sob RLS só é sucesso se devolver linha (`.select()`). Antes de
 > entregar: `npx tsc --noEmit` e `npm run build` sempre, mais `npm run test:db`
-> se tiver mexido em migration. Pendências no topo da
-> fila: validar em produção o webhook/isolamento
-> da `0010/0011`. A Frente A está concluída; a próxima entrega funcional
-> recomendada é a Frente B (ingestão externa de leads via n8n), especificada no
-> item 3 da seção 9 — o terreno já foi levantado na seção 9.2 e ela aguarda
-> apenas o comando do cliente para começar.
+> se tiver mexido em migration. No topo da fila: publicar esta rodada e fazer o
+> smoke test real do n8n descrito na seção 9.2 — nenhuma chamada externa de
+> verdade foi feita ainda. Depois, validar em produção o webhook/isolamento da
+> `0010/0011`.

@@ -104,6 +104,42 @@ export const publicSubmissionSchema = z.record(
   z.union([z.string(), z.number(), z.boolean()]).transform((v) => String(v))
 );
 
+/**
+ * `forms.external_id` — mesma regra do `check` da migration 0014.
+ *
+ * Duplicada aqui de propósito: o banco é a autoridade (ele recusa a escrita
+ * venha de onde vier), mas a tela precisa dizer o que está errado antes de
+ * tentar, e a rota de ingestão precisa recusar um id malformado sem gastar
+ * uma consulta. Se a regra mudar, os dois lados mudam juntos — o teste do
+ * bloco 13 de `supabase/tests/migrations.mjs` prende o lado do banco.
+ */
+export const EXTERNAL_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{2,63}$/;
+
+export const externalIdSchema = z
+  .string()
+  .regex(
+    EXTERNAL_ID_PATTERN,
+    "Use de 3 a 64 caracteres: letras minúsculas, números, hífen ou sublinhado."
+  );
+
+/**
+ * Corpo de `POST /api/ingest/leads`, o contrato canônico que o fluxo do n8n
+ * precisa produzir a partir do formato da origem.
+ *
+ * `event_id` é obrigatório: ele é a idempotência. Torná-lo opcional
+ * desligaria a proteção em silêncio justamente nos fluxos que esqueceram de
+ * mapeá-lo — que são os que mais reentregam.
+ *
+ * `data` não é validado campo a campo aqui porque o formulário-alvo ainda
+ * não é conhecido neste ponto; quem decide o que entra é `sanitizeSubmission`,
+ * contra os `form_fields` do formulário resolvido.
+ */
+export const externalLeadIngestSchema = z.object({
+  form_external_id: externalIdSchema,
+  event_id: z.string().min(1).max(200),
+  data: publicSubmissionSchema,
+});
+
 // ---------------- WhatsApp ----------------
 // Não existe um "Instance ID" para configurar na UAZAPI — o token já
 // identifica a instância unicamente. Quando a API retorna um id (apenas

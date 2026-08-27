@@ -181,6 +181,12 @@ export interface Form {
   default_responsible_id: string | null;
   is_active: boolean;
   created_at: string;
+  /**
+   * Apelido colado no fluxo do n8n para receber leads por
+   * `POST /api/ingest/leads` (migration 0014). Globalmente único; nulo nos
+   * formulários que só existem na página pública `/f/[slug]`.
+   */
+  external_id: string | null;
   fields?: FormField[];
   pipeline?: Pipeline | null;
   stage?: PipelineStage | null;

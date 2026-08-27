@@ -20,7 +20,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/empresas/[id]` | `app/(dashboard)/empresas/[id]/page.tsx` | **Resumo da empresa** — KPIs, saúde da conta, evolução de leads, últimos leads, pessoas |
 | `/contatos` | `app/(dashboard)/contatos/page.tsx` | CRUD de contatos com vínculo a negociações |
 | `/pessoas` | `app/(dashboard)/pessoas/page.tsx` | Equipe, papéis e criação de usuários (service role) |
-| `/formularios` | `app/(dashboard)/formularios/page.tsx` | Construtor de formulários de captura |
+| `/formularios` | `app/(dashboard)/formularios/page.tsx` | Construtor de formulários de captura + **painel de ingestão externa (n8n)**, restrito a `org_admin` |
 | `/perfil` | `app/(dashboard)/perfil/page.tsx` | Dados do usuário e completude do perfil |
 | `/admin` | `app/(dashboard)/admin/page.tsx` | Visão global (somente admin global) |
 
@@ -29,6 +29,66 @@ Rotas públicas: `/login`, `/register`, `/onboarding`, `/f/[slug]`.
 ---
 
 ## Telas adicionadas nesta entrega
+
+### Ingestão externa de leads (n8n) — `/formularios`
+
+Segundo caminho de entrada automática de lead, ao lado da página pública
+`/f/[slug]`. Quem chama é um fluxo do n8n — um por formulário — que adapta o
+payload da origem (Meta Lead Ads, RD Station, planilha…) ao contrato canônico.
+
+**Contrato — `POST /api/ingest/leads`**
+
+```
+headers: x-webhook-secret: wmv_…
+body:    { "form_external_id": "meta-lead-ads",
+           "event_id": "<id do evento na origem>",
+           "data": { "name": "…", "email": "…", "phone": "…" } }
+```
+
+O segredo vai no **cabeçalho**, não na query: a URL é a mesma para toda a base
+e entraria em log de acesso de proxy e servidor.
+
+| Situação | Resposta |
+|---|---|
+| Sucesso | `200 { ok: true, duplicate: false }` |
+| Mesmo `event_id` no mesmo formulário | `200 { ok: true, duplicate: true }`, nada é criado |
+| Sem cabeçalho ou credencial desconhecida | `401` |
+| Corpo fora do contrato | `400` com `details` (só nomes de campo) |
+| Campo obrigatório do formulário ausente | `400` |
+| `external_id` inexistente, **inativo** ou **de outra empresa** | `404`, indistinguíveis |
+| Formulário sem funil configurado | `409` |
+
+O `404` único é deliberado: distinguir os casos transformaria a rota num
+verificador de quais identificadores existem na base e diria que um id
+específico pertence a outra empresa. Quem configurou errado vê o motivo no log
+do servidor.
+
+**Isolamento.** A credencial resolve a *organização*; o `external_id` resolve o
+*formulário*. A rota é obrigada a conferir que o formulário encontrado pertence
+à organização da credencial — é essa única linha que separa as empresas, já que
+a rota roda com `service_role` e o RLS não se aplica lá dentro.
+
+**Idempotência.** A submissão é gravada **antes** de contato e negociação e é a
+própria trava: o único parcial `(form_id, external_event_id)` recusa a segunda
+entrega. Reservar primeiro fecha a janela em que duas retentativas simultâneas
+criariam dois leads. Se a criação do lead falhar depois disso, a reserva é
+apagada para que a retentativa do n8n consiga entrar — idempotência que engole
+lead é pior que lead repetido.
+
+**Funil e etapa** são sempre os configurados no formulário dentro do CRM. O
+payload não os escolhe: origem externa não empurra lead para etapa arbitrária.
+A resposta não inclui `deal_url`.
+
+**Interface.** O painel *Ingestão externa de leads (n8n)* em `/formularios` é
+renderizado apenas para `org_admin`/admin global — e a credencial nem é lida do
+banco para os demais, para não entrar no payload do Server Component. Mostra
+endpoint, credencial (oculta por padrão, com revelar/copiar), exemplo de corpo,
+formulários já conectados e rotação com confirmação explícita, avisando que
+todos os fluxos da empresa param até o valor novo ser colado. O campo
+**Identificador de integração** fica no modal do formulário, disponível a quem
+já pode editá-lo (`org_admin`, `seller`, `agent`); ele não dá acesso a nada
+sozinho — sem a credencial, que só o administrador vê, não se escreve nada.
+Colisão de identificador responde "já está em uso", nunca de quem.
 
 ### Histórico segmentado do lead — `/negociacoes/[id]`
 
@@ -198,6 +258,33 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0010_webhook_secret_por_instancia.sql` | Segredo de webhook por instância |
 | `0011_visibilidade_leads_conversas.sql` | Visibilidade por responsável e conversa por instância |
 | `0012_funis_padrao_e_administracao.sql` | **Funil padrão explícito e administração segura de funis** |
+| `0013_coerencia_funil_etapa_do_lead.sql` | Guarda de coerência entre negociação, funil e etapa |
+| `0014_ingestao_externa_de_leads.sql` | **Ingestão externa de leads (n8n)**: `forms.external_id`, credencial por organização e idempotência por formulário + evento |
+
+### `0014_ingestao_externa_de_leads.sql`
+
+Pré-requisito de `POST /api/ingest/leads`.
+
+- `forms.external_id` — apelido do formulário colado no fluxo do n8n.
+  Globalmente único (índice parcial `forms_external_id_key`, então formulários
+  sem integração convivem) e com `check` de formato
+  `^[a-z0-9][a-z0-9_-]{2,63}$`, porque o valor é digitado à mão em outro
+  sistema.
+- `organization_ingest_secrets` — uma credencial por organização, `default
+  public.generate_webhook_secret()` (a mesma função da `0010`: prefixo `wmv_`,
+  244 bits), única, **revogada de `anon` e `authenticated`** e com RLS ligado
+  sem policy nenhuma. Só `service_role` alcança. Não fica em `organizations`
+  pelo mesmo motivo da `0010`: aquela tabela é lida com `select *` em
+  `getSessionContext()` e viaja inteira até `components/layout/top-nav.tsx`.
+- `form_submissions.external_event_id` + `source` — único parcial
+  `(form_id, external_event_id)` e `check (source in ('public_form',
+  'external_ingest'))`. A chave é o **par**, nunca o evento sozinho: fluxos
+  diferentes leem origens diferentes e podem reutilizar o mesmo identificador.
+- Backfill de credencial para as organizações existentes. Organização criada
+  depois recebe a sua sob demanda, na primeira vez que um `org_admin` gera pelo
+  painel — segredo vivo sem dono é passivo, não patrimônio.
+
+> Coberta por 20 asserções no bloco 13 de `supabase/tests/migrations.mjs`.
 
 ### `0012_funis_padrao_e_administracao.sql`
 
