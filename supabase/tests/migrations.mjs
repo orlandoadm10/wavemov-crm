@@ -1925,6 +1925,97 @@ console.log("\n== 19. Tags de negociação (0019) ==");
     else fail("set_deal_tags não aplicou", JSON.stringify(uma));
   });
 
+  // ---- 0020: tag desativada DEPOIS de aplicada não trava a edição ----
+  //
+  // O trigger BEFORE INSERT da 0019 dispara para toda linha proposta, antes da
+  // resolução do ON CONFLICT. Enquanto `set_deal_tags` repropunha o vínculo
+  // que já existia, a guarda derrubava a transação inteira e o lead ficava
+  // impossível de editar. A UI precisa mandar a tag inativa de volta para
+  // preservá-la — é este ciclo que o teste prende.
+  const tagQueSeraDesativada = await umaLinha(
+    `insert into public.deal_tags (organization_id, name) values ($1, 'Sem documento') returning id`,
+    [ORG_A]
+  );
+  const tagNova = await umaLinha(
+    `insert into public.deal_tags (organization_id, name) values ($1, 'Proposta enviada') returning id`,
+    [ORG_A]
+  );
+  // Segundo lead do mesmo seller: prova que a guarda continua recusando a tag
+  // inativa onde o vínculo ainda NÃO existe.
+  const outroLeadDoSeller = await umaLinha(
+    `insert into public.deals (organization_id, pipeline_id, stage_id, title, responsible_id, status)
+       values ($1,$2,$3,'Outro lead do Sergio',$4,'open') returning id`,
+    [ORG_A, funilTagA.id, etapaTagA.id, pSellerA]
+  );
+  await comoUsuario(sellerA, async () => {
+    await db.query(`select public.set_deal_tags($1, array[$2]::uuid[])`, [
+      leadDoSeller.id,
+      tagQueSeraDesativada.id,
+    ]);
+  });
+  await db.query(`update public.deal_tags set is_active = false where id = $1`, [
+    tagQueSeraDesativada.id,
+  ]);
+
+  await comoUsuario(sellerA, async () => {
+    // Manter a inativa e acrescentar uma ativa: o caminho normal da tela.
+    // Sem a 0020 isto levanta P0001 de dentro da guarda; o try/catch existe
+    // para reportar `FAIL` legível em vez de matar a suíte com dump de PL/pgSQL
+    // antes dos blocos seguintes.
+    try {
+      await db.query(`select public.set_deal_tags($1, array[$2, $3]::uuid[])`, [
+        leadDoSeller.id,
+        tagQueSeraDesativada.id,
+        tagNova.id,
+      ]);
+    } catch (e) {
+      fail("0020: salvar tags travou na guarda BEFORE INSERT", e.message);
+      return;
+    }
+    const ambas = await db.query(
+      `select tag_id from public.deal_tag_assignments where deal_id = $1 order by tag_id`,
+      [leadDoSeller.id]
+    );
+    if (ambas.rows.length === 2) ok("0020: manter tag inativa e acrescentar uma ativa funciona");
+    else fail("0020: edição travada pela guarda", JSON.stringify(ambas.rows));
+
+    const inativaSobreviveu = ambas.rows.some((r) => r.tag_id === tagQueSeraDesativada.id);
+    if (inativaSobreviveu) ok("0020: o vínculo da tag inativa é PRESERVADO ao salvar");
+    else fail("0020: vínculo histórico apagado ao salvar");
+  });
+
+  // A guarda continua valendo para vínculo realmente novo.
+  await comoUsuario(sellerA, async () => {
+    await esperaErro(
+      "0020: aplicar tag inativa AINDA é recusado quando o vínculo é novo",
+      () =>
+        db.query(`select public.set_deal_tags($1, array[$2, $3]::uuid[])`, [
+          outroLeadDoSeller.id,
+          tagQueSeraDesativada.id,
+          tagNova.id,
+        ]),
+      /inativa e não pode ser aplicada/i
+    );
+
+    // Desmarcar a inativa de propósito continua removendo o vínculo.
+    try {
+      await db.query(`select public.set_deal_tags($1, array[$2]::uuid[])`, [
+        leadDoSeller.id,
+        tagNova.id,
+      ]);
+    } catch (e) {
+      fail("0020: remoção deliberada da tag inativa falhou", e.message);
+      return;
+    }
+    const restou = await db.query(
+      `select tag_id from public.deal_tag_assignments where deal_id = $1`,
+      [leadDoSeller.id]
+    );
+    if (restou.rows.length === 1 && restou.rows[0].tag_id === tagNova.id)
+      ok("0020: desmarcar a tag inativa de propósito remove o vínculo");
+    else fail("0020: remoção deliberada não funcionou", JSON.stringify(restou.rows));
+  });
+
   // ---- Cascatas ----
   await db.query(`delete from public.deals where id = $1`, [leadDoSeller.id]);
   const apagou = await umaLinha(

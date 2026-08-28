@@ -7,7 +7,7 @@ import { Card, CardHeader, StatCard } from "@/components/ui/card";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
 import { daysSince, formatCurrency, formatDate, formatDateTime, fullName } from "@/lib/utils";
-import { dailySeries, resolvePeriod } from "@/lib/utils/period";
+import { addZonedDays, dailySeries, resolvePeriod, startOfZonedDay } from "@/lib/utils/period";
 import type { Deal, OrgDealStats, OrganizationMember } from "@/types";
 import {
   Activity,
@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { startOfDay, subDays } from "date-fns";
 
 export const metadata = { title: "Resumo da empresa" };
 export const dynamic = "force-dynamic";
@@ -49,8 +48,9 @@ export default async function EmpresaPerfilPage({
 
   const now = new Date();
   const period = resolvePeriod(periodo, now);
-  const todayStart = startOfDay(now).toISOString();
-  const last7Start = startOfDay(subDays(now, 6)).toISOString();
+  // Mesmo fuso do `resolvePeriod` logo acima — ver a nota em /relatorios.
+  const todayStart = startOfZonedDay(now).toISOString();
+  const last7Start = addZonedDays(now, -6).toISOString();
 
   const countDeals = (from: string) =>
     supabase

@@ -8,7 +8,7 @@ import { Card, CardHeader, StatCard } from "@/components/ui/card";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, fullName } from "@/lib/utils";
-import { dailySeries, resolvePeriod } from "@/lib/utils/period";
+import { addZonedDays, dailySeries, endOfZonedDay, resolvePeriod, startOfZonedDay } from "@/lib/utils/period";
 import type { Deal, Form, LeadRow } from "@/types";
 import {
   BarChart3,
@@ -25,7 +25,6 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { endOfDay, startOfDay, subDays } from "date-fns";
 
 export const metadata = { title: "Entrada de leads" };
 export const dynamic = "force-dynamic";
@@ -43,11 +42,14 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
   const fromISO = period.from.toISOString();
   const toISO = period.to.toISOString();
 
-  const todayStart = startOfDay(now).toISOString();
-  const yesterdayStart = startOfDay(subDays(now, 1)).toISOString();
-  const yesterdayEnd = endOfDay(subDays(now, 1)).toISOString();
-  const last7Start = startOfDay(subDays(now, 6)).toISOString();
-  const last30Start = startOfDay(subDays(now, 29)).toISOString();
+  // Mesmo fuso do `resolvePeriod` logo acima: com as bordas no fuso do
+  // processo (UTC na Vercel), "Hoje" e "Total no período" contariam recortes
+  // diferentes e se contradiriam lado a lado na mesma tela.
+  const todayStart = startOfZonedDay(now).toISOString();
+  const yesterdayStart = addZonedDays(now, -1).toISOString();
+  const yesterdayEnd = endOfZonedDay(addZonedDays(now, -1)).toISOString();
+  const last7Start = addZonedDays(now, -6).toISOString();
+  const last30Start = addZonedDays(now, -29).toISOString();
 
   // Contagens: `head: true` não transfere linhas, só o total.
   const countDeals = (from: string, to?: string) => {

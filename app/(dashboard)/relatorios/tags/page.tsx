@@ -9,11 +9,10 @@ import { Select } from "@/components/ui/input";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/utils";
-import { resolvePeriod } from "@/lib/utils/period";
+import { resolvePeriod, zonedDayRange } from "@/lib/utils/period";
 import type { DealTagEvolutionPoint, DealTagResponsibleTotal, DealTagTotal } from "@/types";
 import { ArrowLeft, BarChart3, Tags, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import { eachDayOfInterval, format } from "date-fns";
 
 export const metadata = { title: "Relatório de tags" };
 export const dynamic = "force-dynamic";
@@ -84,9 +83,12 @@ export default async function TagsReportPage({ searchParams }: { searchParams: S
       Number(point.deals_total),
     ])
   );
-  const evolution = eachDayOfInterval({ start: period.from, end: period.to }).map((day) => ({
-    label: format(day, "dd/MM"),
-    total: evolutionByDay.get(format(day, "yyyy-MM-dd")) ?? 0,
+  // O eixo precisa nascer no mesmo fuso que a RPC usa para agrupar
+  // (`America/Sao_Paulo`); com o eixo em UTC, o lead criado depois das 21h BRT
+  // conta no StatCard e some da barra.
+  const evolution = zonedDayRange(period.from, period.to).map(({ day, label }) => ({
+    label,
+    total: evolutionByDay.get(day) ?? 0,
   }));
   const responsible = ((responsibleResult.data ?? []) as unknown as DealTagResponsibleTotal[])
     .filter((item) => !selectedTagId || item.tag_id === selectedTagId)

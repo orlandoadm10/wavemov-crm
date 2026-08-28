@@ -81,10 +81,17 @@ No **SQL Editor** do Supabase, execute os arquivos na ordem:
 17. `supabase/migrations/0017_fila_ordenada_e_plantao.sql` — fila e plantão
 18. `supabase/migrations/0018_auditoria_da_distribuicao.sql` — auditoria e reparo da fila
 19. `supabase/migrations/0019_tags_de_negociacao.sql` — catálogo, vínculos e métricas de tags
+20. `supabase/migrations/0020_set_deal_tags_preserva_tag_inativa.sql` — salvar tags preserva o vínculo de tag desativada
 
 > A `0009` é obrigatória para `/funis`, `/empresas` e `/empresas/[id]`: elas leem
 > as views `organization_deal_stats` e `pipeline_stage_stats`. É aditiva — cria
 > duas views e três índices, sem tocar em dados.
+
+> A `0020` é **obrigatória** para a tela de tags. Sem ela, a interface tenta
+> preservar o vínculo de uma tag desativada reenviando-o, a guarda
+> `BEFORE INSERT` da `0019` recusa, e **nenhuma edição de tags funciona** em
+> leads que tenham tag inativa. Aplique-a ANTES de publicar o código — em
+> produção isso foi feito em 28/08/2026.
 
 > Alternativa com CLI: `supabase db push` (com o projeto linkado via `supabase link`).
 
@@ -199,6 +206,7 @@ docs/             inventário de funcionalidades, changelog e squad
 | `docs/ENGINEERING_STANDARDS.md` | Contrato obrigatório de arquitetura, processo, validação e Definition of Done |
 | `docs/FUNCIONALIDADES.md` | Inventário de telas, rotas, dados e regras de negócio |
 | `docs/CHANGELOG.md` | Histórico de entregas |
+| `docs/RELEASE_HISTORY.md` | Versões, commits, pushes e deploys em um único relatório |
 | `docs/SQUAD.md` | Agentes de desenvolvimento e quando acionar cada um |
 | `DESIGN_GUIDE.md` | Contrato visual (cores, espaçamentos, componentes) |
 

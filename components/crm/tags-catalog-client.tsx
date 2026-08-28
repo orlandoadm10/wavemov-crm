@@ -46,6 +46,10 @@ export function TagsCatalogClient({ organizationId, profileId, tags: serverTags,
   const [deleting, setDeleting] = useState<DealTag | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  // O erro de nome só aparece depois que o campo foi tocado: abrir o modal de
+  // criação já mostrando "Informe o nome da tag." em vermelho faz o primeiro
+  // contato com o recurso parecer uma tela de erro.
+  const [nameTouched, setNameTouched] = useState(false);
 
   const serverKey = serverTags.map((tag) => `${tag.id}:${tag.updated_at}`).join(",");
   useEffect(() => setTags(serverTags), [serverKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -59,6 +63,7 @@ export function TagsCatalogClient({ organizationId, profileId, tags: serverTags,
     setEditing(null);
     setForm(EMPTY_FORM);
     setError(null);
+    setNameTouched(false);
     setModalOpen(true);
   }
 
@@ -66,6 +71,7 @@ export function TagsCatalogClient({ organizationId, profileId, tags: serverTags,
     setEditing(tag);
     setForm({ name: tag.name, category: tag.category ?? "", tone: tag.tone });
     setError(null);
+    setNameTouched(false);
     setModalOpen(true);
   }
 
@@ -222,11 +228,15 @@ export function TagsCatalogClient({ organizationId, profileId, tags: serverTags,
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar tag" : "Criar tag"} size="sm">
         <div className="space-y-4">
-          <Field label="Nome" error={!form.name.trim() ? "Informe o nome da tag." : undefined}>
+          <Field
+            label="Nome"
+            error={nameTouched && !form.name.trim() ? "Informe o nome da tag." : undefined}
+          >
             <Input
               value={form.name}
               maxLength={32}
               onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              onBlur={() => setNameTouched(true)}
               placeholder="Ex.: Aguardando documento"
               data-autofocus
             />

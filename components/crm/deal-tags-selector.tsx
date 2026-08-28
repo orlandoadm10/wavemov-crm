@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { describeWriteError } from "@/lib/utils";
 import type { DealTag } from "@/types";
 import { Tags } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 interface Props {
@@ -31,6 +32,7 @@ export function DealTagsSelector({
   loadError = null,
 }: Props) {
   const supabase = createClient();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(serverSelected);
   const [draftIds, setDraftIds] = useState<string[]>([]);
@@ -48,8 +50,21 @@ export function DealTagsSelector({
     [tags]
   );
 
+  // Tag desativada no catálogo continua vinculada ao lead: histórico e
+  // relatórios dependem do vínculo. Entra no rascunho já marcada para que
+  // salvar uma nova seleção não a apague; só sai se for desmarcada de propósito.
+  const inactiveSelected = useMemo(
+    () => selected.filter((tag) => !tag.is_active).sort(compareTags),
+    [selected]
+  );
+
+  const selectableTags = useMemo(
+    () => [...activeTags, ...inactiveSelected],
+    [activeTags, inactiveSelected]
+  );
+
   function openSelector() {
-    setDraftIds(selected.filter((tag) => tag.is_active).map((tag) => tag.id));
+    setDraftIds(selected.map((tag) => tag.id));
     setError(null);
     setOpen(true);
   }
@@ -108,11 +123,14 @@ export function DealTagsSelector({
       return;
     }
 
-    const next = activeTags.filter((tag) => draftIds.includes(tag.id));
+    const next = selectableTags.filter((tag) => draftIds.includes(tag.id));
     setSaving(false);
     setSelected(next);
     onChange?.(next);
     setOpen(false);
+    // As props vêm do servidor. Sem revalidar, sair desta conversa/lead e
+    // voltar remonta o componente com o conjunto antigo e a tag some da tela.
+    router.refresh();
   }
 
   return (
@@ -145,7 +163,7 @@ export function DealTagsSelector({
       )}
 
       <Modal open={open} onClose={() => setOpen(false)} title="Selecionar tags" size="sm">
-        {activeTags.length === 0 ? (
+        {selectableTags.length === 0 ? (
           <div className="rounded-xl border border-dashed border-line p-5 text-center">
             <p className="text-sm font-semibold text-ink">Nenhuma tag ativa</p>
             <p className="mt-1 text-xs text-ink-faint">
@@ -154,11 +172,6 @@ export function DealTagsSelector({
           </div>
         ) : (
           <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-            {selected.some((tag) => !tag.is_active) && (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                Tags inativas já aplicadas deixam de fazer parte do lead quando você salvar uma nova seleção.
-              </p>
-            )}
             {activeTags.map((tag) => (
               <label
                 key={tag.id}
@@ -176,6 +189,33 @@ export function DealTagsSelector({
                 )}
               </label>
             ))}
+
+            {inactiveSelected.length > 0 && (
+              <>
+                <p className="pt-2 text-xs font-semibold tracking-wide text-ink-faint uppercase">
+                  Tags inativas já aplicadas
+                </p>
+                <p className="text-xs text-ink-faint">
+                  Ficam no lead para preservar o histórico e os relatórios.
+                  Desmarque apenas para remover — não será possível aplicá-las de novo.
+                </p>
+                {inactiveSelected.map((tag) => (
+                  <label
+                    key={tag.id}
+                    className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl border border-dashed border-line px-3 py-2 hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={draftIds.includes(tag.id)}
+                      onChange={() => toggle(tag.id)}
+                      className="h-4 w-4 rounded border-line text-primary-600 focus-visible:outline-2 focus-visible:outline-primary-500"
+                    />
+                    <Badge tone={tag.tone}>{tag.name}</Badge>
+                    <span className="ml-auto shrink-0 text-xs text-ink-faint">Inativa</span>
+                  </label>
+                ))}
+              </>
+            )}
           </div>
         )}
         {error && (
@@ -187,7 +227,7 @@ export function DealTagsSelector({
           <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={save} loading={saving} disabled={activeTags.length === 0}>
+          <Button onClick={save} loading={saving} disabled={selectableTags.length === 0}>
             Salvar tags
           </Button>
         </div>
