@@ -5,7 +5,7 @@ Leia este arquivo primeiro. As regras canônicas de trabalho estão em
 `docs/FUNCIONALIDADES.md` para contratos funcionais e `docs/CHANGELOG.md` para
 o histórico detalhado.
 
-**Atualizado em:** 27/08/2026
+**Atualizado em:** 28/08/2026
 
 **Versão:** `0.2.0`
 
@@ -18,66 +18,130 @@ o histórico detalhado.
 
 | Item | Estado |
 |---|---|
-| `main` local | `08a539f` — interface e relatórios de tags |
-| `origin/main` | `7172fbb` — migration `0019` de tags |
-| Produção | `7172fbb`, deploy `dpl_DJpPbqN9VCqMxQtkhrAmwKEbxf4T` (`Ready`) |
+| `main` local | `f9cfded` — editar o contato pelo detalhe da negociação |
+| `origin/main` | `2d23f73` — correções de QA das tags e migration `0020` |
+| Produção | `2d23f73`, do push de 28/08/2026 |
 | Banco | migrations `0001` a `0020` aplicadas (a `0020` em 28/08/2026, pelo cliente) |
-| Diferença | tags + correções de QA estão 2 commits à frente do GitHub e da produção |
-| Documentação local | commitada junto com as correções de QA |
+| Diferença | **2 commits locais aguardando push**: `7caea98` e `f9cfded` |
+| Ramo em uso | `main`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1, já mergeado — pode ser apagado |
 
 Push em `main` dispara deploy de produção automaticamente pela Vercel. Não há
 tag Git para a versão `0.2.0`.
 
+Nenhum dos dois commits pendentes exige migration: o push é direto.
+
+### Ambiente local desta sessão
+
+O `.env.local` foi **apontado para o Supabase local do Docker**
+(`127.0.0.1:54321`), não para a nuvem. Os valores de produção estão preservados
+em linhas comentadas dentro do próprio arquivo; para voltar à nuvem, basta
+trocá-las de volta. O banco local foi resetado e tem `0001..0020` — foi ali que
+a `0020` ganhou prova em Postgres real, além do pglite.
+
+Isso importa: com o `.env.local` apontando para a nuvem, `npm run dev` escreve
+**nos dados reais do cliente**. Confira o arquivo antes de subir o app.
+
 ## Entrega local pendente de publicação
 
-O commit `08a539f` conclui os consumidores da migration `0019`:
+**`7caea98` — Tags e Distribuição saíram do menu superior** e viraram botões ao
+lado dos filtros de `/negociacoes`, na fileira do "Etapas". O menu foi de 12
+para 10 itens. Os botões só aparecem para `org_admin`/admin global, porque as
+duas rotas já eram restritas e o atalho levaria um `seller` a um beco. Nenhuma
+das telas ficou órfã: `/relatorios/tags` mantém "Catálogo" e
+`/relatorios/vendedores` aponta para `/distribuicao`.
 
-- `/tags`: catálogo para `org_admin`/admin global, inclusive criação no vazio;
-- seletor de tags no detalhe do lead e no atendimento;
-- até três badges e contador no Kanban, mais filtro por tag;
-- `/relatorios/tags`: quantidade/status/valor, evolução e distribuição por
-  responsável.
+**`f9cfded` — o contato virou editável pelo detalhe da negociação.** O
+formulário não foi duplicado: saiu de `contacts-client.tsx` para o
+`components/crm/contact-modal.tsx` compartilhado. A extração corrigiu um defeito
+que existia antes nos dois consumidores — o update de contato não filtrava
+`organization_id` nem usava `.select()`, então update recusado pela RLS voltava
+como **sucesso silencioso**, e a tela dizia que salvou.
 
-Contratos que precisam permanecer:
+Contratos que precisam permanecer, das entregas de tags e de contato:
 
-- `viewer` é somente leitura;
+- `viewer` é somente leitura — inclusive sem **ver** o gatilho de escrita, não
+  só sem permissão para executá-la;
 - `seller`/`agent` só aplica tags nos leads que já pode acessar;
 - tag inativa continua em vínculos e relatórios históricos, mas não pode ser
-  aplicada novamente;
-- catálogo é administrativo;
+  aplicada novamente. A UI precisa **reenviá-la** em `set_deal_tags` para
+  preservar o vínculo — é o que a `0020` viabiliza;
+- catálogo de tags é administrativo;
 - a associativa de tags usa chaves compostas para impedir vínculo entre
-  organizações, inclusive quando `service_role` ignora RLS.
+  organizações, inclusive quando `service_role` ignora RLS;
+- as bordas de período e as chaves de eixo dos relatórios vivem em
+  `America/Sao_Paulo` (`lib/utils/period.ts`), nunca no fuso do processo: em
+  produção o Node roda em UTC.
 
 ## Próxima sessão
 
-1. Revisar e commitar as correções da auditoria de QA (dois Altos, dois Médios
-   e a migration `0020`) junto com os documentos locais (`HANDOFF`, `README` e
-   `RELEASE_HISTORY`).
-2. ~~Aplicar a `0020` no Supabase de produção.~~ **Feito em 28/08/2026.**
-3. Antes do push, atualizar `docs/RELEASE_HISTORY.md` com o novo commit
-   documental para o relatório não nascer defasado.
-4. Fazer `git push origin main`; aguardar o deploy automático e confirmar que o
-   alias de produção aponta para o novo commit.
-5. Executar smoke test autenticado de `/tags`, seletor no detalhe e atendimento,
-   filtro/badges do Kanban e `/relatorios/tags`. Incluir o caso que motivou a
-   `0020`: aplicar uma tag, desativá-la no catálogo e então editar as tags do
-   mesmo lead — precisa salvar e preservar o vínculo antigo.
-6. Verificar `/negociacoes?tag=<id>` contra o banco real: a consulta monta dois
-   embeds da mesma tabela sobre FK composta, e nenhum gate local exercita o
-   PostgREST.
-7. Registrar o commit e o deploy reais em `docs/RELEASE_HISTORY.md` e manter
-   este resumo verdadeiro.
+Em ordem de risco. Os itens 1 e 2 são publicação; o 3 é o que mais reduz risco
+de acidente; do 4 em diante é dívida e produto.
 
-**A `0020` já foi aplicada em produção** (28/08/2026), então o caminho está
-livre para o push. A ordem importava: a interface nova depende da função nova, e
-publicar o código antes da migration deixaria produção pior do que estava — em
-qualquer lead com tag inativa, salvar tags passaria a falhar com mensagem
-genérica, sem saída pela tela.
+1. **`git push origin main`** — leva `7caea98` e `f9cfded`. Confirmar que o
+   alias de produção passou a apontar para `f9cfded` e registrar commit e deploy
+   reais em `docs/RELEASE_HISTORY.md`.
+2. **Smoke autenticado em produção**, depois do deploy:
+   - o caso que motivou a `0020`: aplicar tag, desativá-la no catálogo, e então
+     editar as tags do mesmo lead. Precisa salvar e preservar o vínculo antigo,
+     com a tag na seção "Tags inativas já aplicadas";
+   - `/negociacoes?tag=<id>` — monta dois embeds da mesma tabela sobre FK
+     composta, e nenhum gate local exercita o PostgREST;
+   - `/relatorios/tags` entre 21h e 23h59 BRT, a janela onde o defeito de fuso
+     aparecia: o gráfico tem de bater com os StatCards;
+   - editar o contato pelo detalhe, inclusive a troca de `whatsapp_phone` e o
+     aviso âmbar.
+3. **Acertar o ledger de migrations e desarmar o `db push`.** O ledger remoto
+   lista `0001..0008` e o CLI está linkado à produção. Um `db push` distraído
+   para na `0011` (`policy already exists`) sem perder dado — mas quem destravar
+   essa parede chega na `0016`, que **reinscreve na fila de distribuição todo
+   membro que o administrador removeu**, em todas as organizações; a `0018`
+   então renumera a fila e zera o cursor. Silencioso, sem erro e sem linha em
+   `lead_distribution_log`. Caminho recomendado: `insert` das 12 linhas
+   faltantes em `supabase_migrations.schema_migrations` pelo painel — mesma
+   escrita do `migration repair`, sem trazer o CLI para perto da produção —
+   mantendo o link. Depois disso, `db push --dry-run` responde que está em dia e
+   a armadilha some. Acompanham: registrar o ledger a cada aplicação manual
+   daqui em diante; corrigir `README.md`, que anuncia `supabase db push` como
+   alternativa (é falso para este projeto); e trocar o replay de idempotência do
+   `test:db`, que hoje só reaplica a `0012` e por isso não pegou nada disso.
+4. **A guarda que falta na `0016`** — em migration nova, já que migration
+   aplicada é imutável. O cabeçalho dela declara "Idempotente: pode ser
+   executada duas vezes sem efeito colateral", e isso é **falso**. Ou a guarda
+   entra, ou o comentário muda; o comentário existe para alguém confiar nele.
+5. **Fuso em UTC nas duas telas que sobraram** — `/relatorios/ultimo-lead:25,51`
+   e `/dashboard:85-96`. Dívida pré-existente, mas agora elas **contradizem**
+   `/relatorios`, que foi corrigido: mesmo rótulo "hoje", números diferentes.
+6. **Frente de produto recomendada: integridade do fechamento da negociação.**
+   As telas de referência estão esgotadas — as cinco imagens já viraram
+   `/funis`, `/empresas/[id]`, `/relatorios` e `/relatorios/ultimo-lead`; o que
+   sobra delas é cosmético. A frente sai do débito 3: `markWon`/`markLost`
+   (`deal-detail.tsx:148-182`) escrevem no cliente sem `deal_stage_history`, sem
+   `.select()` e sem filtro de organização — um `markWon` recusado pela RLS
+   **mostra confete e não muda nada**. Consequência de produto: toda negociação
+   que fecha perde a transição que explica o resultado, e a "retenção" de
+   `/funis` é ocupação instantânea, não coorte. Proposta: RPC `close_deal`
+   transacional, mais trigger de rede de segurança nos quatro caminhos de
+   escrita; depois `/funis` troca `% retido` por `% que avançou` e tempo mediano
+   na etapa. Sem rota nova, sem bundle novo.
 
-O ledger `supabase_migrations.schema_migrations` do projeto de produção lista
-apenas `0001` a `0008`: aplicar SQL pelo painel não o alimenta. Ele NÃO é fonte
-de verdade sobre o que rodou. Para conferir uma função específica, inspecione
-`pg_get_functiondef` em vez de confiar no ledger.
+Descartado com motivo: **UI multi-instância do WhatsApp**. As migrations
+`0010/0011` nunca tiveram smoke em produção nem com uma instância; construir a
+tela da segunda antes de provar a primeira é empilhar interface sobre terreno
+não verificado.
+
+### Achados menores ainda abertos
+
+Da auditoria de tags: mensagens específicas da `0019` descartadas por
+`describeWriteError` (o admin não fica sabendo em quantos leads a tag está);
+filtro de tag desativada some da URL sem aviso; `?tag=todas` fica preso na URL;
+select de tag do Kanban sem `aria-label`; badge de tag inativa sem indicador
+fora do modal.
+
+Da edição de contato: trocar o `whatsapp_phone` **não reconcilia conversas**. O
+webhook da UAZAPI casa por igualdade exata, então mensagens novas do número
+antigo criam contato duplicado. O modal avisa; não resolve. Resolver é mudança
+de dados — atualizar `whatsapp_conversations.phone` e decidir o que fazer com as
+duplicatas que já existem.
 
 ## Validações operacionais ainda abertas
 
@@ -182,6 +246,13 @@ cliente.
 6. A ingestão externa não tem rate limit; priorizar quando mais de um cliente
    estiver usando o fluxo.
 7. A UI multi-instância do WhatsApp ainda não existe.
+8. O ledger remoto de migrations diverge do repositório e o CLI está linkado à
+   produção — ver o item 3 da próxima sessão. É o débito com maior potencial de
+   estrago silencioso.
+9. O replay de idempotência do `test:db` só reaplica a `0012`; por isso a `0011`
+   e a `0016` passaram batidas.
+10. Trocar o `whatsapp_phone` de um contato não reconcilia conversas: mensagens
+    do número antigo criam contato duplicado no webhook.
 
 Demais melhorias e histórico pertencem a `README.md`, `docs/CHANGELOG.md` e
 `docs/FUNCIONALIDADES.md`, não a este handoff.
