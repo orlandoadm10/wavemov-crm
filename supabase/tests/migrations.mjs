@@ -1625,6 +1625,328 @@ console.log("\n== 18. Auditoria e reparo de posições (0018) ==");
   else fail("a 0018 não é idempotente", `${antes} -> ${depois}`);
 }
 
+console.log("\n== 19. Tags de negociação (0019) ==");
+{
+  // Leads das duas empresas, cada um com responsável distinto, para exercitar
+  // a fronteira por responsável da 0011 dentro das tags.
+  const funilTagA = await umaLinha(
+    `select id from public.pipelines where organization_id = $1 and is_default`,
+    [ORG_A]
+  );
+  const etapaTagA = await umaLinha(
+    `select id from public.pipeline_stages where pipeline_id = $1 and not is_won_stage and not is_lost_stage order by order_index limit 1`,
+    [funilTagA.id]
+  );
+  const funilTagB = await umaLinha(
+    `select id from public.pipelines where organization_id = $1 and is_default`,
+    [ORG_B]
+  );
+  const etapaTagB = await umaLinha(
+    `select id from public.pipeline_stages where pipeline_id = $1 and not is_won_stage and not is_lost_stage order by order_index limit 1`,
+    [funilTagB.id]
+  );
+
+  const leadDoSeller = await umaLinha(
+    `insert into public.deals (organization_id, pipeline_id, stage_id, title, responsible_id, status)
+       values ($1,$2,$3,'Lead do Sergio',$4,'open') returning id`,
+    [ORG_A, funilTagA.id, etapaTagA.id, pSellerA]
+  );
+  const leadDoAdmin = await umaLinha(
+    `insert into public.deals (organization_id, pipeline_id, stage_id, title, responsible_id, status)
+       values ($1,$2,$3,'Lead da Ana',$4,'open') returning id`,
+    [ORG_A, funilTagA.id, etapaTagA.id, pAdminA]
+  );
+  const leadDaB = await umaLinha(
+    `insert into public.deals (organization_id, pipeline_id, stage_id, title, status)
+       values ($1,$2,$3,'Lead da empresa B','open') returning id`,
+    [ORG_B, funilTagB.id, etapaTagB.id]
+  );
+
+  // ---- Catálogo: normalização e unicidade ----
+  const tagA = await umaLinha(
+    `insert into public.deal_tags (organization_id, name, category, tone)
+       values ($1, '  Aguardando documento  ', '  Pendências  ', 'amber') returning id, name, category`,
+    [ORG_A]
+  );
+  if (tagA.name === "Aguardando documento" && tagA.category === "Pendências")
+    ok("nome e categoria são normalizados (btrim) na gravação");
+  else fail("normalização do catálogo", JSON.stringify(tagA));
+
+  await esperaErro(
+    "nome repetido com outra caixa é recusado na mesma empresa",
+    () =>
+      db.query(`insert into public.deal_tags (organization_id, name) values ($1, 'aguardando DOCUMENTO')`, [
+        ORG_A,
+      ]),
+    /deal_tags_org_nome_key|duplicate/i
+  );
+
+  const mesmoNomeOutraEmpresa = await db.query(
+    `insert into public.deal_tags (organization_id, name) values ($1, 'Aguardando documento') returning id`,
+    [ORG_B]
+  );
+  if (mesmoNomeOutraEmpresa.rows.length === 1)
+    ok("o mesmo nome é aceito em OUTRA empresa (unicidade é por organização)");
+  else fail("unicidade vazou entre organizações");
+  const tagB = mesmoNomeOutraEmpresa.rows[0];
+
+  await esperaErro(
+    "tom fora da paleta do Badge é recusado",
+    () =>
+      db.query(`insert into public.deal_tags (organization_id, name, tone) values ($1, 'Roxa', 'fuchsia')`, [
+        ORG_A,
+      ]),
+    /deal_tags_tone_check|check constraint/i
+  );
+
+  await esperaErro(
+    "nome vazio é recusado",
+    () => db.query(`insert into public.deal_tags (organization_id, name) values ($1, '   ')`, [ORG_A]),
+    /deal_tags_name_nao_vazio|check constraint/i
+  );
+
+  // ---- A FK composta: o vínculo entre empresas é IMPOSSÍVEL ----
+  //
+  // É o achado central do desenho: `organization_id` da associativa é um valor
+  // que o cliente envia, então uma policy que confiasse nele aceitaria a tag
+  // de outra empresa. As duas FKs compartilham a coluna.
+  await esperaErro(
+    "tag da empresa B não se liga a lead da empresa A, nem por service_role",
+    () =>
+      db.query(
+        `insert into public.deal_tag_assignments (deal_id, tag_id, organization_id) values ($1,$2,$3)`,
+        [leadDoSeller.id, tagB.id, ORG_A]
+      ),
+    /deal_tag_assignments_tag_fkey|foreign key/i
+  );
+
+  await esperaErro(
+    "nem mentindo o organization_id para o da empresa B",
+    () =>
+      db.query(
+        `insert into public.deal_tag_assignments (deal_id, tag_id, organization_id) values ($1,$2,$3)`,
+        [leadDoSeller.id, tagB.id, ORG_B]
+      ),
+    /deal_tag_assignments_deal_fkey|foreign key/i
+  );
+
+  // ---- Aplicação e idempotência ----
+  await db.query(
+    `insert into public.deal_tag_assignments (deal_id, tag_id, organization_id) values ($1,$2,$3)`,
+    [leadDoSeller.id, tagA.id, ORG_A]
+  );
+  await db.query(
+    `insert into public.deal_tag_assignments (deal_id, tag_id, organization_id) values ($1,$2,$3)
+     on conflict (deal_id, tag_id) do nothing`,
+    [leadDoSeller.id, tagA.id, ORG_A]
+  );
+  const vinculos = await umaLinha(
+    `select count(*) as n from public.deal_tag_assignments where deal_id = $1 and tag_id = $2`,
+    [leadDoSeller.id, tagA.id]
+  );
+  if (Number(vinculos.n) === 1) ok("aplicar a mesma tag duas vezes não duplica o vínculo");
+  else fail("vínculo duplicado", JSON.stringify(vinculos));
+
+  // ---- Tag inativa ----
+  const tagInativa = await umaLinha(
+    `insert into public.deal_tags (organization_id, name, is_active) values ($1, 'Aposentada', false) returning id`,
+    [ORG_A]
+  );
+  await esperaErro(
+    "tag inativa não pode ser aplicada a nada novo",
+    () =>
+      db.query(
+        `insert into public.deal_tag_assignments (deal_id, tag_id, organization_id) values ($1,$2,$3)`,
+        [leadDoAdmin.id, tagInativa.id, ORG_A]
+      ),
+    /inativa e não pode ser aplicada/i
+  );
+
+  // Desativar tag JÁ aplicada preserva o vínculo — é o ponto do is_active.
+  await db.query(`update public.deal_tags set is_active = false where id = $1`, [tagA.id]);
+  const sobreviveu = await umaLinha(
+    `select count(*) as n from public.deal_tag_assignments where tag_id = $1`,
+    [tagA.id]
+  );
+  if (Number(sobreviveu.n) === 1) ok("desativar a tag NÃO remove os vínculos existentes");
+  else fail("vínculos perdidos ao desativar", JSON.stringify(sobreviveu));
+  await db.query(`update public.deal_tags set is_active = true where id = $1`, [tagA.id]);
+
+  // ---- Exclusão bloqueada, com mensagem ----
+  await comoUsuario(adminA, async () => {
+    await esperaErro(
+      "excluir tag em uso é recusado com explicação em português",
+      () => db.query(`select public.delete_deal_tag($1)`, [tagA.id]),
+      /está aplicada em 1 negociação/i
+    );
+  });
+
+  await comoUsuario(sellerA, async () => {
+    await esperaErro(
+      "seller não exclui tag",
+      () => db.query(`select public.delete_deal_tag($1)`, [tagInativa.id]),
+      /Somente administradores/i
+    );
+  });
+
+  // ---- Papéis na associativa ----
+  await comoUsuario(sellerA, async () => {
+    const meus = await db.query(
+      `select tag_id from public.deal_tag_assignments where deal_id = $1`,
+      [leadDoSeller.id]
+    );
+    if (meus.rows.length === 1) ok("seller LÊ as tags do lead pelo qual é responsável");
+    else fail("seller não leu as tags do próprio lead", JSON.stringify(meus.rows));
+
+    const alheias = await db.query(
+      `select tag_id from public.deal_tag_assignments where deal_id = $1`,
+      [leadDoAdmin.id]
+    );
+    if (alheias.rows.length === 0) ok("seller NÃO lê vínculos de lead de outro responsável (0011)");
+    else fail("vazamento de vínculos entre responsáveis", JSON.stringify(alheias.rows));
+
+    await esperaErro(
+      "seller não aplica tag em lead que não é dele",
+      () =>
+        db.query(
+          `insert into public.deal_tag_assignments (deal_id, tag_id, organization_id) values ($1,$2,$3)`,
+          [leadDoAdmin.id, tagA.id, ORG_A]
+        ),
+      /row-level security|violates/i
+    );
+
+    await esperaErro(
+      "seller não cadastra tag",
+      () => db.query(`insert into public.deal_tags (organization_id, name) values ($1, 'Do seller')`, [ORG_A]),
+      /row-level security|violates/i
+    );
+  });
+
+  // `viewer` enxerga todos os leads (0011) mas é somente leitura: a policy de
+  // escrita precisa de `has_org_write`, que NÃO o inclui. Copiar a policy de
+  // leitura daria escrita a ele.
+  const viewerTag = await uid("viewer.a@teste.com");
+  const pViewerTag = await perfil(viewerTag);
+  await db.query(
+    `update public.organization_members set role = 'viewer', is_active = true
+      where organization_id = $1 and profile_id = $2`,
+    [ORG_A, pViewerTag]
+  );
+  await comoUsuario(viewerTag, async () => {
+    const leitura = await db.query(
+      `select tag_id from public.deal_tag_assignments where deal_id = $1`,
+      [leadDoSeller.id]
+    );
+    if (leitura.rows.length === 1) ok("viewer LÊ as tags de qualquer lead da empresa");
+    else fail("viewer não leu vínculos", JSON.stringify(leitura.rows));
+
+    await esperaErro(
+      "viewer NÃO aplica tag, mesmo enxergando o lead",
+      () =>
+        db.query(
+          `insert into public.deal_tag_assignments (deal_id, tag_id, organization_id) values ($1,$2,$3)`,
+          [leadDoAdmin.id, tagA.id, ORG_A]
+        ),
+      /row-level security|violates/i
+    );
+
+    const remocao = await db.query(
+      `delete from public.deal_tag_assignments where deal_id = $1 returning tag_id`,
+      [leadDoSeller.id]
+    );
+    if (remocao.rows.length === 0) ok("viewer NÃO remove tag");
+    else fail("viewer removeu vínculo", JSON.stringify(remocao.rows));
+  });
+
+  // ---- Métricas ----
+  await comoUsuario(adminA, async () => {
+    const totais = await db.query(`select * from public.deal_tag_totals($1)`, [ORG_A]);
+    const linhaA = totais.rows.find((r) => r.tag_id === tagA.id);
+    if (linhaA && Number(linhaA.deals_total) === 1)
+      ok("deal_tag_totals conta a negociação da tag");
+    else fail("contagem por tag", JSON.stringify(totais.rows));
+
+    const zerada = totais.rows.find((r) => r.tag_id === tagInativa.id);
+    if (zerada && Number(zerada.deals_total) === 0)
+      ok("tag sem negociação aparece com 0 em vez de sumir (left join)");
+    else fail("tag zerada sumiu do relatório");
+  });
+
+  await comoUsuario(sellerA, async () => {
+    const totais = await db.query(`select * from public.deal_tag_totals($1)`, [ORG_A]);
+    const linhaA = totais.rows.find((r) => r.tag_id === tagA.id);
+    if (linhaA && Number(linhaA.deals_total) === 1)
+      ok("seller vê nas métricas apenas os leads dele");
+    else fail("recorte de visibilidade nas métricas", JSON.stringify(totais.rows));
+
+    await esperaErro(
+      "seller NÃO abre a distribuição por responsável (é relatório de gestão)",
+      () => db.query(`select * from public.deal_tag_by_responsible($1)`, [ORG_A]),
+      /disponível para administradores/i
+    );
+  });
+
+  // A checagem que impede uma função DEFINER de virar porta dos fundos.
+  await comoUsuario(adminB, async () => {
+    await esperaErro(
+      "admin da empresa B não lê as métricas da empresa A passando o uuid",
+      () => db.query(`select * from public.deal_tag_totals($1)`, [ORG_A]),
+      /Sem acesso a esta organização/i
+    );
+  });
+
+  await comoUsuario(adminA, async () => {
+    await esperaErro(
+      "agrupamento inválido na evolução é recusado com mensagem, não erro cru",
+      () =>
+        db.query(`select * from public.deal_tag_evolution($1, now() - interval '30 days', now(), null, 'trimestre')`, [
+          ORG_A,
+        ]),
+      /Agrupamento inválido/i
+    );
+  });
+
+  // ---- set_deal_tags: conjunto final, numa transação ----
+  await comoUsuario(sellerA, async () => {
+    await db.query(`select public.set_deal_tags($1, $2::uuid[])`, [leadDoSeller.id, []]);
+    const vazio = await umaLinha(
+      `select count(*) as n from public.deal_tag_assignments where deal_id = $1`,
+      [leadDoSeller.id]
+    );
+    if (Number(vazio.n) === 0) ok("set_deal_tags com lista vazia remove todas as tags do lead");
+    else fail("set_deal_tags não limpou", JSON.stringify(vazio));
+
+    await db.query(`select public.set_deal_tags($1, array[$2]::uuid[])`, [leadDoSeller.id, tagA.id]);
+    const uma = await umaLinha(
+      `select count(*) as n from public.deal_tag_assignments where deal_id = $1`,
+      [leadDoSeller.id]
+    );
+    if (Number(uma.n) === 1) ok("set_deal_tags aplica o conjunto pedido");
+    else fail("set_deal_tags não aplicou", JSON.stringify(uma));
+  });
+
+  // ---- Cascatas ----
+  await db.query(`delete from public.deals where id = $1`, [leadDoSeller.id]);
+  const apagou = await umaLinha(
+    `select count(*) as n from public.deal_tag_assignments where deal_id = $1`,
+    [leadDoSeller.id]
+  );
+  if (Number(apagou.n) === 0) ok("apagar a negociação leva os vínculos junto (cascade)");
+  else fail("vínculo órfão após apagar o lead");
+
+  // `no action` na FK da tag não pode impedir a exclusão da organização.
+  await db.query(
+    `insert into public.deal_tag_assignments (deal_id, tag_id, organization_id) values ($1,$2,$3)`,
+    [leadDaB.id, tagB.id, ORG_B]
+  );
+  try {
+    await db.query(`delete from public.organizations where id = $1`, [ORG_B]);
+    ok("excluir a organização funciona mesmo com tags aplicadas (por isso `no action`, não `restrict`)");
+  } catch (e) {
+    fail("a FK da tag bloqueou a exclusão da organização", e.message.split("\n")[0]);
+  }
+}
+
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);
 await db.close();
 process.exit(falhas === 0 ? 0 : 1);

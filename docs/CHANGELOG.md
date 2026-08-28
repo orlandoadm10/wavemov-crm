@@ -2,6 +2,78 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-27 — tags de negociação: schema (`0019`)
+
+Migration escrita e validada. **PENDENTE de aplicação.** Nenhum código depende
+dela ainda; catálogo, aplicação no card, filtro e relatório vêm depois da
+confirmação.
+
+### Decisões fechadas com o cliente
+
+- **Tags marcam situação operacional** ("Aguardando documento", "Retorno
+  agendado"), não características que o lead já respondeu no Typeform — essas
+  já chegam estruturadas no card *Informações do Lead*, e carimbá-las à mão
+  faria o relatório medir a disciplina do vendedor, não o negócio.
+- **Categoria é texto livre normalizado**, com sugestão das já usadas. Entidade
+  cadastrável seria tabela, RLS, CRUD e tela para guardar uma string de
+  agrupamento de 15 a 30 tags.
+- **Cor é uma lista fechada de 8 tons**, os mesmos de `components/ui/badge.tsx`.
+  Guardar o nome do tom em vez de `#rrggbb` faz a tag reusar o componente
+  existente e torna impossível cadastrar texto branco sobre amarelo.
+  (`pipeline_stages.color` guarda hex livre desde a `0001`; é inconsistência
+  existente, não replicada de propósito.)
+- **Filtro: uma tag por vez**, com o mesmo componente de funil/status/
+  responsável. Multi-seleção com chips não existe no design system.
+
+### Adicionado — migration `0019`
+
+- **`deal_tags`** — catálogo por organização. Nome único por empresa **sem
+  diferenciar caixa e independente da categoria**: com a categoria na chave, a
+  empresa teria "Urgente" em duas categorias, o card mostraria o mesmo chip e o
+  relatório contaria duas linhas com o mesmo rótulo.
+- **`deal_tag_assignments`** — N:N, PK composta `(deal_id, tag_id)` que impede
+  duplicata de graça e dá idempotência. Sem `UPDATE`: as duas colunas de
+  negócio são a própria chave.
+- **Três RPCs de relatório** agregando no banco: `deal_tag_totals`,
+  `deal_tag_evolution` e `deal_tag_by_responsible`.
+- `delete_deal_tag` explica o bloqueio em português e sugere desativar;
+  `set_deal_tags` grava o conjunto final numa transação, em `security invoker`
+  para que o RLS se aplique naturalmente.
+
+### A decisão central do desenho
+
+`organization_id` na associativa é um valor que o **cliente envia**. Uma policy
+que confiasse nele aceitaria `{deal_id de A, tag_id de B, organization_id = A}`
+e colaria a tag de outra empresa num lead — passando por `has_org_write`, que
+olharia só o `A`.
+
+Por isso a co-tenancy é garantida por **chaves estrangeiras compostas que
+compartilham a mesma coluna `organization_id`**. O vínculo entre empresas fica
+impossível por construção, e vale inclusive para `service_role`, que ignora RLS
+mas não ignora FK. Custo: uma `unique (id, organization_id)` em `deals`, que
+toma `ACCESS EXCLUSIVE` — rode fora do pico.
+
+### Duas armadilhas evitadas
+
+- **`has_full_lead_visibility` inclui `viewer`.** Escrever a policy de escrita
+  copiando a de leitura daria escrita a um perfil somente leitura. As policies
+  de insert e delete exigem `has_org_write` **em conjunção** com
+  `can_access_deal`.
+- **`no action` na FK da tag, não `restrict`.** `restrict` dispara na hora: ao
+  apagar uma organização, o cascade alcança `deals` e `deal_tags` em ordem não
+  garantida, e abortaria a exclusão da empresa. `no action` é verificado no fim
+  da instrução, quando o cascade de `deals` já removeu os vínculos.
+
+### Validação
+
+`npm run test:db` — **174 asserções** (eram 145), 29 novas no bloco 19.
+As que mais importam: tag da empresa B não se liga a lead da A **nem mentindo o
+`organization_id`** (violação de FK, não de RLS); `seller` não lê vínculos de
+lead de outro responsável; `viewer` lê e não escreve; `seller` vê nas métricas
+só os leads dele e é recusado na distribuição por responsável; admin de outra
+empresa não lê métricas passando o uuid; e excluir organização funciona mesmo
+com tags aplicadas.
+
 ## 2026-08-27 — correções da auditoria de QA da Frente C
 
 Auditoria do `qa-engineer` sobre `20a9319..38c1315`. **Sem achado de isolamento
