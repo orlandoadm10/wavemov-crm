@@ -1,8 +1,9 @@
-# Guia de Design - Wavemov CRM
+# Guia de Design - CRM JID Mídia
 
 ## Identidade visual
 
-- Produto: Wavemov CRM
+- Produto: CRM JID Mídia (a JID Mídia é quem fornece o CRM às empresas clientes)
+- Logo: `public/jid.png`, sempre pelo componente `components/ui/brand-logo.tsx`
 - Estilo geral: CRM SaaS operacional, limpo, claro, denso e profissional
 - Personalidade visual: confiável, objetiva, moderna, com predominância de azul
 - Layout base: superfícies claras, cards brancos, bordas suaves, sombras leves
@@ -370,6 +371,39 @@
 - Título: 20px, peso 700
 - Texto auxiliar: 14px, #94a3b8
 - CTA: botão primary grande full-width
+
+### Landing pública (`/`)
+
+A única tela de marketing do produto. Herda os tokens do app, mas usa uma
+escala maior — é apresentação, não densidade operacional. Toda exceção à
+escala do app está listada aqui; nada além disto se desvia.
+
+- Container: max-width 1152px, padding horizontal 20px
+- Ritmo vertical das seções: 80px no mobile, 112px a partir de `lg`
+- Alternância de fundo: branco → branco → azul #1e3a8a → #f5f7fb → branco
+- Header: sticky, altura 72px, transparente no topo e branco 85% com blur
+  depois do primeiro scroll; o CTA de acesso fica visível em toda largura
+- Botão da landing: pílula (radius 9999px), gradiente primary-600 → primary-500,
+  altura 44px (md) ou 52px (lg), sombra azul 20% — a mesma do botão primário do
+  app
+- Título hero: clamp(2.1rem, 4.2vw, 3.35rem), peso 700, tracking tight
+- Título de seção: clamp(1.75rem, 3.4vw, 2.5rem), peso 700
+- Rótulo de seção: 12px, peso 700, uppercase, tracking 0.18em, primary-600
+  (primary-300 sobre azul)
+- Card de recurso: radius 16px, padding 24px, shadow card, hover eleva 4px e
+  troca para shadow pop
+- Ícone de recurso: 20px em um bloco de 44px, radius 12px — **exceção** aos
+  16px padrão, restrita a esta rota
+- Seções escuras: primary-900 com halos radiais dos tokens primary-600/400
+  (classes `.landing-glow` e `.landing-glow-cta` em `app/globals.css`)
+- Texto sobre azul: branco no título, primary-200 no apoio
+- Nenhum texto de conteúdo usa #94a3b8: em página pública o mínimo é #475569
+- Entrada do hero: `.hero-in`, animação CSS pura de 700ms. O hero é o LCP da
+  página e nunca pode depender de JavaScript para aparecer
+- Entrada das seções abaixo da dobra: `.reveal` + IntersectionObserver, 600ms,
+  com a animação `reveal-failsafe` revelando sozinha em 3s caso o JS falhe
+- `prefers-reduced-motion` desliga as duas, e o reset é escopado a `.landing`:
+  não pode alcançar o spinner e o skeleton das telas autenticadas
 
 ### Formulário público
 

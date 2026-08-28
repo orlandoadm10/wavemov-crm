@@ -1,4 +1,4 @@
-# Passagem de serviço — Wavemov CRM
+# Passagem de serviço — CRM JID Mídia
 
 Leia este arquivo primeiro. As regras canônicas de trabalho estão em
 `docs/ENGINEERING_STANDARDS.md`; consulte também `DESIGN_GUIDE.md` para UI,
@@ -71,6 +71,58 @@ Contratos que precisam permanecer, das entregas de tags e de contato:
 - as bordas de período e as chaves de eixo dos relatórios vivem em
   `America/Sao_Paulo` (`lib/utils/period.ts`), nunca no fuso do processo: em
   produção o Node roda em UTC.
+
+## Entrega desta sessão, ainda não commitada
+
+**A marca visível virou JID Mídia.** O produto é o **CRM JID Mídia** — a JID
+fornece o CRM às empresas clientes; "Wavemov" é o desenvolvimento e fica só nos
+nomes internos (repositório, `package.json`, projeto na Vercel). A logo real
+está em `public/jid.png` e é servida por `components/ui/brand-logo.tsx`, usado
+pela landing, pela autenticação e pelo formulário público. Trocar a marca de
+novo é mexer nesse componente, no arquivo em `public/` e em
+`components/landing/content.ts`. O nome dentro do app autenticado continua
+sendo o da organização do cliente.
+
+**Landing page pública em `/`.** `app/page.tsx` deixou de ser
+`redirect("/login")` e virou a página de apresentação do produto, composta de
+`components/landing/` (13 arquivos novos). `app/globals.css` ganhou o bloco
+"Landing page pública", dentro de `@layer components` — fora de layer, essas
+regras venceriam qualquer utilitário Tailwind aplicado ao mesmo elemento.
+
+O que **não** mudou, e é o que importa para segurança: `/` já era pública em
+`lib/supabase/public-paths.ts` e o middleware já mandava sessão ativa de `/`
+para `/dashboard`. A rota não consulta o Supabase, não lê organização e sai
+estática do build.
+
+Contratos a preservar:
+
+- os três CTAs da landing são `<Link>` para `/login`, e o do header fica
+  visível em qualquer largura — a página existe para levar ao acesso;
+- `components/landing/nav-links.ts` está separado de `content.ts` de propósito:
+  `site-header.tsx` é Client Component e importar o módulo de conteúdo levaria
+  os ícones Lucide de recursos e dashboards para o bundle do cliente;
+- `.reveal` começa em `opacity: 0` e só o IntersectionObserver revela; o
+  `<noscript>` de `app/page.tsx` é o que impede a página inteira de sumir sem
+  JS. Quem mexer em um dos dois precisa olhar o outro;
+- a única exceção deliberada ao `DESIGN_GUIDE` é o ícone de recurso a 20px,
+  registrada no cabeçalho de `features.tsx` e na seção "Landing pública" do
+  guia;
+- canonical e `og:url` da landing só são emitidos quando
+  `NEXT_PUBLIC_APP_URL` existe (`app/page.tsx`), e `app/layout.tsx` não dá
+  fallback ao `metadataBase`. É deliberado e nas duas pontas: `/` é
+  prerenderizada, o Next tem fallback próprio (localhost, ou o domínio de
+  deploy da Vercel), e um canonical assado no endereço errado pede a
+  desindexação da URL real. Provado com um build sem a variável: zero
+  `canonical`, zero `og:url`, `og:title` intacto.
+
+**Verificação depois do primeiro deploy da landing:**
+`curl -s https://<dominio>/ | grep canonical` precisa mostrar o domínio de
+produção. Se não mostrar nada, falta `NEXT_PUBLIC_APP_URL` no ambiente da
+Vercel — o card social continua funcionando, mas sem canonical.
+
+Falta a imagem de Open Graph (`app/opengraph-image.png`): até existir arte, o
+card sai sem miniatura e o Twitter card fica em `summary`, não
+`summary_large_image`.
 
 ## Próxima sessão
 

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Wavemov CRM — Design System
+   CRM JID Mídia — Design System
    Azul primário, superfícies claras, cards brancos, sombras suaves
    ============================================================ */
 
@@ -94,4 +94,138 @@ body {
   background: linear-gradient(90deg, #eef1f6 25%, #f7f9fc 50%, #eef1f6 75%);
   background-size: 800px 100%;
   animation: shimmer 1.4s infinite linear;
+}
+
+/* ============================================================
+   Landing page pública (`/`)
+   ============================================================ */
+
+/* Em `@layer components` de propósito: fora de layer, estas regras venceriam
+   qualquer utilitário Tailwind aplicado ao mesmo elemento — um `transition-*`
+   ou `opacity-*` na marcação seria ignorado sem aviso. */
+@layer components {
+  /* Malha fina de fundo do hero. */
+  .landing-grid {
+    background-image:
+      linear-gradient(
+        to right,
+        color-mix(in oklab, var(--color-primary-600) 6%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in oklab, var(--color-primary-600) 6%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+
+  /* Ambiência das seções escuras, com os tokens da marca em vez de hex solto. */
+  .landing-glow {
+    background:
+      radial-gradient(
+        700px circle at 12% 18%,
+        color-mix(in oklab, var(--color-primary-600) 45%, transparent),
+        transparent 62%
+      ),
+      radial-gradient(
+        700px circle at 88% 88%,
+        color-mix(in oklab, var(--color-primary-400) 30%, transparent),
+        transparent 60%
+      );
+  }
+
+  .landing-glow-cta {
+    background:
+      radial-gradient(
+        600px circle at 50% 0%,
+        color-mix(in oklab, var(--color-primary-600) 55%, transparent),
+        transparent 65%
+      ),
+      radial-gradient(
+        500px circle at 85% 100%,
+        color-mix(in oklab, var(--color-primary-400) 32%, transparent),
+        transparent 60%
+      );
+  }
+
+  /* Entrada por scroll: `reveal-in` é aplicada pelo IntersectionObserver em
+     `components/landing/reveal.tsx`.
+
+     A animação `reveal-failsafe` é a rede de segurança e não depende de
+     JavaScript nenhum: passados 3s, ela fixa o conteúdo visível mesmo se o
+     bundle não carregar, se a hidratação falhar ou se o observador nunca
+     disparar. Durante o atraso ela não pinta nada (sem `backwards`), então
+     `.reveal-in` continua sendo quem revela no caminho feliz — e o keyframe
+     tem só `to`, então quem já foi revelado interpola 1→1, sem piscar.
+
+     Os 3s são um meio-termo deliberado: curto o bastante para ninguém encarar
+     uma tela vazia, longo o bastante para a entrada por scroll ainda existir
+     para quem começa a rolar.
+
+     O hero não usa `.reveal` de propósito: é o LCP da página e nunca pode
+     depender de JS para aparecer. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: reveal-failsafe 0.3s ease-out 3s forwards;
+  }
+
+  .reveal-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Entrada do hero: animação pura, sem JS na frente do conteúdo principal. */
+  .hero-in {
+    animation: hero-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+}
+
+@keyframes reveal-failsafe {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  /* Escopado a `.landing` de propósito: um reset com `*` global congelaria o
+     `Loader2 animate-spin` dos botões e o shimmer dos skeletons em todas as
+     telas autenticadas — feedback de carregamento não é enfeite. */
+  .landing .reveal,
+  .landing .hero-in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    animation: none;
+  }
+
+  .landing *,
+  .landing *::before,
+  .landing *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

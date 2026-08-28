@@ -1,6 +1,104 @@
-# Changelog — Wavemov CRM
+# Changelog — CRM JID Mídia
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
+
+## 2026-08-28 — a marca visível passa a ser JID Mídia
+
+O produto se chama **CRM JID Mídia**: a JID Mídia é quem fornece o CRM às
+empresas clientes. "Wavemov" é o desenvolvimento e permanece só em nomes
+internos — repositório, `package.json` e projeto na Vercel.
+
+### Alterado
+
+- Logo real da JID (`public/jid.png`, de `referenciasdev/landpage-crm/`) no
+  lugar do ícone genérico `Waves`, servida pelo componente novo
+  `components/ui/brand-logo.tsx` — um lugar só para caminho do arquivo e texto
+  alternativo, usado pela landing, pela autenticação e pelo formulário público.
+- Nome do produto trocado em `app/layout.tsx` (title e template),
+  `app/(auth)/layout.tsx`, `app/f/[slug]/page.tsx`, `app/page.tsx` e
+  `components/landing/content.ts`.
+- `README.md` e `DESIGN_GUIDE.md` passam a registrar a distinção entre a marca
+  (JID Mídia) e o nome do repositório (wavemov-crm), com a lista real dos
+  arquivos onde a marca aparece — a nota anterior do README já estava
+  desatualizada.
+- Favicon passa a ser a logo da JID, declarado como `icons` em
+  `app/layout.tsx` e apontando para o mesmo `public/jid.png` do `BrandLogo` —
+  a convenção `app/icon.png` exigiria uma segunda cópia de 136 kB no repo. O
+  app não tinha ícone próprio.
+- O nome exibido dentro do app autenticado continua sendo o da **organização do
+  cliente**: nada no multiempresa mudou.
+
+Nota de peso: `/` foi de 3,28 kB para 3,55 kB (117 → 123 kB de First Load) por
+causa do `next/image`. A troca compensa — o PNG original tem 713×713 e 138 kB, e
+o `next/image` serve uma versão otimizada e dimensionada.
+
+## 2026-08-28 — landing page pública (`/`)
+
+A rota `/` deixou de ser `redirect("/login")` e passou a ser a página de
+apresentação do produto para quem chega sem sessão.
+
+### Adicionado — produto
+
+- `app/page.tsx` compõe sete seções vindas de `components/landing/`: header
+  fixo, hero com mock estático do Kanban, seis recursos, jornada do lead em
+  quatro passos sobre painel azul, três cards de dashboard com sparkline, CTA
+  final e rodapé.
+- O acesso ao CRM é o único destino da página: três CTAs, todos `<Link>` reais
+  para `/login`, e o do header fica visível em qualquer largura ("Entrar" no
+  mobile, "Acessar CRM" a partir de `sm`).
+- Copy e marca vindas da landing de referência
+  (`referenciasdev/landpage-crm`). Todo o texto vive em
+  `components/landing/content.ts`.
+- Entrada do hero em CSS puro (`.hero-in`): o conteúdo principal aparece sem
+  depender do bundle. As seções abaixo da dobra usam IntersectionObserver
+  (`components/landing/reveal.tsx`) com a animação `reveal-failsafe` como rede
+  de segurança — se o chunk não chegar ou a hidratação falhar, o CSS revela
+  tudo em 3s. `prefers-reduced-motion` desliga as duas animações, com o reset
+  escopado a `.landing` para não congelar spinner e skeleton do app.
+- Open Graph, Twitter card e canonical na landing, com `metadataBase` no layout
+  raiz vindo de `NEXT_PUBLIC_APP_URL` — é a única página compartilhável do
+  produto. **Sem fallback de propósito**: `/` é prerenderizada, então um deploy
+  sem a variável assaria `canonical="http://localhost:3000"` no HTML, o que
+  pede ao Google para desindexar a URL real. Sem a variável, nenhuma URL
+  absoluta é emitida. Falta a imagem de OG — o card sai sem miniatura até
+  existir arte.
+
+### Sem mudança de segurança
+
+`/` já era pública em `lib/supabase/public-paths.ts`, e o middleware já
+redirecionava sessão ativa de `/` para `/dashboard`. Nenhuma consulta ao
+Supabase foi acrescentada: a rota é estática e não toca dado de organização.
+
+### Design
+
+`DESIGN_GUIDE.md` ganhou a seção "Landing pública", que registra a escala maior
+da rota e a única exceção deliberada ao guia (ícone de recurso a 20px).
+Nenhuma dependência nova: Lucide, Tailwind v4 e Inter já cobriam o necessário.
+
+### Achados de QA corrigidos antes da entrega
+
+- **Toda a landing dependia de JS para ficar visível.** `.reveal` nasce em
+  `opacity: 0` e o `<noscript>` só cobria scripting desligado — com JS ligado e
+  chunk que não chega, a página ficaria permanentemente em branco. O hero saiu
+  do `.reveal` e o resto ganhou a rede de segurança em CSS.
+- **A ambiência do hero nunca aparecia.** Os quatro `-z-10` subiam para o
+  contexto de empilhamento da raiz e eram cobertos pelo `bg-white` do wrapper;
+  `isolate` na `<section>` resolve.
+- **O reset de `prefers-reduced-motion` era global** e congelava o
+  `Loader2 animate-spin` e o shimmer dos skeletons em todas as telas
+  autenticadas. Agora é escopado a `.landing`.
+- Fim do gradiente do H1 de `cyan-500` (2,45:1) para `cyan-600` (3,69:1).
+- Ano do rodapé saiu: `/` é prerenderizada e `getFullYear()` congelaria no
+  build.
+- Menu compacto fecha ao cruzar o breakpoint `md`.
+
+### Validação
+
+- `npx tsc --noEmit` — limpo.
+- `npm run build` — `/` estática (○), 3,22 kB / 117 kB de First Load.
+- Verificação visual em Chrome a 1440px e em 375px, incluindo console sem erro
+  de hidratação, ausência de overflow horizontal e os três CTAs apontando para
+  `/login`.
 
 ## 2026-08-27 — tags de negociação: schema e interface (`0019`)
 

@@ -1,4 +1,4 @@
-# Padrões de engenharia — Wavemov CRM
+# Padrões de engenharia — CRM JID Mídia
 
 Este documento é o contrato técnico obrigatório do projeto. Ele vale para
 desenvolvedores, agentes de IA, revisões e entregas. `docs/HANDOFF.md` descreve

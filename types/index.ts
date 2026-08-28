@@ -1,5 +1,5 @@
 // ============================================================
-// Tipos de domínio do Wavemov CRM
+// Tipos de domínio do CRM JID Mídia
 // Espelham as tabelas do Supabase (supabase/migrations)
 // ============================================================
 

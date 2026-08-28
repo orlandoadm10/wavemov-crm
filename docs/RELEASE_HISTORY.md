@@ -1,7 +1,7 @@
 # Histórico de versões e publicações
 
 Atualizado em **27/08/2026**. Este é o índice operacional de commits, pushes e
-deploys do Wavemov CRM.
+deploys do CRM JID Mídia (repositório `wavemov-crm`).
 
 ## Estado atual
 

@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { BrandLogo } from "@/components/ui/brand-logo";
 import type { Form, FormField } from "@/types";
-import { Waves } from "lucide-react";
 import { notFound } from "next/navigation";
 import { PublicForm } from "./public-form";
 
@@ -32,10 +32,8 @@ export default async function PublicFormPage({
     <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-10">
       <div className="w-full max-w-lg">
         <div className="mb-6 flex items-center justify-center gap-2 text-ink-faint">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-600 text-white">
-            <Waves className="h-4 w-4" />
-          </span>
-          <span className="text-sm font-semibold">Wavemov CRM</span>
+          <BrandLogo size={32} />
+          <span className="text-sm font-semibold">CRM JID Mídia</span>
         </div>
 
         <div className="animate-fade-up rounded-2xl border border-line bg-white p-8 shadow-(--shadow-card)">

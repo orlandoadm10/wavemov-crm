@@ -1,8 +1,19 @@
-# Wavemov CRM
+# CRM JID Mídia
 
 CRM web multiempresa, completo e pronto para produção — construído com **Next.js (App Router) + TypeScript + Tailwind CSS + Supabase**, com funil de vendas em Kanban, tarefas, formulários públicos de captura, dashboard de métricas reais e **atendimento WhatsApp integrado via UAZAPI**.
 
-> A marca é facilmente trocável: o nome "Wavemov CRM" aparece apenas em `app/layout.tsx` (metadata), `components/layout/top-nav.tsx`, `app/(auth)/layout.tsx` e `app/f/[slug]/page.tsx`.
+> **Marca e repositório são coisas diferentes.** O produto é o **CRM JID
+> Mídia** — a JID Mídia é quem fornece o CRM às empresas clientes. "Wavemov" é
+> o desenvolvimento, e sobrevive apenas em nomes internos: o repositório
+> `wavemov-crm`, o `name` do `package.json` e o projeto na Vercel.
+>
+> O favicon sai do mesmo `public/jid.png`, declarado em `app/layout.tsx`.
+>
+> A marca visível está concentrada em: `components/ui/brand-logo.tsx` e
+> `public/jid.png` (logo), `app/layout.tsx` (metadata), `app/page.tsx` e
+> `components/landing/content.ts` (landing), `app/(auth)/layout.tsx` e
+> `app/f/[slug]/page.tsx`. O nome exibido dentro do app autenticado é o da
+> **organização do cliente**, não o da JID.
 
 ---
 
@@ -153,7 +164,7 @@ de payload de diferentes versões da UAZAPI.
 ```bash
 git init          # já vem inicializado se você clonou
 git add -A
-git commit -m "Wavemov CRM inicial"
+git commit -m "CRM JID Midia inicial"
 gh repo create wavemov-crm --private --source=. --push
 # ou crie o repositório manualmente no GitHub e:
 # git remote add origin https://github.com/SEU-USUARIO/wavemov-crm.git
@@ -173,6 +184,7 @@ gh repo create wavemov-crm --private --source=. --push
 
 ```
 app/
+  page.tsx        landing page pública (deslogado)
   (auth)/         login, registro
   (dashboard)/    telas autenticadas (admin, tarefas, negociações, funis,
                   relatórios, atendimento…)
@@ -182,6 +194,7 @@ components/
   ui/             design system (Button, Modal, Badge, DataTable…)
   layout/         TopNav, PageHeader, navegação mobile
   crm/            Kanban, detalhe do lead, tarefas, dashboard…
+  landing/        seções da landing page pública
   forms/          construtor de formulários
   whatsapp/       chat, lista de conversas, painel do contato, configurações
 lib/

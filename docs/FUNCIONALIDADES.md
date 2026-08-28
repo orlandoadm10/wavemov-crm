@@ -1,4 +1,4 @@
-# Inventário de funcionalidades — Wavemov CRM
+# Inventário de funcionalidades — CRM JID Mídia
 
 Estado real do produto. Recurso planejado fica em "Próximos passos" no
 `README.md`, nunca aqui.
@@ -28,7 +28,15 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/perfil` | `app/(dashboard)/perfil/page.tsx` | Dados do usuário e completude do perfil |
 | `/admin` | `app/(dashboard)/admin/page.tsx` | Visão global (somente admin global) |
 
-Rotas públicas: `/login`, `/register`, `/onboarding`, `/f/[slug]`.
+## Rotas públicas
+
+| Rota | Arquivo | O que faz |
+|---|---|---|
+| `/` | `app/page.tsx` | **Landing page pública** — hero com mock do Kanban, seis recursos, jornada do lead em quatro passos, dashboards e CTA final. Todo CTA aponta para `/login`. Visitante sem sessão fica aqui; o middleware manda quem já tem sessão para `/dashboard` |
+| `/login` | `app/(auth)/login/page.tsx` | Entrada no CRM |
+| `/register` | `app/(auth)/register/page.tsx` | Criação de conta |
+| `/onboarding` | `app/onboarding/page.tsx` | Primeiro acesso |
+| `/f/[slug]` | `app/f/[slug]/page.tsx` | Formulário público de captura |
 
 ---
 

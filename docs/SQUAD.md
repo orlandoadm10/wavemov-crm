@@ -1,4 +1,4 @@
-# Squad de desenvolvimento — Wavemov CRM
+# Squad de desenvolvimento — CRM JID Mídia
 
 Antes desta entrega **o projeto não tinha nenhum agente configurado**: as pastas
 `.agents/`, `.claude/agents/` e `.claude/skills/` estavam vazias ou inexistentes.

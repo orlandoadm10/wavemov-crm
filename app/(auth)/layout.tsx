@@ -1,4 +1,4 @@
-import { Waves } from "lucide-react";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -13,10 +13,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           }}
         />
         <div className="relative flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white backdrop-blur">
-            <Waves className="h-5 w-5" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white p-1.5">
+            <BrandLogo size={28} />
           </span>
-          <span className="text-lg font-bold text-white">Wavemov CRM</span>
+          <span className="text-lg font-bold text-white">CRM JID Mídia</span>
         </div>
         <div className="relative">
           <h1 className="max-w-md text-3xl leading-tight font-bold text-white">
@@ -24,11 +24,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </h1>
           <p className="mt-4 max-w-md text-sm leading-relaxed text-primary-200">
             CRM multiempresa com Kanban de negociações, formulários de captura,
-            dashboard de performance e atendimento integrado via UAZAPI.
+            dashboard de performance e atendimento integrado ao WhatsApp.
           </p>
         </div>
         <p className="relative text-xs text-primary-300">
-          © {new Date().getFullYear()} Wavemov. Todos os direitos reservados.
+          © {new Date().getFullYear()} JID Mídia. Todos os direitos reservados.
         </p>
       </div>
 
