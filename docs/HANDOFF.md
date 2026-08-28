@@ -181,6 +181,23 @@ Descartado com motivo: **UI multi-instância do WhatsApp**. As migrations
 tela da segunda antes de provar a primeira é empilhar interface sobre terreno
 não verificado.
 
+## Migração futura do Bubble e domínio
+
+O Bubble permanece no domínio `crmjidmidia.com` e contém aproximadamente 300
+empresas, além de dados relacionados ainda não inventariados. A decisão
+operacional é manter esse domínio como endereço definitivo do CRM, mas **não
+trocar o DNS antes de concluir e reconciliar a migração dos dados**.
+
+O piloto deve usar `beta.crmjidmidia.com` ou `wavemov-crm.vercel.app`, mantendo
+o Bubble como sistema oficial até o congelamento final. Senhas do Bubble não
+são exportáveis, arquivos exigem migração própria e rollback depois de novas
+escritas no CRM não se resume a restaurar o DNS.
+
+O plano completo, os portões de aceite, o corte GoDaddy/Vercel/Supabase e o
+rollback estão em `docs/MIGRACAO_BUBBLE_DOMINIO.md`. Esse runbook deve ser lido
+antes de qualquer alteração de domínio, importação em produção ou comunicação
+de migração aos clientes.
+
 ### Achados menores ainda abertos
 
 Da auditoria de tags: mensagens específicas da `0019` descartadas por
@@ -331,6 +348,7 @@ como aprovado sem executá-lo.
 | `docs/FUNCIONALIDADES.md` | telas, APIs e regras funcionais completas |
 | `docs/CHANGELOG.md` | histórico detalhado das entregas |
 | `docs/RELEASE_HISTORY.md` | versões, commits, pushes e deploys |
+| `docs/MIGRACAO_BUBBLE_DOMINIO.md` | migração do Bubble, piloto, corte de domínio e rollback |
 | `DESIGN_GUIDE.md` | contrato visual |
 | `README.md` | setup, estrutura e visão do produto |
 

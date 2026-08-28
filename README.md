@@ -219,6 +219,7 @@ docs/             inventário de funcionalidades, changelog e squad
 | `docs/ENGINEERING_STANDARDS.md` | Contrato obrigatório de arquitetura, processo, validação e Definition of Done |
 | `docs/FUNCIONALIDADES.md` | Inventário de telas, rotas, dados e regras de negócio |
 | `docs/CHANGELOG.md` | Histórico de entregas |
+| `docs/MIGRACAO_BUBBLE_DOMINIO.md` | Runbook de migração do Bubble, piloto, corte de domínio e rollback |
 | `docs/RELEASE_HISTORY.md` | Versões, commits, pushes e deploys em um único relatório |
 | `docs/SQUAD.md` | Agentes de desenvolvimento e quando acionar cada um |
 | `DESIGN_GUIDE.md` | Contrato visual (cores, espaçamentos, componentes) |
