@@ -34,6 +34,7 @@ export default async function ContatosPage() {
         organizationId={orgId}
         contacts={(contacts ?? []) as Contact[]}
         deals={(deals ?? []) as unknown as Deal[]}
+        canEdit={session.membership.role !== "viewer"}
       />
     </div>
   );

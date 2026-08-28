@@ -164,6 +164,7 @@ export default async function DealPage({
       // recebe o lápis — e a server action recusa por conta própria.
       canEditLeadInfo={session.membership.role !== "viewer"}
       canEditTags={session.membership.role !== "viewer"}
+      canEditContact={session.membership.role !== "viewer"}
       tagsError={tagsError || tagAssignmentsError ? "Não foi possível carregar as tags deste lead." : null}
     />
   );

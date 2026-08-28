@@ -1,6 +1,7 @@
 "use client";
 
 import { DealModal } from "@/components/crm/deal-modal";
+import { DealContactCard } from "@/components/crm/deal-contact-card";
 import { DealTagsSelector } from "@/components/crm/deal-tags-selector";
 import { DealHistoryPanel } from "@/components/crm/deal-history-panel";
 import { TaskModal } from "@/components/crm/task-modal";
@@ -31,10 +32,7 @@ import {
   Check,
   CheckSquare,
   ChevronRight,
-  Mail,
-  MapPin,
   MessageCircle,
-  Phone,
   Plus,
   StickyNote,
   ThumbsDown,
@@ -64,6 +62,8 @@ interface Props {
   /** Existe submissão? É o que decide se há onde gravar uma edição. */
   hasSubmission: boolean;
   canEditLeadInfo: boolean;
+  /** `viewer` é somente leitura: mesmo critério de `canEditTags`. */
+  canEditContact: boolean;
   tags: DealTag[];
   selectedTags: DealTag[];
   canEditTags: boolean;
@@ -87,6 +87,7 @@ export function DealDetail({
   leadFormExternalId,
   hasSubmission,
   canEditLeadInfo,
+  canEditContact,
   tags,
   selectedTags,
   canEditTags,
@@ -372,37 +373,11 @@ export function DealDetail({
             loadError={tagsError}
           />
 
-          <Card>
-            <CardHeader title="Contato" />
-            {deal.contact ? (
-              <div className="space-y-2.5 px-5 py-4 text-sm">
-                <div className="flex items-center gap-2.5">
-                  <Avatar name={deal.contact.name} size="sm" />
-                  <span className="font-semibold text-ink">{deal.contact.name}</span>
-                </div>
-                {deal.contact.email && (
-                  <p className="flex items-center gap-2 text-ink-soft">
-                    <Mail className="h-4 w-4 text-ink-faint" />
-                    {deal.contact.email}
-                  </p>
-                )}
-                {(deal.contact.whatsapp_phone || deal.contact.phone) && (
-                  <p className="flex items-center gap-2 text-ink-soft">
-                    <Phone className="h-4 w-4 text-ink-faint" />
-                    {deal.contact.whatsapp_phone ?? deal.contact.phone}
-                  </p>
-                )}
-                {(deal.contact.city || deal.contact.state) && (
-                  <p className="flex items-center gap-2 text-ink-soft">
-                    <MapPin className="h-4 w-4 text-ink-faint" />
-                    {[deal.contact.city, deal.contact.state].filter(Boolean).join(" / ")}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="px-5 py-4 text-sm text-ink-faint">Nenhum contato vinculado.</p>
-            )}
-          </Card>
+          <DealContactCard
+            organizationId={organizationId}
+            contact={deal.contact ?? null}
+            canEdit={canEditContact}
+          />
 
           {/* Ações rápidas */}
           <Card className="space-y-2 p-4">

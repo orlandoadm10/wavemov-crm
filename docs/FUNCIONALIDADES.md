@@ -9,7 +9,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 |---|---|---|
 | `/dashboard` | `app/(dashboard)/dashboard/page.tsx` | Métricas do funil: criadas/ganhas/perdidas, ticket, conversão, séries mensais, etapas, responsáveis, motivos de perda, UTMs |
 | `/negociacoes` | `app/(dashboard)/negociacoes/page.tsx` | Kanban com drag-and-drop, badges e filtro por tag, filtros de funil/status/responsável/ordem, busca |
-| `/negociacoes/[id]` | `app/(dashboard)/negociacoes/[id]/page.tsx` | Detalhe do lead: tags, stepper, tarefas, notas e histórico segmentado entre atividades e conversas |
+| `/negociacoes/[id]` | `app/(dashboard)/negociacoes/[id]/page.tsx` | Detalhe do lead: tags, stepper, tarefas, notas, **edição do contato vinculado** e histórico segmentado entre atividades e conversas |
 | `/tags` | `app/(dashboard)/tags/page.tsx` | **Catálogo de tags de negociação**, restrito a `org_admin`/admin global. Fora do menu superior: o acesso é pelo botão ao lado dos filtros de `/negociacoes` e pelo `/relatorios/tags` |
 | `/funis` | `app/(dashboard)/funis/page.tsx` | **Editor de etapas do funil** — fluxo com volume e retenção + CRUD de etapas |
 | `/relatorios` | `app/(dashboard)/relatorios/page.tsx` | **Relatório de entrada de leads** por período e formulário |
@@ -19,7 +19,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/atendimento/configuracoes` | `app/(dashboard)/atendimento/configuracoes/page.tsx` | Conexão UAZAPI, QR Code, webhook, respostas rápidas |
 | `/empresas` | `app/(dashboard)/empresas/page.tsx` | Lista de organizações com total de leads e inatividade |
 | `/empresas/[id]` | `app/(dashboard)/empresas/[id]/page.tsx` | **Resumo da empresa** — KPIs, saúde da conta, evolução de leads, últimos leads, pessoas |
-| `/contatos` | `app/(dashboard)/contatos/page.tsx` | CRUD de contatos com vínculo a negociações |
+| `/contatos` | `app/(dashboard)/contatos/page.tsx` | CRUD de contatos com vínculo a negociações. O formulário é o `components/crm/contact-modal.tsx`, compartilhado com o detalhe do lead |
 | `/pessoas` | `app/(dashboard)/pessoas/page.tsx` | Equipe, papéis e criação de usuários (service role) |
 | `/distribuicao` | `app/(dashboard)/distribuicao/page.tsx` | **Distribuição automática de leads** — regras, participantes, pesos e auditoria (só `org_admin`). Fora do menu superior: o acesso é pelo botão ao lado dos filtros de `/negociacoes` e pelo `/relatorios/vendedores` |
 | `/relatorios/vendedores` | `app/(dashboard)/relatorios/vendedores/page.tsx` | **Rendimento por vendedor** — distribuição, conversão, tarefas e notas |
@@ -33,6 +33,23 @@ Rotas públicas: `/login`, `/register`, `/onboarding`, `/f/[slug]`.
 ---
 
 ## Telas adicionadas nesta entrega
+
+### Contato do lead — `/negociacoes/[id]` e `/contatos`
+
+O contato vinculado à negociação é editável a partir do próprio detalhe, pelo
+botão "Editar contato" no card. O formulário é um só —
+`components/crm/contact-modal.tsx` — usado também em `/contatos`; um segundo
+formulário divergiria do primeiro com o tempo.
+
+- `viewer` é somente leitura: não vê o gatilho em nenhuma das duas telas, e a
+  RLS (`has_org_write`) recusa a escrita mesmo pelo PostgREST direto.
+- Toda escrita filtra `organization_id` e usa `.select()`; zero linhas é falha,
+  com mensagem em português.
+- **Trocar o `whatsapp_phone` tem consequência:** o webhook da UAZAPI casa a
+  conversa recebida com `contacts.whatsapp_phone` por igualdade exata. As
+  conversas antigas continuam vinculadas, mas mensagens novas do número antigo
+  deixam de casar e o webhook cria um contato duplicado. O modal avisa quando o
+  número muda; ele não reconcilia as conversas.
 
 ### Tags de negociação — `/tags`, `/negociacoes`, `/atendimento` e `/relatorios/tags`
 
