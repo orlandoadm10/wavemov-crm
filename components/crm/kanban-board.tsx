@@ -27,9 +27,11 @@ import {
   Handshake,
   Phone,
   Plus,
+  Scale,
   Search,
   SlidersHorizontal,
   Sparkles,
+  Tags as TagsIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -46,6 +48,8 @@ interface Props {
   tags: DealTag[];
   tagsError: string | null;
   dealsError: string | null;
+  /** `org_admin`/admin global: libera o catálogo de tags e a distribuição. */
+  canManageOrg: boolean;
 }
 
 export function KanbanBoard({
@@ -59,6 +63,7 @@ export function KanbanBoard({
   tags,
   tagsError,
   dealsError,
+  canManageOrg,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -261,6 +266,21 @@ export function KanbanBoard({
             <SlidersHorizontal className="h-4 w-4" />
             Etapas
           </Link>
+          {/* Configurações do trabalho com negociações, ao lado dos filtros em
+              vez do menu superior. Só para quem pode administrá-las: oferecer o
+              atalho a um `seller` levaria a uma tela bloqueada. */}
+          {canManageOrg && (
+            <>
+              <Link href="/tags" className={buttonClasses({ variant: "outline" })}>
+                <TagsIcon className="h-4 w-4" />
+                Tags
+              </Link>
+              <Link href="/distribuicao" className={buttonClasses({ variant: "outline" })}>
+                <Scale className="h-4 w-4" />
+                Distribuição
+              </Link>
+            </>
+          )}
         </div>
         {moveError && (
           <p

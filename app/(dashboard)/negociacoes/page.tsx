@@ -95,6 +95,9 @@ export default async function NegociacoesPage({ searchParams }: { searchParams: 
         tags={tags}
         tagsError={tagsError ? "Não foi possível carregar as tags e o filtro." : null}
         dealsError={dealsError ? "Não foi possível carregar as negociações." : null}
+        canManageOrg={
+          session.membership.role === "org_admin" || session.profile.is_global_admin
+        }
       />
     </div>
   );

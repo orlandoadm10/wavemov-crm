@@ -1,7 +1,6 @@
 import {
   BarChart3,
   Building2,
-  Scale,
   CheckSquare,
   Contact,
   FileText,
@@ -9,15 +8,17 @@ import {
   LayoutDashboard,
   MessageCircle,
   Settings,
-  Tags,
   Users,
 } from "lucide-react";
 
+// `/tags` e `/distribuicao` NÃO estão aqui de propósito: são configurações do
+// trabalho com negociações e vivem ao lado dos filtros de `/negociacoes`, onde
+// a decisão acontece. Ambas continuam restritas a `org_admin`/admin global —
+// a restrição mora na própria rota, não no menu.
 export const NAV_ITEMS = [
   { href: "/admin", label: "Admin", icon: Settings, globalAdminOnly: true },
   { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
   { href: "/negociacoes", label: "Negociações", icon: Handshake },
-  { href: "/tags", label: "Tags", icon: Tags, orgAdminOnly: true },
   { href: "/atendimento", label: "Atendimento", icon: MessageCircle },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
@@ -25,8 +26,4 @@ export const NAV_ITEMS = [
   { href: "/contatos", label: "Contatos", icon: Contact },
   { href: "/pessoas", label: "Pessoas", icon: Users },
   { href: "/formularios", label: "Formulários", icon: FileText },
-  // Decide quem atende cada lead que entra. Estava alcançável só por dois
-  // saltos a partir de /relatorios — profundidade demais para a configuração
-  // que determina se o vendedor recebe trabalho.
-  { href: "/distribuicao", label: "Distribuição", icon: Scale },
 ] as const;

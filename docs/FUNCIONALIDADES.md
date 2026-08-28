@@ -10,7 +10,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/dashboard` | `app/(dashboard)/dashboard/page.tsx` | Métricas do funil: criadas/ganhas/perdidas, ticket, conversão, séries mensais, etapas, responsáveis, motivos de perda, UTMs |
 | `/negociacoes` | `app/(dashboard)/negociacoes/page.tsx` | Kanban com drag-and-drop, badges e filtro por tag, filtros de funil/status/responsável/ordem, busca |
 | `/negociacoes/[id]` | `app/(dashboard)/negociacoes/[id]/page.tsx` | Detalhe do lead: tags, stepper, tarefas, notas e histórico segmentado entre atividades e conversas |
-| `/tags` | `app/(dashboard)/tags/page.tsx` | **Catálogo de tags de negociação**, restrito a `org_admin`/admin global |
+| `/tags` | `app/(dashboard)/tags/page.tsx` | **Catálogo de tags de negociação**, restrito a `org_admin`/admin global. Fora do menu superior: o acesso é pelo botão ao lado dos filtros de `/negociacoes` e pelo `/relatorios/tags` |
 | `/funis` | `app/(dashboard)/funis/page.tsx` | **Editor de etapas do funil** — fluxo com volume e retenção + CRUD de etapas |
 | `/relatorios` | `app/(dashboard)/relatorios/page.tsx` | **Relatório de entrada de leads** por período e formulário |
 | `/relatorios/ultimo-lead` | `app/(dashboard)/relatorios/ultimo-lead/page.tsx` | **Último lead recebido** com origem, respostas e timeline |
@@ -21,7 +21,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/empresas/[id]` | `app/(dashboard)/empresas/[id]/page.tsx` | **Resumo da empresa** — KPIs, saúde da conta, evolução de leads, últimos leads, pessoas |
 | `/contatos` | `app/(dashboard)/contatos/page.tsx` | CRUD de contatos com vínculo a negociações |
 | `/pessoas` | `app/(dashboard)/pessoas/page.tsx` | Equipe, papéis e criação de usuários (service role) |
-| `/distribuicao` | `app/(dashboard)/distribuicao/page.tsx` | **Distribuição automática de leads** — regras, participantes, pesos e auditoria (só `org_admin`) |
+| `/distribuicao` | `app/(dashboard)/distribuicao/page.tsx` | **Distribuição automática de leads** — regras, participantes, pesos e auditoria (só `org_admin`). Fora do menu superior: o acesso é pelo botão ao lado dos filtros de `/negociacoes` e pelo `/relatorios/vendedores` |
 | `/relatorios/vendedores` | `app/(dashboard)/relatorios/vendedores/page.tsx` | **Rendimento por vendedor** — distribuição, conversão, tarefas e notas |
 | `/relatorios/tags` | `app/(dashboard)/relatorios/tags/page.tsx` | **Métricas de tags** — totais, evolução e distribuição por responsável |
 | `/formularios` | `app/(dashboard)/formularios/page.tsx` | Construtor de formulários de captura + **painel de ingestão externa (n8n)**, restrito a `org_admin` |
