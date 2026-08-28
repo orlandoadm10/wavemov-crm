@@ -5,8 +5,10 @@ Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 ## 2026-08-27 — correções da auditoria de QA da Frente C
 
 Auditoria do `qa-engineer` sobre `20a9319..38c1315`. **Sem achado de isolamento
-multiempresa.** Dois bloqueadores e três Altos, todos corrigidos.
-**Migration `0018` PENDENTE de aplicação.**
+multiempresa.** Dois bloqueadores e três Altos, todos corrigidos. Migration
+`0018` **aplicada pelo cliente** em 2026-08-27 — com ela, as posições
+duplicadas que a tela havia gravado foram reparadas e o cursor das regras
+afetadas reiniciado.
 
 ### Corrigido — bloqueadores
 
@@ -63,7 +65,7 @@ multiempresa.** Dois bloqueadores e três Altos, todos corrigidos.
   gravar `lead_assigned` no histórico como as outras origens; a coluna de ações
   da auditoria ganhou rótulo para leitor de tela.
 
-### Migration `0018` — pendente
+### Migration `0018`
 
 - `lead_distribution_log.deal_id` passou de `on delete cascade` para
   **`on delete set null`**: apagar a negociação apagava a prova de para quem ela

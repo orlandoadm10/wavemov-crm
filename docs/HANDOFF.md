@@ -21,10 +21,9 @@ dela.
 A `0014` (ingestão externa) e a `0015` (respostas do lead) estão
 **aplicadas** — confirmação do cliente em 2026-08-27, cada uma antes de
 qualquer código depender dela. A `0016` (distribuição automática) também está **aplicada** — confirmação em
-2026-08-27. A `0017` (fila ordenada e plantão) também está **aplicada**. A **`0018`
-(auditoria e reparo de posições) NÃO está aplicada** — ela conserta dados que a
-tela gravou errado; até rodar, regras com participantes empatados em
-`position = 0` continuam entregando todos os leads a uma pessoa só.
+2026-08-27. A `0017` (fila ordenada e plantão) também está **aplicada**. A `0018` (auditoria e reparo de posições) também está **aplicada** —
+confirmação em 2026-08-27. Com ela, as migrations `0001`…`0018` estão todas em
+produção e nenhum código depende de schema pendente.
 **Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`. O projeto
 está ligado ao Git: **push em `main` = deploy de produção**, sem passo manual.
 
