@@ -1,6 +1,7 @@
 "use client";
 
 import { DealModal } from "@/components/crm/deal-modal";
+import { DealTagsSelector } from "@/components/crm/deal-tags-selector";
 import { DealHistoryPanel } from "@/components/crm/deal-history-panel";
 import { TaskModal } from "@/components/crm/task-modal";
 import { Avatar } from "@/components/ui/avatar";
@@ -16,6 +17,7 @@ import type {
   ActivityLog,
   Contact,
   Deal,
+  DealTag,
   LostReason,
   Pipeline,
   Profile,
@@ -62,6 +64,10 @@ interface Props {
   /** Existe submissão? É o que decide se há onde gravar uma edição. */
   hasSubmission: boolean;
   canEditLeadInfo: boolean;
+  tags: DealTag[];
+  selectedTags: DealTag[];
+  canEditTags: boolean;
+  tagsError: string | null;
 }
 
 export function DealDetail({
@@ -81,6 +87,10 @@ export function DealDetail({
   leadFormExternalId,
   hasSubmission,
   canEditLeadInfo,
+  tags,
+  selectedTags,
+  canEditTags,
+  tagsError,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -352,6 +362,15 @@ export function DealDetail({
               ))}
             </dl>
           </Card>
+
+          <DealTagsSelector
+            dealId={deal.id}
+            organizationId={organizationId}
+            tags={tags}
+            selectedTags={selectedTags}
+            canEdit={canEditTags}
+            loadError={tagsError}
+          />
 
           <Card>
             <CardHeader title="Contato" />

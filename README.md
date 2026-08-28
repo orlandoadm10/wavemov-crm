@@ -12,15 +12,15 @@ CRM web multiempresa, completo e pronto para produção — construído com **Ne
 |---|---|
 | **Autenticação** | Supabase Auth (e-mail/senha), onboarding com criação automática de empresa + funil padrão |
 | **Multiempresa** | Isolamento total por organização via RLS; papéis: Admin global, Admin da empresa, Vendedor, Atendente, Visualizador |
-| **Negociações** | Kanban com drag-and-drop, filtros, busca, valores por etapa, ganho/perda/arquivamento, UTMs, temperatura, status de IA |
-| **Detalhe do lead** | Stepper de etapas, bloco negócio, tarefas, timeline de atividades, notas internas, conversas WhatsApp vinculadas |
+| **Negociações** | Kanban com drag-and-drop, tags, filtros, busca, valores por etapa, ganho/perda/arquivamento, UTMs, temperatura, status de IA |
+| **Detalhe do lead** | Tags, stepper de etapas, bloco negócio, tarefas, timeline de atividades, notas internas, conversas WhatsApp vinculadas |
 | **Tarefas** | Prioridades, vencimento, vínculo com lead/contato, banner "próxima tarefa", filtros |
 | **Contatos** | CRUD completo com vínculo a negociações |
 | **Empresas** | Lista com leads/inatividade, resumo da empresa (KPIs, saúde da conta, evolução de leads), "logar nesta empresa" |
 | **Pessoas** | Gestão da equipe, papéis/permissões, criação de usuários (service role) |
 | **Dashboard** | Métricas reais: criadas/vendidas/perdidas, ticket médio, conversão, gráficos por mês, etapa, responsável, motivo e UTM |
 | **Etapas do funil** | Editor visual das etapas: fluxo com volume e retenção, renomear, reordenar, marcar Ganho/Perdido, excluir |
-| **Relatórios** | Entrada de leads por período e formulário, ranking de formulários e tela do último lead recebido |
+| **Relatórios** | Entrada de leads, último lead, rendimento por vendedor e métricas de tags |
 | **Formulários** | Construtor de campos, página pública `/f/[slug]`, cada envio cria contato + negociação no funil |
 | **Atendimento** | Tela WhatsApp em 3 colunas (conversas/chat/painel do lead), respostas rápidas, notas internas, realtime, criação de lead pela conversa |
 | **Admin** | Visão global de usuários/organizações (apenas admin global) |
@@ -73,6 +73,14 @@ No **SQL Editor** do Supabase, execute os arquivos na ordem:
 9. `supabase/migrations/0009_reporting.sql` — views agregadas e índices de relatório
 10. `supabase/migrations/0010_webhook_secret_por_instancia.sql` — segredo do webhook por instância
 11. `supabase/migrations/0011_visibilidade_leads_conversas.sql` — leads e conversas por responsável
+12. `supabase/migrations/0012_funis_padrao_e_administracao.sql` — funil padrão e administração segura
+13. `supabase/migrations/0013_coerencia_funil_etapa_do_lead.sql` — coerência entre funil e etapa
+14. `supabase/migrations/0014_ingestao_externa_de_leads.sql` — ingestão externa pelo n8n
+15. `supabase/migrations/0015_metadata_do_lead_e_external_id_com_maiuscula.sql` — respostas do lead
+16. `supabase/migrations/0016_distribuicao_automatica_de_leads.sql` — distribuição automática
+17. `supabase/migrations/0017_fila_ordenada_e_plantao.sql` — fila e plantão
+18. `supabase/migrations/0018_auditoria_da_distribuicao.sql` — auditoria e reparo da fila
+19. `supabase/migrations/0019_tags_de_negociacao.sql` — catálogo, vínculos e métricas de tags
 
 > A `0009` é obrigatória para `/funis`, `/empresas` e `/empresas/[id]`: elas leem
 > as views `organization_deal_stats` e `pipeline_stage_stats`. É aditiva — cria

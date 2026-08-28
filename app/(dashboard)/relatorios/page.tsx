@@ -20,6 +20,7 @@ import {
   Filter,
   TrendingUp,
   Trophy,
+  Tags,
   UserRound,
   Zap,
 } from "lucide-react";
@@ -180,6 +181,13 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
             >
               <UserRound className="h-4 w-4" />
               Por vendedor
+            </Link>
+            <Link
+              href="/relatorios/tags"
+              className={buttonClasses({ variant: "outline" })}
+            >
+              <Tags className="h-4 w-4" />
+              Por tags
             </Link>
             <Link
               href="/relatorios/ultimo-lead"

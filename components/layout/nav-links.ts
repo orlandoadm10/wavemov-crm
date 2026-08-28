@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   MessageCircle,
   Settings,
+  Tags,
   Users,
 } from "lucide-react";
 
@@ -16,6 +17,7 @@ export const NAV_ITEMS = [
   { href: "/admin", label: "Admin", icon: Settings, globalAdminOnly: true },
   { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
   { href: "/negociacoes", label: "Negociações", icon: Handshake },
+  { href: "/tags", label: "Tags", icon: Tags, orgAdminOnly: true },
   { href: "/atendimento", label: "Atendimento", icon: MessageCircle },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },

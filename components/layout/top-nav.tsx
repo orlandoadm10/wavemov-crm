@@ -22,9 +22,20 @@ export function TopNav({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [, startTransition] = useTransition();
 
-  const items = NAV_ITEMS.filter(
-    (i) => !("globalAdminOnly" in i && i.globalAdminOnly) || session.profile.is_global_admin
-  );
+  const items = NAV_ITEMS.filter((item) => {
+    if ("globalAdminOnly" in item && item.globalAdminOnly && !session.profile.is_global_admin) {
+      return false;
+    }
+    if (
+      "orgAdminOnly" in item &&
+      item.orgAdminOnly &&
+      session.membership.role !== "org_admin" &&
+      !session.profile.is_global_admin
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   async function switchOrg(orgId: string) {
     await fetch("/api/session/org", {

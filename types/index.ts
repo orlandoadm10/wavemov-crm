@@ -13,6 +13,15 @@ export type ConversationStatus = "open" | "pending" | "resolved" | "archived";
 export type InstanceStatus = "disconnected" | "connecting" | "qr" | "connected" | "error";
 export type MessageDirection = "inbound" | "outbound";
 export type MessageType = "text" | "image" | "audio" | "video" | "document" | "system";
+export type DealTagTone =
+  | "blue"
+  | "green"
+  | "red"
+  | "amber"
+  | "slate"
+  | "violet"
+  | "cyan"
+  | "orange";
 
 export interface Organization {
   id: string;
@@ -125,6 +134,29 @@ export interface Deal {
   stage?: PipelineStage | null;
   pipeline?: Pipeline | null;
   lost_reason?: LostReason | null;
+  tag_assignments?: DealTagAssignment[];
+}
+
+/** Catálogo e vínculo de tags de negociação (migration 0019). */
+export interface DealTag {
+  id: string;
+  organization_id: string;
+  name: string;
+  category: string | null;
+  tone: DealTagTone;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DealTagAssignment {
+  deal_id: string;
+  tag_id: string;
+  organization_id: string;
+  assigned_by: string | null;
+  assigned_at: string;
+  tag?: DealTag | null;
 }
 
 export interface DealStageHistory {
@@ -313,6 +345,35 @@ export interface PipelineStageStats {
   deals_total: number;
   deals_open: number;
   value_open: number;
+}
+
+export interface DealTagTotal {
+  tag_id: string;
+  name: string;
+  category: string | null;
+  tone: DealTagTone;
+  is_active: boolean;
+  deals_total: number;
+  deals_open: number;
+  deals_won: number;
+  deals_lost: number;
+  value_won: number;
+}
+
+export interface DealTagEvolutionPoint {
+  tag_id: string;
+  name: string;
+  bucket_start: string;
+  deals_total: number;
+}
+
+export interface DealTagResponsibleTotal {
+  tag_id: string;
+  name: string;
+  tone: DealTagTone;
+  responsible_id: string | null;
+  responsible_name: string | null;
+  deals_total: number;
 }
 
 /** Linha do relatório de entrada de leads — só o que a tabela exibe. */

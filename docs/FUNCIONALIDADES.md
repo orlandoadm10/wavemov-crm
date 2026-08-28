@@ -8,8 +8,9 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | Rota | Arquivo | O que faz |
 |---|---|---|
 | `/dashboard` | `app/(dashboard)/dashboard/page.tsx` | Métricas do funil: criadas/ganhas/perdidas, ticket, conversão, séries mensais, etapas, responsáveis, motivos de perda, UTMs |
-| `/negociacoes` | `app/(dashboard)/negociacoes/page.tsx` | Kanban com drag-and-drop, filtros de funil/status/responsável/ordem, busca |
-| `/negociacoes/[id]` | `app/(dashboard)/negociacoes/[id]/page.tsx` | Detalhe do lead: stepper, tarefas, notas e histórico segmentado entre atividades e conversas |
+| `/negociacoes` | `app/(dashboard)/negociacoes/page.tsx` | Kanban com drag-and-drop, badges e filtro por tag, filtros de funil/status/responsável/ordem, busca |
+| `/negociacoes/[id]` | `app/(dashboard)/negociacoes/[id]/page.tsx` | Detalhe do lead: tags, stepper, tarefas, notas e histórico segmentado entre atividades e conversas |
+| `/tags` | `app/(dashboard)/tags/page.tsx` | **Catálogo de tags de negociação**, restrito a `org_admin`/admin global |
 | `/funis` | `app/(dashboard)/funis/page.tsx` | **Editor de etapas do funil** — fluxo com volume e retenção + CRUD de etapas |
 | `/relatorios` | `app/(dashboard)/relatorios/page.tsx` | **Relatório de entrada de leads** por período e formulário |
 | `/relatorios/ultimo-lead` | `app/(dashboard)/relatorios/ultimo-lead/page.tsx` | **Último lead recebido** com origem, respostas e timeline |
@@ -22,6 +23,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/pessoas` | `app/(dashboard)/pessoas/page.tsx` | Equipe, papéis e criação de usuários (service role) |
 | `/distribuicao` | `app/(dashboard)/distribuicao/page.tsx` | **Distribuição automática de leads** — regras, participantes, pesos e auditoria (só `org_admin`) |
 | `/relatorios/vendedores` | `app/(dashboard)/relatorios/vendedores/page.tsx` | **Rendimento por vendedor** — distribuição, conversão, tarefas e notas |
+| `/relatorios/tags` | `app/(dashboard)/relatorios/tags/page.tsx` | **Métricas de tags** — totais, evolução e distribuição por responsável |
 | `/formularios` | `app/(dashboard)/formularios/page.tsx` | Construtor de formulários de captura + **painel de ingestão externa (n8n)**, restrito a `org_admin` |
 | `/perfil` | `app/(dashboard)/perfil/page.tsx` | Dados do usuário e completude do perfil |
 | `/admin` | `app/(dashboard)/admin/page.tsx` | Visão global (somente admin global) |
@@ -31,6 +33,24 @@ Rotas públicas: `/login`, `/register`, `/onboarding`, `/f/[slug]`.
 ---
 
 ## Telas adicionadas nesta entrega
+
+### Tags de negociação — `/tags`, `/negociacoes`, `/atendimento` e `/relatorios/tags`
+
+Tags representam situações operacionais que a equipe precisa marcar durante o
+atendimento, como "Aguardando documento". O catálogo é por organização e só
+`org_admin`/admin global administra nomes, categoria, cor e estado ativo.
+
+- No detalhe do lead e no atendimento, `org_admin`, `seller` e `agent` aplicam
+  o conjunto de tags pela RPC transacional `set_deal_tags`; `viewer` só lê.
+- Tags inativas permanecem nos leads antigos e nos relatórios, mas não podem
+  ser aplicadas novamente.
+- O card do Kanban mostra até três badges e um contador para as restantes. O
+  filtro seleciona uma tag por vez e preserva todos os badges do card filtrado.
+- O relatório usa agregações do banco: totais/status/valor por tag, evolução de
+  uma tag no período e distribuição por responsável. Uma negociação com várias
+  tags aparece em várias linhas; somá-las não produz o total único de leads.
+- A comparação por responsável só aparece para papéis com visão completa da
+  equipe, como determina `deal_tag_by_responsible`.
 
 ### Distribuição automática de leads — `/distribuicao`
 
@@ -381,6 +401,10 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0013_coerencia_funil_etapa_do_lead.sql` | Guarda de coerência entre negociação, funil e etapa |
 | `0014_ingestao_externa_de_leads.sql` | **Ingestão externa de leads (n8n)**: `forms.external_id`, credencial por organização e idempotência por formulário + evento |
 | `0015_metadata_do_lead_e_external_id_com_maiuscula.sql` | **Respostas do lead** (`form_submissions.metadata`) e `external_id` aceitando maiúsculas |
+| `0016_distribuicao_automatica_de_leads.sql` | Regras e auditoria da distribuição automática |
+| `0017_fila_ordenada_e_plantao.sql` | Fila ordenada, peso consecutivo e plantão |
+| `0018_auditoria_da_distribuicao.sql` | Preservação da auditoria e reparo de posições |
+| `0019_tags_de_negociacao.sql` | **Catálogo, vínculos N:N e três RPCs de métricas de tags** |
 
 ### `0015_metadata_do_lead_e_external_id_com_maiuscula.sql`
 
@@ -507,6 +531,7 @@ painel de atendimento —, mas não mudam a estrutura.
 | `LeadsReportTable` | `components/crm/leads-report-table.tsx` | Tabela de leads com busca e filtro locais |
 | `PipelineStagesClient` | `components/crm/pipeline-stages-client.tsx` | Administração de funis e editor de etapas |
 | `DealStagePicker` | `components/whatsapp/deal-stage-picker.tsx` | Move o lead de funil/etapa dentro do atendimento; monte com `key` por conversa e lead |
+| `DealTagsSelector` | `components/crm/deal-tags-selector.tsx` | Exibe e grava o conjunto de tags no detalhe do lead e no atendimento |
 | `firstOpenStage` | `lib/utils/index.ts` | Primeira etapa aberta de um funil (exclui ganho e perda); destino ao trocar de funil |
 | `data-autofocus` | `components/ui/modal.tsx` | Marca no conteúdo do `Modal` para o foco pousar num campo em vez do painel |
 | `buttonClasses` | `components/ui/button.tsx` | Dá aparência de botão a um `<Link>` sem aninhar `<button>` dentro de `<a>` |

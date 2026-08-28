@@ -22,9 +22,9 @@ A `0014` (ingestão externa) e a `0015` (respostas do lead) estão
 **aplicadas** — confirmação do cliente em 2026-08-27, cada uma antes de
 qualquer código depender dela. A `0016` (distribuição automática) também está **aplicada** — confirmação em
 2026-08-27. A `0017` (fila ordenada e plantão) também está **aplicada**. A `0018` (auditoria e reparo de posições) também está **aplicada** —
-confirmação em 2026-08-27. A **`0019` (tags de negociação) NÃO está
-aplicada**: escrita e validada com 29 asserções, aguardando o cliente rodar o
-SQL. Nenhum código depende dela ainda.
+confirmação em 2026-08-27. A **`0019` (tags de negociação) está aplicada** —
+confirmação do cliente em 2026-08-27; a interface de catálogo, aplicação,
+filtro e relatório depende dela.
 **Deploy:** Vercel, produção em `https://wavemov-crm.vercel.app`. O projeto
 está ligado ao Git: **push em `main` = deploy de produção**, sem passo manual.
 
@@ -42,6 +42,24 @@ consistência visual valem mais que recursos novos.
 ---
 
 ## 2. Estado atual (encerramento de 2026-08-27)
+
+### Rodada atual — tags de negociação
+
+A `0019`, confirmada como aplicada pelo cliente, ganhou os consumidores de
+produto que faltavam:
+
+- `/tags`: catálogo restrito a `org_admin`/admin global, com criar, editar,
+  ativar/desativar, excluir quando não houver uso e ação de criação no vazio;
+- seletor transacional no detalhe do lead e no painel do atendimento;
+- até três badges mais contador no card do Kanban e filtro por uma tag;
+- `/relatorios/tags`: quantidade/status/valor por tag, evolução da tag
+  selecionada e distribuição por responsável, pelas três RPCs agregadas da
+  migration.
+
+Tags inativas permanecem visíveis nos vínculos históricos e nos relatórios,
+mas deixam de ser oferecidas para novas aplicações. `viewer` continua somente
+leitura; catálogo é administrativo; seller/agent aplica tags apenas nos leads
+que a política da `0011` já permite acessar.
 
 ### Rodada mais recente — Informações do Lead (publicada)
 
@@ -799,7 +817,8 @@ externa em produção.
 ## 12. Resumo de 30 segundos
 
 > CRM multiempresa Next.js + Supabase, v0.2.0, buildando, migrations até a
-> `0015` aplicadas. A rodada mais recente levou as respostas do Typeform/Meta
+> `0019` aplicadas. A rodada atual entrega tags operacionais no catálogo,
+> detalhe, atendimento, Kanban e relatórios. A rodada anterior levou as respostas do Typeform/Meta
 > ao card **Informações do Lead**, no detalhe do lead e no atendimento. Em 2026-08-27 a **Frente B** (ingestão externa de leads via
 > n8n) foi implementada e publicada: repositório, origin e produção estão em
 > `61a4690`, árvore limpa. A rodada adiciona `POST /api/ingest/leads` (credencial por organização no cabeçalho

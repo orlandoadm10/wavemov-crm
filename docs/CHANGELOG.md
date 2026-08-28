@@ -2,11 +2,33 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
-## 2026-08-27 — tags de negociação: schema (`0019`)
+## 2026-08-27 — tags de negociação: schema e interface (`0019`)
 
-Migration escrita e validada. **PENDENTE de aplicação.** Nenhum código depende
-dela ainda; catálogo, aplicação no card, filtro e relatório vêm depois da
-confirmação.
+Migration escrita, validada e **aplicada** — confirmação do cliente em
+2026-08-27. A interface agora depende dela.
+
+### Adicionado — produto
+
+- `/tags`, restrita a `org_admin`/admin global: catálogo com criação, edição,
+  ativação/desativação, exclusão explicada e estado vazio com ação.
+- Seletor compartilhado no detalhe do lead e no painel do atendimento. A RPC
+  `set_deal_tags` grava o conjunto final em uma transação; `viewer` só lê.
+- Cards do Kanban mostram três tags e `+N`; o filtro aceita uma tag por vez.
+- `/relatorios/tags` consome as três RPCs: totais/status/valor por tag,
+  evolução da tag selecionada e distribuição por responsável.
+- Tag inativa continua nos vínculos e relatórios históricos, mas não aparece
+  como opção para novas aplicações.
+- O seletor relê o lead e os vínculos depois da RPC: transferência concorrente
+  não pode virar um falso sucesso com zero linhas visíveis sob RLS.
+
+### Validação da interface
+
+- `npx tsc --noEmit` — limpo.
+- `npm run build` — 31 rotas, incluindo `/tags` e `/relatorios/tags`, sem erro.
+- `npm run test:unit` — 65/65.
+- `npm run test:db` — todas as 174 asserções passaram, incluindo as 29 da
+  `0019`.
+- leitura dirigida do diff e `git diff --check` — sem erro de whitespace.
 
 ### Decisões fechadas com o cliente
 

@@ -6,6 +6,7 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { DealTagsSelector } from "@/components/crm/deal-tags-selector";
 import type { PublicInstance } from "@/lib/services/whatsapp";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -20,6 +21,7 @@ import {
 import type {
   Contact,
   Deal,
+  DealTag,
   Pipeline,
   Profile,
   QuickReply,
@@ -76,6 +78,8 @@ interface Props {
   deals: Deal[];
   /** Leads já vinculados a conversas que não estão em `deals` (fechados). */
   linkedDeals: Deal[];
+  tags: DealTag[];
+  tagsError: string | null;
   pipelines: Pipeline[];
   initialConversationId?: string;
   initialPhone?: string;
@@ -92,6 +96,8 @@ export function WhatsAppClient({
   members,
   deals,
   linkedDeals,
+  tags,
+  tagsError,
   pipelines,
   initialConversationId,
   initialPhone,
@@ -796,6 +802,18 @@ export function WhatsAppClient({
                       onDetachedError={(title, message) =>
                         setDetachedError(`${title}: ${message}`)
                       }
+                    />
+                    <DealTagsSelector
+                      key={`tags:${selected.id}:${linkedDeal.id}`}
+                      dealId={linkedDeal.id}
+                      organizationId={organizationId}
+                      tags={tags}
+                      selectedTags={(linkedDeal.tag_assignments ?? [])
+                        .map((assignment) => assignment.tag)
+                        .filter((tag): tag is DealTag => Boolean(tag))}
+                      canEdit={canManageDeal}
+                      compact
+                      loadError={tagsError}
                     />
                   </>
                 ) : selected.deal_id ? (

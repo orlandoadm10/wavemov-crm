@@ -2,10 +2,10 @@ import { WhatsAppClient } from "@/components/whatsapp/whatsapp-client";
 import { getInstanceForOrg, toPublicInstance } from "@/lib/services/whatsapp";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
-import type { Deal, Pipeline, Profile, QuickReply, WhatsAppConversation } from "@/types";
+import type { Deal, DealTag, Pipeline, Profile, QuickReply, WhatsAppConversation } from "@/types";
 
 const DEAL_COLUMNS =
-  "id, title, value, status, responsible_id, organization_id, pipeline_id, stage_id, temperature, ai_status, created_at, updated_at";
+  "id, title, value, status, responsible_id, organization_id, pipeline_id, stage_id, temperature, ai_status, created_at, updated_at, tag_assignments:deal_tag_assignments(deal_id,tag_id,organization_id,assigned_by,assigned_at,tag:deal_tags(*))";
 
 export const metadata = { title: "Atendimento" };
 export const dynamic = "force-dynamic";
@@ -29,6 +29,7 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
     { data: membersRaw },
     { data: dealsRaw, error: dealsError },
     { data: pipelinesRaw, error: pipelinesError },
+    { data: tagsRaw, error: tagsError },
   ] = await Promise.all([
       getInstanceForOrg(orgId),
       supabase
@@ -56,6 +57,13 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
         .select("*, stages:pipeline_stages(*)")
         .eq("organization_id", orgId)
         .order("created_at"),
+      supabase
+        .from("deal_tags")
+        .select("*")
+        .eq("organization_id", orgId)
+        .order("is_active", { ascending: false })
+        .order("category")
+        .order("name"),
     ]);
 
   // Consulta que falha devolve lista vazia, e lista vazia é indistinguível de
@@ -63,6 +71,7 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
   if (conversationsError) console.error("Falha ao carregar conversas", conversationsError);
   if (dealsError) console.error("Falha ao carregar negociações", dealsError);
   if (pipelinesError) console.error("Falha ao carregar funis", pipelinesError);
+  if (tagsError) console.error("Falha ao carregar tags no atendimento", tagsError);
 
   const conversations = (conversationsRaw ?? []) as WhatsAppConversation[];
   const openDeals = (dealsRaw ?? []) as unknown as Deal[];
@@ -110,6 +119,8 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
         deals={openDeals}
         linkedDeals={linkedDeals}
         pipelines={(pipelinesRaw ?? []) as Pipeline[]}
+        tags={(tagsRaw ?? []) as DealTag[]}
+        tagsError={tagsError ? "Não foi possível carregar as tags." : null}
         canManageDeal={session.membership.role !== "viewer"}
         initialConversationId={conversa}
         initialPhone={telefone}

@@ -6,6 +6,8 @@ import type {
   ActivityLog,
   Contact,
   Deal,
+  DealTag,
+  DealTagAssignment,
   LostReason,
   Pipeline,
   Profile,
@@ -48,6 +50,8 @@ export default async function DealPage({
     { data: reasonsRaw },
     { data: conversationsRaw, error: conversationsQueryError },
     { data: submissionRaw },
+    { data: tagsRaw, error: tagsError },
+    { data: tagAssignmentsRaw, error: tagAssignmentsError },
   ] = await Promise.all([
     supabase
       .from("pipelines")
@@ -93,6 +97,18 @@ export default async function DealPage({
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("deal_tags")
+      .select("*")
+      .eq("organization_id", orgId)
+      .order("is_active", { ascending: false })
+      .order("category")
+      .order("name"),
+    supabase
+      .from("deal_tag_assignments")
+      .select("deal_id,tag_id,organization_id,assigned_by,assigned_at,tag:deal_tags(*)")
+      .eq("organization_id", orgId)
+      .eq("deal_id", id),
   ]);
 
   if (activitiesQueryError) {
@@ -107,6 +123,14 @@ export default async function DealPage({
       organizationId: orgId,
       dealId: id,
       error: conversationsQueryError,
+    });
+  }
+  if (tagsError || tagAssignmentsError) {
+    console.error("Falha ao carregar tags da negociação", {
+      organizationId: orgId,
+      dealId: id,
+      tagsError,
+      tagAssignmentsError,
     });
   }
 
@@ -132,9 +156,15 @@ export default async function DealPage({
           ?.external_id ?? null
       }
       hasSubmission={Boolean(submissionRaw)}
+      tags={(tagsRaw ?? []) as DealTag[]}
+      selectedTags={((tagAssignmentsRaw ?? []) as unknown as DealTagAssignment[])
+        .map((assignment) => assignment.tag)
+        .filter((tag): tag is DealTag => Boolean(tag))}
       // `viewer` é somente leitura desde a 0003: vê as informações, mas não
       // recebe o lápis — e a server action recusa por conta própria.
       canEditLeadInfo={session.membership.role !== "viewer"}
+      canEditTags={session.membership.role !== "viewer"}
+      tagsError={tagsError || tagAssignmentsError ? "Não foi possível carregar as tags deste lead." : null}
     />
   );
 }

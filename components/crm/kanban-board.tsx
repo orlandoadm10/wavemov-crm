@@ -8,7 +8,7 @@ import { Input, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatCurrency, formatDateTime, fullName } from "@/lib/utils";
-import type { Contact, Deal, Pipeline, PipelineStage, Profile } from "@/types";
+import type { Contact, Deal, DealTag, Pipeline, PipelineStage, Profile } from "@/types";
 import {
   DndContext,
   DragOverlay,
@@ -43,6 +43,9 @@ interface Props {
   deals: Deal[];
   members: Profile[];
   contacts: Contact[];
+  tags: DealTag[];
+  tagsError: string | null;
+  dealsError: string | null;
 }
 
 export function KanbanBoard({
@@ -53,6 +56,9 @@ export function KanbanBoard({
   deals: initialDeals,
   members,
   contacts,
+  tags,
+  tagsError,
+  dealsError,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -72,7 +78,9 @@ export function KanbanBoard({
 
   // Sincroniza quando o servidor manda novos dados (filtros/refresh).
   // Precisa ser efeito: setState durante o render dispara re-render em cascata.
-  const initialIds = initialDeals.map((d) => `${d.id}:${d.stage_id}:${d.updated_at}`).join(",");
+  const initialIds = initialDeals
+    .map((d) => `${d.id}:${d.stage_id}:${d.updated_at}:${dealTags(d).map((tag) => `${tag.id}:${tag.updated_at}`).join(".")}`)
+    .join(",");
   useEffect(() => setDeals(initialDeals), [initialIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stages = useMemo(
@@ -173,7 +181,7 @@ export function KanbanBoard({
     <div className="flex h-[calc(100vh-8.5rem)] flex-col">
       {/* Barra de filtros */}
       <div className="mb-4 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card)">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <Select
             value={params.get("funil") ?? activePipeline?.id ?? ""}
             onChange={(e) => setParam("funil", e.target.value)}
@@ -203,6 +211,15 @@ export function KanbanBoard({
               <option key={m.id} value={m.id}>
                 {fullName(m)}
               </option>
+            ))}
+          </Select>
+          <Select
+            value={tags.some((tag) => tag.id === params.get("tag")) ? params.get("tag")! : "todas"}
+            onChange={(e) => setParam("tag", e.target.value)}
+          >
+            <option value="todas">Todas as tags</option>
+            {tags.map((tag) => (
+              <option key={tag.id} value={tag.id}>{tag.name}</option>
             ))}
           </Select>
           <Select
@@ -251,6 +268,16 @@ export function KanbanBoard({
             className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
           >
             {moveError}
+          </p>
+        )}
+        {tagsError && (
+          <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {tagsError}
+          </p>
+        )}
+        {dealsError && (
+          <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {dealsError}
           </p>
         )}
       </div>
@@ -353,6 +380,7 @@ function DraggableDealCard({ deal }: { deal: Deal }) {
 }
 
 function DealCard({ deal, overlay }: { deal: Deal; overlay?: boolean }) {
+  const tags = dealTags(deal);
   return (
     <div
       className={cn(
@@ -401,6 +429,17 @@ function DealCard({ deal, overlay }: { deal: Deal; overlay?: boolean }) {
         </div>
       </Link>
 
+      {tags.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1">
+          {tags.slice(0, 3).map((tag) => (
+            <Badge key={tag.id} tone={tag.tone} className="max-w-[8.5rem] truncate">
+              {tag.name}
+            </Badge>
+          ))}
+          {tags.length > 3 && <Badge tone="slate">+{tags.length - 3}</Badge>}
+        </div>
+      )}
+
       <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2.5">
         {deal.responsible ? (
           <span className="flex items-center gap-1.5 text-xs text-ink-soft">
@@ -416,4 +455,10 @@ function DealCard({ deal, overlay }: { deal: Deal; overlay?: boolean }) {
       </div>
     </div>
   );
+}
+
+function dealTags(deal: Deal): DealTag[] {
+  return (deal.tag_assignments ?? [])
+    .map((assignment) => assignment.tag)
+    .filter((tag): tag is DealTag => Boolean(tag));
 }
