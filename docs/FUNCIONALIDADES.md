@@ -553,6 +553,7 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0021_realtime_do_atendimento.sql` | **`whatsapp_messages` e `whatsapp_conversations` publicadas em `supabase_realtime`** |
 | `0022_indice_da_ultima_entrada.sql` | Índice parcial da última mensagem recebida por organização |
 | `0023_indice_das_tarefas_do_responsavel.sql` | Índice parcial das tarefas pendentes por responsável |
+| `0024_contato_unico_por_whatsapp.sql` | **Reparo das duplicatas de contato e índice único `(organization_id, whatsapp_phone)`** |
 
 ### `0021_realtime_do_atendimento.sql`
 

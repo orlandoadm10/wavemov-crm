@@ -2132,6 +2132,146 @@ console.log("\n== 19. Tags de negociação (0019) ==");
   }
 }
 
+// ============================================================
+// 0024 — um contato por WhatsApp, e o reparo das duplicatas
+//
+// Não basta afirmar que o índice existe: o valor desta migration está no
+// REPARO, e reparo só se prova com dado sujo. Como as migrations rodam em
+// ordem sobre um banco vazio, aqui a gente derruba o índice de propósito,
+// recria a sujeira que a produção tinha (duplicata com histórico pendurado) e
+// reaplica o arquivo inteiro.
+// ============================================================
+console.log("\n== 0024: contato único por WhatsApp ==");
+{
+  const ORG_E = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+  const ORG_F = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+  await db.query(
+    `insert into public.organizations (id, name) values ($1,'Empresa E'), ($2,'Empresa F')`,
+    [ORG_E, ORG_F]
+  );
+
+  // ---- A trava, com o índice já criado pela migration ----
+  await db.query(
+    `insert into public.contacts (organization_id, name, whatsapp_phone) values ($1,'Maria','5511999999999')`,
+    [ORG_E]
+  );
+  try {
+    await db.query(
+      `insert into public.contacts (organization_id, name, whatsapp_phone) values ($1,'Maria de novo','5511999999999')`,
+      [ORG_E]
+    );
+    fail("0024: o mesmo WhatsApp foi aceito duas vezes na MESMA empresa");
+  } catch (e) {
+    if (String(e.message).includes("contacts_org_whatsapp_key"))
+      ok("0024: o mesmo WhatsApp é recusado na mesma empresa");
+    else fail("0024: recusado, mas por outro motivo", e.message.split("\n")[0]);
+  }
+
+  // Isolamento: a unicidade é POR ORGANIZAÇÃO. Sem esta asserção, alguém
+  // "simplifica" o índice para só o telefone e quebra a base multiempresa.
+  try {
+    await db.query(
+      `insert into public.contacts (organization_id, name, whatsapp_phone) values ($1,'Maria da outra empresa','5511999999999')`,
+      [ORG_F]
+    );
+    ok("0024: o mesmo WhatsApp é aceito em OUTRA empresa");
+  } catch (e) {
+    fail("0024: a unicidade vazou entre organizações", e.message.split("\n")[0]);
+  }
+
+  // Nulo não colide com nulo: contato sem WhatsApp continua livre. É por isso
+  // que o índice não precisa (nem deve) ser parcial.
+  try {
+    await db.query(
+      `insert into public.contacts (organization_id, name, whatsapp_phone) values ($1,'Sem zap 1',null), ($1,'Sem zap 2',null)`,
+      [ORG_E]
+    );
+    ok("0024: vários contatos sem WhatsApp convivem (nulos são distintos)");
+  } catch (e) {
+    fail("0024: o índice barrou contatos sem WhatsApp", e.message.split("\n")[0]);
+  }
+
+  // ---- O reparo, sobre sujeira recriada ----
+  await db.exec(`drop index if exists public.contacts_org_whatsapp_key;`);
+
+  const sujo = "5511888888888";
+  const antigo = (
+    await db.query(
+      `insert into public.contacts (organization_id, name, whatsapp_phone, created_at)
+       values ($1,'Cliente Antigo',$2, now() - interval '10 days') returning id`,
+      [ORG_E, sujo]
+    )
+  ).rows[0].id;
+  // A duplicata mais nova carrega o e-mail que alguém digitou à mão: o merge
+  // precisa preservá-lo, senão o reparo joga fora dado do usuário.
+  const novo = (
+    await db.query(
+      `insert into public.contacts (organization_id, name, whatsapp_phone, email, created_at)
+       values ($1,'Cliente Novo',$2,'cliente@teste.com', now()) returning id`,
+      [ORG_E, sujo]
+    )
+  ).rows[0].id;
+
+  // Histórico pendurado na duplicata. `activity_logs` é `on delete cascade`:
+  // se o reparo apagar antes de repontar, esta linha some sem erro nenhum.
+  await db.query(
+    `insert into public.activity_logs (organization_id, contact_id, type, title)
+     values ($1,$2,'note','Conversa importante')`,
+    [ORG_E, novo]
+  );
+
+  const antesDoReparo = Number(
+    (
+      await db.query(`select count(*) as n from public.activity_logs where organization_id = $1`, [
+        ORG_E,
+      ])
+    ).rows[0].n
+  );
+
+  await db.exec(readFileSync(path.join(MIG, "0024_contato_unico_por_whatsapp.sql"), "utf8"));
+
+  const sobraram = await db.query(
+    `select id, email from public.contacts where organization_id = $1 and whatsapp_phone = $2`,
+    [ORG_E, sujo]
+  );
+  if (sobraram.rows.length === 1) ok("0024: o reparo deixou um único contato para o telefone");
+  else fail(`0024: sobraram ${sobraram.rows.length} contatos para o mesmo telefone`);
+
+  if (sobraram.rows[0]?.id === antigo) ok("0024: o sobrevivente é o mais antigo");
+  else fail("0024: o sobrevivente errado venceu — as FKs já apontavam para o mais antigo");
+
+  if (sobraram.rows[0]?.email === "cliente@teste.com")
+    ok("0024: o merge preservou o e-mail que só existia na duplicata");
+  else fail("0024: o reparo jogou fora dado digitado pelo usuário", String(sobraram.rows[0]?.email));
+
+  const depoisDoReparo = Number(
+    (
+      await db.query(`select count(*) as n from public.activity_logs where organization_id = $1`, [
+        ORG_E,
+      ])
+    ).rows[0].n
+  );
+  if (depoisDoReparo === antesDoReparo)
+    ok("0024: o histórico sobreviveu — nada foi levado pelo cascade");
+  else fail(`0024: o cascade comeu histórico (${antesDoReparo} -> ${depoisDoReparo})`);
+
+  const repontado = await db.query(
+    `select contact_id from public.activity_logs where organization_id = $1 and title = 'Conversa importante'`,
+    [ORG_E]
+  );
+  if (repontado.rows[0]?.contact_id === antigo)
+    ok("0024: o histórico da duplicata foi repontado para o sobrevivente");
+  else fail("0024: o histórico ficou órfão ou apontando para linha apagada");
+
+  // Reaplicar com o dado já limpo não pode falhar nem mexer em nada.
+  try {
+    await db.exec(readFileSync(path.join(MIG, "0024_contato_unico_por_whatsapp.sql"), "utf8"));
+    ok("0024 roda duas vezes sem erro");
+  } catch (e) {
+    fail("0024 não é idempotente", e.message.split("\n")[0]);
+  }
+}
+
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);
 await db.close();
 process.exit(falhas === 0 ? 0 : 1);

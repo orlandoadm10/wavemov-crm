@@ -21,10 +21,10 @@ o histórico detalhado.
 | `main` local | `d548975` — merge do PR #4, a saúde da entrada de leads |
 | `origin/main` | `d548975` |
 | Produção | `d548975` — deploy `https://wavemov-kmfkc2i2o-...`, `Ready` em 31/08/2026 |
-| Banco | migrations `0001` a `0022` aplicadas. **A `0023` está escrita e testada, aguardando aplicação** |
-| Diferença | `feat/indicadores-de-atencao` é o único código fora de `main`. Depende da `0023` |
+| Banco | migrations `0001` a `0023` aplicadas. **A `0024` está escrita e testada, aguardando aplicação — e o código dela precisa subir ANTES** |
+| Diferença | `fix/contato-duplicado` é o único código fora de `main` |
 | WhatsApp | **Restaurado em 31/08.** URL nova colada no painel da UAZAPI; tráfego real dos dois lados confirmado no banco |
-| Ramo em uso | `feat/indicadores-de-atencao`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
+| Ramo em uso | `fix/contato-duplicado`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
 
 O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
 deploy de produção automaticamente. O alias `https://wavemov-crm.vercel.app`
@@ -276,19 +276,80 @@ usar o **n8n**, que o cliente já opera e que já autentica em
 `/api/ingest/leads` — em vez de ligar extensão nova num projeto cujo ledger de
 migrations já diverge.
 
+## Contato duplicava a cada mensagem — 31/08/2026
+
+O cliente relatou que "toda interação vira contato na lista". A medição achou
+algo pior que um problema de tela: **246 contatos para 59 telefones**, 243
+criados em 6 dias, um número com **118 cópias**, duplicando naquele instante.
+A prova: 117 mensagens, 118 contatos — um por evento de webhook, nas duas
+direções.
+
+**Causa raiz:** `.maybeSingle()` **falha quando encontra mais de uma linha**, e
+o erro era descartado. Duas linhas viravam `null`, o `insert` criava a terceira,
+e a terceira garantia a próxima. A porta de entrada foi a `0001` ter criado
+`contacts_whatsapp_idx` **sem `unique`**.
+
+**A prova por contraste, e é a lição transferível:** `whatsapp_conversations` e
+`whatsapp_messages` usam o MESMO `maybeSingle()` no mesmo arquivo e nunca
+duplicaram — porque a `0002` e a `0011` lhes deram índice único. **Todo
+`maybeSingle()` sobre colunas sem unicidade garantida é uma bomba com pavio
+aceso.** Se algum desses índices for derrubado, o mesmo laço acontece com
+mensagens.
+
+### A ordem de execução, que não pode ser invertida
+
+1. **Deploy do código** (`fix/contato-duplicado`).
+2. Confirmar que `contacts` parou de crescer: `select count(*) from contacts`
+   duas vezes, com mensagens chegando no meio.
+3. **Só então** aplicar a `0024` pelo painel.
+
+Sob o código antigo, o índice único faz o `insert` do webhook devolver `23505`
+— e aquele erro também era descartado —, então a rota seguiria gravando
+conversas e leads **órfãos de contato**, que nenhum SQL reconstrói. O índice
+sem a correção de código é **estritamente pior** que o estado atual.
+
+### Conferência depois da 0024
+
+- `select count(*) from contacts` deve cair de 246 para ~59 mais os contatos
+  sem WhatsApp;
+- `select count(*) from activity_logs` deve ficar **idêntico** ao valor de
+  antes. Se caiu, o cascade agiu e é preciso restaurar do backup. Guarde o
+  número antes de rodar.
+
+### Decisão de produto: a lista NÃO agrupa
+
+O cliente sugeriu agrupar a tela. Recusado: as 246 linhas eram o alarme
+funcionando, e agrupar não unificaria nada — as duplicatas são `contact_id`
+distintos, com deals e mensagens espalhadas entre elas. A linha agrupada daria
+a ilusão de um cliente único enquanto o usuário cai num registro vazio.
+
+### Dívida da tela de contatos, levantada e NÃO corrigida aqui
+
+Fica registrada porque a migração do Bubble a torna urgente:
+
+- **`limit(1000)` sem paginação é perda silenciosa** — passado o milésimo
+  contato a lista trunca e nada avisa;
+- **a busca mente**: é client-side sobre o array já truncado, então o contato
+  na posição 1200 não existe para ela — e a tela afirma "Nenhum contato
+  encontrado";
+- `error` descartado nas duas queries de `contatos/page.tsx`: falha de rede
+  vira estado vazio;
+- filtros fora da URL, `select("*")`, 2000 deals trafegando ao browser só para
+  montar um `Map`, e `as unknown as Deal[]` sobre uma query de 8 colunas;
+- não há rota de detalhe do contato, nem tela de mesclagem. A mesclagem vale
+  como escopo próprio **depois** da importação do Bubble, que vai gerar um lote
+  de quase-duplicatas de uma vez.
+
 ## Próxima sessão
 
 Em ordem de risco. O item 1 é o único que tem cliente esperando; o 2 conclui a
 validação da publicação; o 3 é o que mais reduz risco de acidente; do 4 em
 diante é dívida e produto.
 
-1. **Aplicar a `0023` e publicar `feat/indicadores-de-atencao`.** A migration é
-   um índice parcial, aditiva e `if not exists`; precisa entrar **antes** do
-   deploy, senão a contagem de tarefas vencidas filtra a pessoa linha a linha em
-   toda página. Nota de processo, aprendida na marra: o `--delete-branch` de um
-   merge **fecha automaticamente** o PR empilhado sobre aquela branch, e PR
-   fechado não aceita troca de base nem reabertura. Reaponte o de cima para
-   `main` antes de mergear o de baixo. Publicado isso,
+1. **Publicar `fix/contato-duplicado` e DEPOIS aplicar a `0024`** — nesta ordem,
+   pelos motivos da seção acima. É o item mais urgente: enquanto o código não
+   sobe, `contacts` cresce uma linha por mensagem recebida ou enviada. Publicado
+   isso,
    o smoke que nunca houve das `0010/0011`: receber e responder pela mesma
    instância, transferir responsável, conferir isolamento de `seller`/`agent` e
    visão consolidada de `org_admin`.

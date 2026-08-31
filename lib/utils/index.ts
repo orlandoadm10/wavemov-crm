@@ -79,6 +79,22 @@ export function daysSince(date: string | Date | null | undefined) {
  */
 export function describeWriteError(err: unknown, fallback: string) {
   if (err) console.error(fallback, err);
+
+  // Violação de unicidade é o único caso em que o banco sabe algo que a tela
+  // não sabe e que o usuário CONSEGUE resolver sozinho. O texto genérico
+  // levaria a pessoa a tentar de novo, com o mesmo resultado — e a `0024`
+  // tornou isso comum: cadastrar um contato com WhatsApp já existente na
+  // empresa passa a ser recusado, em vez de criar a duplicata silenciosa que
+  // multiplicou 59 telefones em 246 contatos.
+  const code = (err as { code?: unknown } | null)?.code;
+  if (code === "23505") {
+    const constraint = String((err as { message?: unknown }).message ?? "");
+    if (constraint.includes("contacts_org_whatsapp_key")) {
+      return "Já existe um contato com este WhatsApp nesta empresa. Procure por ele na lista de contatos em vez de criar outro.";
+    }
+    return "Já existe um registro com estes dados nesta empresa.";
+  }
+
   return fallback;
 }
 

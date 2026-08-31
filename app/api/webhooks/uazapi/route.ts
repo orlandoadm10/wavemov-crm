@@ -210,15 +210,53 @@ export async function POST(request: Request) {
   const phone = msg.fromMe ? (msg.toPhone ?? msg.fromPhone) : msg.fromPhone;
 
   // ---------- Contato ----------
-  let { data: contact } = await admin
+  //
+  // AQUI NASCEU O PIOR DEFEITO DE DADOS QUE ESTE PROJETO TEVE: 246 contatos
+  // para 59 telefones, um deles com 118 cópias — uma por mensagem trocada.
+  //
+  // O laço: `maybeSingle()` **falha quando encontra mais de uma linha** (a lib
+  // devolve `data: null` com `PGRST116`). O erro era descartado na
+  // desestruturação, então duas linhas viravam `contact === null`, o `insert`
+  // criava a terceira, e a terceira garantia que a próxima mensagem também
+  // caísse no `insert`. Cada mensagem, nas duas direções, somava um contato.
+  //
+  // A porta de entrada foi a ausência de índice único em
+  // `(organization_id, whatsapp_phone)` — a `0024` fecha isso. A prova por
+  // contraste está nas duas tabelas irmãs logo abaixo: `whatsapp_conversations`
+  // e `whatsapp_messages` usam o MESMO `maybeSingle()` neste mesmo arquivo e
+  // nunca duplicaram, porque a `0002` e a `0011` lhes deram índice único.
+  //
+  // Por que `limit(1)` e não `maybeSingle()`, nem `upsert`:
+  // - `limit(1)` nunca erra por multiplicidade, então tolera as duplicatas que
+  //   ainda existirem quando este código subir — e ele PRECISA subir antes da
+  //   `0024`, senão o índice novo faz o `insert` devolver 23505 e a conversa
+  //   nasce sem contato (ver o cabeçalho da migration);
+  // - `order("created_at")` torna a escolha determinística. Sem ele o Postgres
+  //   pode devolver linhas diferentes a cada chamada e o mesmo lead migraria de
+  //   contato entre uma mensagem e outra;
+  // - `upsert` com `on conflict do update` sobrescreveria `name` a cada
+  //   mensagem, apagando com o nome de push do WhatsApp a correção que o
+  //   vendedor fez à mão. Trocaria duplicação por perda silenciosa de dado.
+  const { data: encontrados, error: contactLookupError } = await admin
     .from("contacts")
     .select("id, name")
     .eq("organization_id", organizationId)
     .eq("whatsapp_phone", phone)
-    .maybeSingle();
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  if (contactLookupError) {
+    console.error("[uazapi-webhook] falha ao procurar o contato", contactLookupError);
+    return NextResponse.json({ error: "Falha ao registrar o contato." }, { status: 500 });
+  }
+
+  // Tipo explícito: sem ele o TypeScript infere o formato da primeira linha e
+  // passa a recusar `null` nas reatribuições abaixo.
+  type ContactRow = { id: string; name: string | null };
+  let contact: ContactRow | null = (encontrados?.[0] as ContactRow | undefined) ?? null;
 
   if (!contact) {
-    const { data: created } = await admin
+    const { data: created, error: createError } = await admin
       .from("contacts")
       .insert({
         organization_id: organizationId,
@@ -228,7 +266,33 @@ export async function POST(request: Request) {
       })
       .select("id, name")
       .single();
-    contact = created;
+
+    if (createError) {
+      // 23505 = a corrida que criou a primeira duplicata em 25/08. Com o índice
+      // da 0024 ela passa a ser recusada pelo banco em vez de gravada: quem
+      // perdeu a corrida reconsulta e usa a linha do vencedor.
+      if (createError.code === "23505") {
+        const { data: vencedor } = await admin
+          .from("contacts")
+          .select("id, name")
+          .eq("organization_id", organizationId)
+          .eq("whatsapp_phone", phone)
+          .order("created_at", { ascending: true })
+          .limit(1);
+        contact = (vencedor?.[0] as ContactRow | undefined) ?? null;
+      } else {
+        console.error("[uazapi-webhook] falha ao criar o contato", createError);
+      }
+    } else {
+      contact = created as ContactRow;
+    }
+  }
+
+  if (!contact) {
+    // Seguir sem contato gravaria conversa e lead órfãos — o estado que o
+    // reparo de dados NÃO consegue desfazer sozinho, porque não sobra telefone
+    // em lugar nenhum para reconciliar depois.
+    return NextResponse.json({ error: "Falha ao registrar o contato." }, { status: 500 });
   }
 
   // ---------- Conversa ----------
@@ -295,7 +359,7 @@ export async function POST(request: Request) {
       .from("deals")
       .select("id")
       .eq("organization_id", organizationId)
-      .eq("contact_id", contact?.id ?? "")
+      .eq("contact_id", contact.id)
       .eq("status", "open")
       .limit(1)
       .maybeSingle();
