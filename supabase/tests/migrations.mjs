@@ -83,6 +83,36 @@ try {
 }
 
 // ------------------------------------------------------------
+// 0021 — publicação do Realtime
+//
+// O defeito que a 0021 corrige não aparece em nenhuma asserção de dado: a
+// tabela existe, a policy existe, o insert funciona, e mesmo assim a tela não
+// recebe o evento. A única prova possível é o catálogo — por isso ela está
+// aqui, e não numa asserção de comportamento.
+// ------------------------------------------------------------
+console.log("\n== 0021: tabelas do atendimento no Realtime ==");
+const publicadas = await db.query(
+  `select tablename from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public'
+    order by tablename`
+);
+const nomes = publicadas.rows.map((r) => r.tablename);
+for (const t of ["whatsapp_conversations", "whatsapp_messages"]) {
+  if (nomes.includes(t)) ok(`0021: ${t} publicada em supabase_realtime`);
+  else fail(`0021: ${t} fora da publicação — a tela não recebe evento`, nomes.join(", "));
+}
+
+// `alter publication ... add table` numa tabela já publicada é erro. Reaplicar
+// é o teste que prova que a guarda de catálogo funciona — e é a migration que
+// o cliente pode rodar duas vezes por engano no painel.
+try {
+  await db.exec(readFileSync(path.join(MIG, "0021_realtime_do_atendimento.sql"), "utf8"));
+  ok("0021 roda duas vezes sem erro");
+} catch (e) {
+  fail("0021 não é idempotente", e.message);
+}
+
+// ------------------------------------------------------------
 // Cenário: duas organizações, papéis distintos
 // ------------------------------------------------------------
 const uid = (nome) => db.query(`select id from auth.users where email = $1`, [nome]).then((r) => r.rows[0].id);

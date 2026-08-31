@@ -277,6 +277,28 @@ O detalhe separa a operação comercial do conteúdo integral do WhatsApp no car
 - As bolhas são compartilhadas com `/atendimento` por
   `components/whatsapp/message-thread.tsx`.
 
+### Atualização em tempo real — `/atendimento`
+
+Dois canais Supabase Realtime, com papéis distintos
+(`components/whatsapp/whatsapp-client.tsx`). Ambos dependem da `0021`: sem as
+tabelas na publicação, os canais conectam e nunca recebem evento.
+
+- **`wa-<conversa>`** — INSERT em `whatsapp_messages` filtrado pela conversa
+  aberta. Acrescenta a bolha na thread, ignorando o id que já está na lista
+  (o envio pela própria tela já a inseriu).
+- **`wa-conversas-<organização>`** — qualquer mudança em
+  `whatsapp_conversations` da organização. Dispara `router.refresh()` com
+  debounce de 700 ms, e é o que move o **não lido**, a **ordem** da lista e a
+  **conversa nova**. Sem ele, mensagem em conversa fechada não muda nada na
+  tela.
+- O refresh reaproveita a lista do Server Component em vez de espelhar a linha
+  em estado local: remontá-la no cliente seria reimplementar a visibilidade por
+  responsável da `0011`, e errar nisso mostra a conversa de um vendedor para
+  outro. O rascunho em digitação e a conversa aberta sobrevivem ao refresh.
+- O debounce existe porque cada mensagem gera INSERT em `whatsapp_messages` e
+  UPDATE em `whatsapp_conversations` quase juntos; numa rajada seria um refresh
+  por evento.
+
 ### Funil e etapa do lead no atendimento — `/atendimento`
 
 O vendedor reposiciona o lead no funil sem sair da conversa. O controle fica no
@@ -430,6 +452,29 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0017_fila_ordenada_e_plantao.sql` | Fila ordenada, peso consecutivo e plantão |
 | `0018_auditoria_da_distribuicao.sql` | Preservação da auditoria e reparo de posições |
 | `0019_tags_de_negociacao.sql` | **Catálogo, vínculos N:N e três RPCs de métricas de tags** |
+| `0020_set_deal_tags_preserva_tag_inativa.sql` | `set_deal_tags` deixa de esbarrar na guarda de tag inativa ao preservar vínculo existente |
+| `0021_realtime_do_atendimento.sql` | **`whatsapp_messages` e `whatsapp_conversations` publicadas em `supabase_realtime`** |
+
+### `0021_realtime_do_atendimento.sql`
+
+A publicação `supabase_realtime` do projeto estava **vazia**. A assinatura
+`postgres_changes` de `/atendimento` conectava e nunca recebia evento: a
+mensagem entrava no banco e a tela só a mostrava ao recarregar a página.
+
+- Publica `whatsapp_messages` (thread da conversa aberta) e
+  `whatsapp_conversations` (lista lateral: não lido, ordem e conversa nova).
+- **Idempotente por consulta ao catálogo** — `alter publication ... add table`
+  numa tabela já publicada é erro. Cria a publicação quando ela não existe (é o
+  que permite provar a migration no PGlite do `npm run test:db`) e não faz nada
+  quando ela é `for all tables`.
+- `REPLICA IDENTITY` fica no padrão: o payload de INSERT/UPDATE já traz a linha
+  nova, a única que o cliente lê. `full` acrescentaria a linha antiga a cada
+  update e dobraria o WAL para carregar o `raw_payload` que ninguém consome.
+- **Não afrouxa o RLS.** O Realtime avalia as policies da `0011` por assinante
+  antes de entregar o evento: quem não pode dar `select` na linha não recebe a
+  notificação dela.
+- Se o painel recusar com `must be owner of publication`, o mesmo efeito está no
+  Dashboard, em Database → Replication.
 
 ### `0015_metadata_do_lead_e_external_id_com_maiuscula.sql`
 

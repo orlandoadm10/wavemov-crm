@@ -1,6 +1,6 @@
 # Histórico de versões e publicações
 
-Atualizado em **27/08/2026**. Este é o índice operacional de commits, pushes e
+Atualizado em **28/08/2026**. Este é o índice operacional de commits, pushes e
 deploys do CRM JID Mídia (repositório `wavemov-crm`).
 
 ## Estado atual
@@ -8,11 +8,11 @@ deploys do CRM JID Mídia (repositório `wavemov-crm`).
 | Item | Estado |
 |---|---|
 | Versão declarada em `package.json` | **0.2.0** |
-| Commit local (`main`) | `08a539f` — interface e relatórios de tags |
-| Commit no GitHub (`origin/main`) | `7172fbb` — migration 0019 de tags |
-| Commit em produção | `7172fbb` |
+| Commit local (`main`) | `316a2b6` — documentação da migração Bubble/domínio beta |
+| Commit no GitHub (`origin/main`) | `316a2b6` |
+| Commit em produção | `316a2b6` |
 | Produção | [wavemov-crm.vercel.app](https://wavemov-crm.vercel.app) |
-| Situação | **2 commits locais aguardando push e deploy** |
+| Situação | Commits sincronizados e deployment de produção `Ready`; registro pós-deploy ainda não commitado |
 | Migrations no banco | `0001` a `0020` — a `0020` aplicada em 28/08/2026 |
 | Tags/releases Git | Nenhuma tag criada |
 
@@ -29,8 +29,11 @@ deploys do CRM JID Mídia (repositório `wavemov-crm`).
 > use o ledger para saber o que está no banco.
 
 O deploy atualmente associado ao domínio de produção é
-`dpl_DJpPbqN9VCqMxQtkhrAmwKEbxf4T`, criado em 27/08/2026 às 21:30:06 BRT,
-com status `Ready`.
+`dpl_5Qp21kRf3gHUa648KQR3oN6RGz1W`, criado em 28/08/2026 às 19:33:17 BRT,
+com status `Ready`. Sua URL imutável é
+`https://wavemov-e17wha6lb-orlandoadm10s-projects.vercel.app`; a API da Vercel
+confirma o commit completo
+`316a2b63eea297cadaf7ec6b180f053dbd180524`.
 
 ## Versões do aplicativo
 
@@ -45,15 +48,17 @@ com status `Ready`.
 ## Pushes registrados
 
 O Git não mantém um histórico remoto universal de pushes. A tabela abaixo lista
-**todos os 23 pushes preservados no reflog deste clone**. O horário é o da
+**todos os 25 pushes preservados no reflog deste clone**. O horário é o da
 atualização local do ramo remoto; uma operação pode ter enviado mais de um
 commit.
 
 <details>
-<summary>Ver os 23 pushes</summary>
+<summary>Ver os 25 pushes</summary>
 
 | Data/hora BRT | Ramo | Commit final | Versão |
 |---|---|---|---|
+| 28/08/2026 19:33:10 | `main` | `316a2b6` | `0.2.0` |
+| 28/08/2026 11:33:17 | `main` | `2d23f73` | `0.2.0` |
 | 27/08/2026 21:30:02 | `main` | `7172fbb` | `0.2.0` |
 | 27/08/2026 21:07:36 | `main` | `910cb36` | `0.2.0` |
 | 27/08/2026 20:49:20 | `main` | `9b4926d` | `0.2.0` |
@@ -85,12 +90,20 @@ registrou por `pull --ff-only` às 17:11:26, e não como um push local.
 
 ## Deploys da Vercel
 
-Na consulta de 27/08/2026, a Vercel retornou **29 deploys**: 28 de produção e
-1 preview, todos `Ready`. A “idade” abaixo é a exibida pela CLI no momento da
-consulta; o identificador abre o endereço imutável daquele deploy.
+Na consulta de 27/08/2026, a Vercel retornou 29 deploys: 28 de produção e 1
+preview. Em 28/08/2026, outros dois deploys de produção ficaram `Ready`, levando
+o histórico observado a **31 deploys**. Os dois mais recentes são:
+
+| Data/hora BRT | Commit | Deploy | Duração |
+|---|---|---|---:|
+| 28/08/2026 19:33:17 | `316a2b6` | [e17wha6lb](https://wavemov-e17wha6lb-orlandoadm10s-projects.vercel.app) | — |
+| 28/08/2026 11:33:23 | `2d23f73` | [nqqjvjwjc](https://wavemov-nqqjvjwjc-orlandoadm10s-projects.vercel.app) | 51s |
+
+A “idade” abaixo é a exibida pela CLI na consulta anterior; o identificador
+abre o endereço imutável daquele deploy.
 
 <details>
-<summary>Ver os 29 deploys</summary>
+<summary>Ver os 29 deploys anteriores</summary>
 
 | Ordem | Idade | Ambiente | Versão | Deploy | Duração |
 |---:|---:|---|---|---|---:|
@@ -132,15 +145,21 @@ como uma coluna própria do deploy.
 
 ## Todos os commits
 
-Há **30 commits** no repositório: 29 já alcançaram o GitHub e 1 está apenas
-local. A lista está em ordem do mais recente para o mais antigo.
+Há **36 commits** no repositório, todos no GitHub. A lista está em ordem do mais
+recente para o mais antigo.
 
 <details>
-<summary>Ver os 30 commits</summary>
+<summary>Ver os 36 commits</summary>
 
 | Data | Commit | Versão | GitHub | Descrição |
 |---|---|---|---|---|
-| 27/08/2026 | `08a539f` | `0.2.0` | Pendente | feat: adiciona interface e relatorios de tags |
+| 28/08/2026 | `316a2b6` | `0.2.0` | Sim | docs: migração do Bubble e domínio beta |
+| 28/08/2026 | `8f10c07` | `0.2.0` | Sim | feat: landing pública e marca JID Mídia |
+| 28/08/2026 | `cbd479c` | `0.2.0` | Sim | docs: handoff com estado real e próxima sessão |
+| 28/08/2026 | `f9cfded` | `0.2.0` | Sim | feat: contato editável no detalhe da negociação |
+| 28/08/2026 | `7caea98` | `0.2.0` | Sim | feat: atalhos de tags e distribuição nas negociações |
+| 28/08/2026 | `2d23f73` | `0.2.0` | Sim | fix: auditoria de QA das tags e migration 0020 |
+| 27/08/2026 | `08a539f` | `0.2.0` | Sim | feat: adiciona interface e relatorios de tags |
 | 27/08/2026 | `7172fbb` | `0.2.0` | Sim | feat(db): migration 0019 — tags de negociacao |
 | 27/08/2026 | `910cb36` | `0.2.0` | Sim | docs: registra a 0018 aplicada |
 | 27/08/2026 | `9b4926d` | `0.2.0` | Sim | fix: auditoria de QA da Frente C |

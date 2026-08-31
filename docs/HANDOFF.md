@@ -5,7 +5,7 @@ Leia este arquivo primeiro. As regras canônicas de trabalho estão em
 `docs/FUNCIONALIDADES.md` para contratos funcionais e `docs/CHANGELOG.md` para
 o histórico detalhado.
 
-**Atualizado em:** 28/08/2026
+**Atualizado em:** 31/08/2026
 
 **Versão:** `0.2.0`
 
@@ -18,17 +18,19 @@ o histórico detalhado.
 
 | Item | Estado |
 |---|---|
-| `main` local | `f9cfded` — editar o contato pelo detalhe da negociação |
-| `origin/main` | `2d23f73` — correções de QA das tags e migration `0020` |
-| Produção | `2d23f73`, do push de 28/08/2026 |
-| Banco | migrations `0001` a `0020` aplicadas (a `0020` em 28/08/2026, pelo cliente) |
-| Diferença | **2 commits locais aguardando push**: `7caea98` e `f9cfded` |
+| `main` local | `316a2b6` — documentação da migração Bubble/domínio beta |
+| `origin/main` | `316a2b6` |
+| Produção | `316a2b6` — deploy `dpl_5Qp21kRf3gHUa648KQR3oN6RGz1W`, `Ready` |
+| Banco | migrations `0001` a `0020` aplicadas. **A `0021` está escrita e testada, aguardando aplicação pelo cliente** |
+| Diferença | Working tree com a `0021`, a assinatura do Realtime na tela de atendimento e a documentação desta sessão — **nada commitado ainda** |
+| WhatsApp | **Recebimento parado desde 26/08.** Depende de reconfigurar a URL no painel da UAZAPI — ver abaixo |
 | Ramo em uso | `main`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1, já mergeado — pode ser apagado |
 
-Push em `main` dispara deploy de produção automaticamente pela Vercel. Não há
-tag Git para a versão `0.2.0`.
-
-Nenhum dos dois commits pendentes exige migration: o push é direto.
+O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
+deploy de produção automaticamente. O alias `https://wavemov-crm.vercel.app`
+aponta para o deployment acima. Nenhuma migration foi aplicada nessa
+publicação; o banco permaneceu em `0001..0020`. Não há tag Git para a versão
+`0.2.0`.
 
 ### Ambiente local desta sessão
 
@@ -41,7 +43,7 @@ a `0020` ganhou prova em Postgres real, além do pglite.
 Isso importa: com o `.env.local` apontando para a nuvem, `npm run dev` escreve
 **nos dados reais do cliente**. Confira o arquivo antes de subir o app.
 
-## Entrega local pendente de publicação
+## Entregas publicadas em 28/08/2026
 
 **`7caea98` — Tags e Distribuição saíram do menu superior** e viraram botões ao
 lado dos filtros de `/negociacoes`, na fileira do "Etapas". O menu foi de 12
@@ -72,7 +74,7 @@ Contratos que precisam permanecer, das entregas de tags e de contato:
   `America/Sao_Paulo` (`lib/utils/period.ts`), nunca no fuso do processo: em
   produção o Node roda em UTC.
 
-## Entrega desta sessão, ainda não commitada
+## Landing e marca publicadas
 
 **A marca visível virou JID Mídia.** O produto é o **CRM JID Mídia** — a JID
 fornece o CRM às empresas clientes; "Wavemov" é o desenvolvimento e fica só nos
@@ -115,23 +117,83 @@ Contratos a preservar:
   desindexação da URL real. Provado com um build sem a variável: zero
   `canonical`, zero `og:url`, `og:title` intacto.
 
-**Verificação depois do primeiro deploy da landing:**
-`curl -s https://<dominio>/ | grep canonical` precisa mostrar o domínio de
-produção. Se não mostrar nada, falta `NEXT_PUBLIC_APP_URL` no ambiente da
-Vercel — o card social continua funcionando, mas sem canonical.
+**Verificação do primeiro deploy da landing:** `NEXT_PUBLIC_APP_URL` do ambiente
+Production foi corrigida para `https://wavemov-crm.vercel.app` antes do build.
+O deployment imutável é
+`https://wavemov-e17wha6lb-orlandoadm10s-projects.vercel.app`; `/` e `/login`
+responderam HTTP 200, o canonical aponta para o alias de produção e a landing
+contém a marca CRM JID Mídia e o CTA para `/login`.
 
 Falta a imagem de Open Graph (`app/opengraph-image.png`): até existir arte, o
 card sai sem miniatura e o Twitter card fica em `summary`, não
 `summary_large_image`.
 
+## O WhatsApp parou de receber — 31/08/2026
+
+São **duas falhas independentes** que se somavam. Ambas precisam de ação; uma
+delas não é código.
+
+**1. A ingestão está parada desde 26/08 e a correção é no painel da UAZAPI.**
+Última mensagem recebida: `26/08 18:20:52 UTC`. O PR #1
+(`fix/isolamento-webhook-uazapi`) foi mergeado às `19:20:34 UTC` do mesmo dia —
+uma hora depois. Ele trocou o `UAZAPI_WEBHOOK_SECRET` global pelo segredo por
+instância da `0010`, e o global **deixou de ser aceito**. A URL configurada no
+painel da UAZAPI nunca foi trocada. O log de produção mostra a UAZAPI chamando
+`POST /api/webhooks/uazapi` a cada ~30–50 s e levando **401** em todas
+(`segredo não reconhecido { hasOrgParam: true, viaHeader: false }`).
+
+O envio nunca parou, porque usa o token da instância e não o segredo — foi isso
+que escondeu o problema por quatro dias.
+
+Correção: entrar em Atendimento → Configurações como `org_admin`, copiar a URL
+do webhook e colá-la no campo de **mensagens recebidas** da instância em
+`https://jidmidia.uazapi.com`. A instância já tem `webhook_secret`; **não** gere
+outro — só obrigaria a colar de novo. Confirme pelo log de produção que o POST
+passou a responder 200.
+
+Em aberto: as mensagens recebidas entre 26/08 e a reconfiguração provavelmente
+estão perdidas. A UAZAPI levou 401 em todas; se não houver fila de reenvio do
+lado dela, não há de onde recuperar. Vale perguntar ao suporte antes de dar por
+encerrado.
+
+**2. `0021` — as tabelas do atendimento não estavam no Realtime.** A publicação
+`supabase_realtime` do projeto está vazia. A assinatura `postgres_changes` de
+`whatsapp-client.tsx` conectava e nunca recebia evento: mesmo com o webhook
+consertado, a mensagem entraria no banco e a tela só a mostraria ao recarregar.
+A `0021` publica `whatsapp_messages` e `whatsapp_conversations`, é idempotente
+por consulta ao catálogo, e **aguarda aplicação manual pelo cliente**. Se o
+painel recusar com `must be owner of publication`, o mesmo efeito está no
+Dashboard, em Database → Replication.
+
+A `0021` sozinha resolve só a conversa aberta; por isso a tela passou a assinar
+`whatsapp_conversations` e a dar `router.refresh()` com debounce — é o que move
+o não lido, a ordem e a conversa nova na lista lateral.
+
+Contratos a preservar:
+
+- o segredo do webhook é por instância e a URL que o carrega **só é montada
+  para `org_admin`** (`atendimento/configuracoes/page.tsx`); trocar o segredo
+  invalida a URL na hora e para o recebimento até alguém colar a nova;
+- `REPLICA IDENTITY` das duas tabelas fica no padrão: `full` dobraria o WAL
+  para carregar o `raw_payload` antigo, que nenhum componente lê;
+- publicar tabela no Realtime **não** afrouxa RLS — o Supabase avalia as
+  policies da `0011` por assinante antes de entregar o evento. Quem mexer nas
+  policies de `whatsapp_*` está mexendo também no que cada um recebe ao vivo;
+- a lista lateral se atualiza por `router.refresh()`, não por espelho da linha
+  em estado local. Remontá-la no cliente é reimplementar a visibilidade por
+  responsável — e errar nisso mostra a conversa de um vendedor para outro.
+
 ## Próxima sessão
 
-Em ordem de risco. Os itens 1 e 2 são publicação; o 3 é o que mais reduz risco
-de acidente; do 4 em diante é dívida e produto.
+Em ordem de risco. O item 1 é o único que tem cliente esperando; o 2 conclui a
+validação da publicação; o 3 é o que mais reduz risco de acidente; do 4 em
+diante é dívida e produto.
 
-1. **`git push origin main`** — leva `7caea98` e `f9cfded`. Confirmar que o
-   alias de produção passou a apontar para `f9cfded` e registrar commit e deploy
-   reais em `docs/RELEASE_HISTORY.md`.
+1. **Retomar o WhatsApp**, na ordem: colar a URL nova no painel da UAZAPI,
+   confirmar 200 no log, aplicar a `0021` e então commitar/publicar a assinatura
+   da lista lateral. Depois disso, o smoke que nunca houve das `0010/0011`:
+   receber e responder pela mesma instância, transferir responsável, conferir
+   isolamento de `seller`/`agent` e visão consolidada de `org_admin`.
 2. **Smoke autenticado em produção**, depois do deploy:
    - o caso que motivou a `0020`: aplicar tag, desativá-la no catálogo, e então
      editar as tags do mesmo lead. Precisa salvar e preservar o vínculo antigo,
@@ -179,7 +241,8 @@ de acidente; do 4 em diante é dívida e produto.
 Descartado com motivo: **UI multi-instância do WhatsApp**. As migrations
 `0010/0011` nunca tiveram smoke em produção nem com uma instância; construir a
 tela da segunda antes de provar a primeira é empilhar interface sobre terreno
-não verificado.
+não verificado. O incidente de 31/08 é a demonstração: a única instância que
+existe passou quatro dias sem receber nada.
 
 ## Migração futura do Bubble e domínio
 
@@ -220,7 +283,9 @@ duplicatas que já existem.
   (404 sem revelar a empresa) e formulário inativo (404).
 - **WhatsApp migrations `0010/0011`:** confirmar em produção recebimento e
   resposta pela mesma instância, transferência de responsável, isolamento de
-  `seller`/`agent` e visão consolidada de `org_admin`.
+  `seller`/`agent` e visão consolidada de `org_admin`. **A ausência deste smoke
+  já cobrou o preço**: o recebimento ficou parado quatro dias sem ninguém
+  perceber, porque só o envio era exercitado. Ver "O WhatsApp parou de receber".
 - **Informações do Lead:** registros anteriores à `0015` têm `metadata = {}` e
   não exibem o card. Validar com submissão nova; isso não é defeito de legado.
 
@@ -236,7 +301,7 @@ cliente.
    recusar ambiguidade em vez de escolher a primeira linha.
 3. **Views com `security_invoker = on`:** sem isso a view pode ignorar o RLS do
    chamador.
-4. **Migration aplicada é imutável:** `0001` a `0019` já rodaram em produção.
+4. **Migration aplicada é imutável:** `0001` a `0020` já rodaram em produção.
    Correção exige arquivo novo e `npm run test:db` — foi assim que a `0020`
    nasceu. O cliente aplica SQL remoto manualmente; não aplicar por CLI sem
    autorização explícita.
@@ -318,10 +383,16 @@ cliente.
 8. O ledger remoto de migrations diverge do repositório e o CLI está linkado à
    produção — ver o item 3 da próxima sessão. É o débito com maior potencial de
    estrago silencioso.
-9. O replay de idempotência do `test:db` só reaplica a `0012`; por isso a `0011`
-   e a `0016` passaram batidas.
+9. O replay de idempotência do `test:db` reaplica a `0012` e a `0021`; a `0011`
+   e a `0016` continuam de fora, e foi por isso que passaram batidas.
 10. Trocar o `whatsapp_phone` de um contato não reconcilia conversas: mensagens
     do número antigo criam contato duplicado no webhook.
+11. **Nada avisa quando a ingestão para.** O webhook da UAZAPI devolveu 401 a
+    cada ~40 segundos durante quatro dias e ninguém soube até o cliente
+    reclamar; o mesmo vale para `POST /api/ingest/leads`. Um alerta barato
+    resolveria: alguém precisa olhar 401/403 recorrentes nas rotas de ingestão,
+    ou a tela de Configurações precisa mostrar quando a última mensagem
+    recebida chegou. Prefira o segundo — ele fica onde o problema é resolvido.
 
 Demais melhorias e histórico pertencem a `README.md`, `docs/CHANGELOG.md` e
 `docs/FUNCIONALIDADES.md`, não a este handoff.
