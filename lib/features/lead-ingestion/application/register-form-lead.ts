@@ -64,24 +64,34 @@ async function resolveContact(
   form: TargetForm,
   identity: LeadIdentity
 ): Promise<{ contactId: string | null; error: string | null }> {
+  // `limit(1)` e nunca `maybeSingle()`: este último **falha quando encontra
+  // mais de uma linha**, e o erro descartado foi o que multiplicou 59
+  // telefones em 246 contatos pelo webhook da UAZAPI. Aqui o risco é o mesmo,
+  // e no caso do e-mail é maior: `contacts.email` não tem índice nenhum — nem
+  // único, nem comum —, então duplicata de e-mail é livre hoje e a `0024` não
+  // a impede. `order("created_at")` mantém a escolha determinística: sem ele o
+  // Postgres pode devolver linhas diferentes a cada chamada, e o mesmo lead
+  // migraria de contato entre uma submissão e outra.
   if (identity.phone) {
-    const { data: existing } = await admin
+    const { data: porTelefone } = await admin
       .from("contacts")
       .select("id")
       .eq("organization_id", form.organization_id)
       .eq("whatsapp_phone", identity.phone)
-      .maybeSingle();
-    if (existing?.id) return { contactId: existing.id, error: null };
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (porTelefone?.[0]?.id) return { contactId: porTelefone[0].id, error: null };
   }
 
   if (identity.email) {
-    const { data: existing } = await admin
+    const { data: porEmail } = await admin
       .from("contacts")
       .select("id")
       .eq("organization_id", form.organization_id)
       .eq("email", identity.email)
-      .maybeSingle();
-    if (existing?.id) return { contactId: existing.id, error: null };
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (porEmail?.[0]?.id) return { contactId: porEmail[0].id, error: null };
   }
 
   const { data: contact, error } = await admin
@@ -95,6 +105,20 @@ async function resolveContact(
     })
     .select("id")
     .single();
+
+  // A corrida entre duas submissões simultâneas do mesmo telefone deixa de
+  // gravar a segunda linha assim que a 0024 estiver aplicada: quem perde
+  // reconsulta e reaproveita o contato do vencedor, em vez de falhar o lead.
+  if (error?.code === "23505" && identity.phone) {
+    const { data: vencedor } = await admin
+      .from("contacts")
+      .select("id")
+      .eq("organization_id", form.organization_id)
+      .eq("whatsapp_phone", identity.phone)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (vencedor?.[0]?.id) return { contactId: vencedor[0].id, error: null };
+  }
 
   if (error || !contact) {
     console.error("[lead-ingestion] falha ao criar contato", error);

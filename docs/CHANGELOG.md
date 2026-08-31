@@ -2,6 +2,93 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-31 — o contato duplicava a cada mensagem
+
+O cliente relatou que "toda interação vira contato na lista" e sugeriu agrupar
+a tela. A medição mostrou algo pior que um problema de lista: **246 contatos
+para 59 telefones distintos**, 243 deles criados em 6 dias, um único número com
+**118 cópias** — e a duplicação acontecendo naquele instante.
+
+A prova: aquele número tinha **117 mensagens e 118 contatos**. Um contato por
+evento de webhook, nas duas direções.
+
+### Causa raiz
+
+`app/api/webhooks/uazapi/route.ts` procurava o contato com `.maybeSingle()`,
+que **falha quando encontra mais de uma linha** (`PGRST116`), e o erro era
+descartado na desestruturação. Duas linhas viravam `contact === null`, o
+`insert` criava a terceira, e a terceira garantia que a próxima mensagem também
+caísse no `insert`. Um laço que se realimenta.
+
+A porta de entrada foi a ausência de índice único: a `0001` criou
+`contacts_whatsapp_idx (organization_id, whatsapp_phone)` **sem `unique`**. Uma
+corrida entre duas mensagens simultâneas, em 25/08, criou a primeira duplicata;
+o resto foi automático.
+
+**A prova por contraste**, no mesmo arquivo: `whatsapp_conversations` e
+`whatsapp_messages` usam o MESMO `maybeSingle()` e nunca duplicaram — porque a
+`0002` e a `0011` lhes deram índice único. Mesmo código, resultados opostos.
+
+### Corrigido
+
+- **Webhook**: `limit(1)` com `order("created_at")` no lugar de `maybeSingle()`,
+  tratamento de `23505` reconsultando o vencedor da corrida, e **recusa
+  explícita** quando o contato não puder ser resolvido — antes a rota seguia
+  adiante e gravava conversa e lead com `contact_id: null`.
+- **Ingestão n8n / formulário público** (`register-form-lead.ts`): mesmo
+  defeito, mesma correção. A busca por `email` era a mais frágil: `contacts.
+  email` não tem índice nenhum.
+- **`.eq("contact_id", contact?.id ?? "")`** mandava string vazia para coluna
+  `uuid` (`22P02`) com o erro descartado.
+- **`describeWriteError`** passa a traduzir `23505`: cadastrar contato com
+  WhatsApp já existente agora explica o motivo em pt-BR, em vez do texto
+  genérico que levava a pessoa a tentar de novo.
+
+### Banco — `0024_contato_unico_por_whatsapp.sql`
+
+Repara e trava, na mesma transação: normaliza `''` para nulo, elege o
+sobrevivente de cada grupo `(organization_id, whatsapp_phone)`, faz merge dos
+campos, reponta as **cinco** chaves estrangeiras e só então apaga.
+
+- **O sobrevivente é o mais antigo**: é para ele que as FKs já apontam, o que
+  minimiza o repontamento.
+- **O merge não é opcional**: o sobrevivente nasceu do webhook, sem e-mail; uma
+  duplicata mais nova pode ter sido criada no modal com dado digitado à mão.
+- **`activity_logs.contact_id` é `on delete cascade`** — apagar antes de
+  repontar apagaria o histórico junto, sem erro e sem aviso. É a diferença
+  entre reparo e perda de dados, e há uma guarda que aborta a transação se
+  sobrar histórico apontando para duplicata.
+- **O agrupamento é por `(organization_id, whatsapp_phone)`**, nunca só por
+  telefone: agrupar sem a organização fundiria contatos de empresas diferentes.
+- **O índice único não é parcial**, deliberadamente: nulos já são distintos no
+  Postgres, e índice parcial quebraria qualquer `on conflict` futuro sobre
+  essas colunas.
+- `lock table ... in share row exclusive mode` permite rodar com o webhook
+  ativo.
+
+### Ordem de execução — não inverta
+
+**O deploy do código vem ANTES da migration.** Sob o código antigo, o índice
+único faz o `insert` devolver `23505` — e aquele erro também era descartado —,
+então a rota seguiria gravando conversas e leads **órfãos de contato**, que
+nenhum SQL reconstrói. O índice sem a correção de código é estritamente pior
+que o estado atual.
+
+### Decisão de produto: a lista NÃO agrupa
+
+O cliente sugeriu agrupar a tela. Recusado, com motivo: as 246 linhas visíveis
+eram o alarme funcionando. Agrupar trocaria um sintoma visível por degradação
+silenciosa — e não unificaria nada, porque as 118 duplicatas são 118
+`contact_id` distintos, com deals e mensagens espalhadas entre elas. A linha
+agrupada daria a ilusão de um cliente único enquanto o usuário clica e cai num
+registro vazio.
+
+### Gates
+
+`git diff --check` · `npx tsc --noEmit` · `npm run build` · `npm run test:unit`
+(111) · `npm run test:db` (9 asserções novas, incluindo a prova do reparo sobre
+sujeira recriada) — todos executados, todos verdes.
+
 ## 2026-08-31 — indicadores de atenção (notificações, v1)
 
 O cliente pediu um "sistema de notificações". A consulta ao squad (produto,
