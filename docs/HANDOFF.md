@@ -21,9 +21,9 @@ o histórico detalhado.
 | `main` local | `316a2b6` — documentação da migração Bubble/domínio beta |
 | `origin/main` | `316a2b6` |
 | Produção | `316a2b6` — deploy `dpl_5Qp21kRf3gHUa648KQR3oN6RGz1W`, `Ready` |
-| Banco | migrations `0001` a `0020` aplicadas. **A `0021` está escrita e testada, aguardando aplicação pelo cliente** |
-| Diferença | Working tree com a `0021`, a assinatura do Realtime na tela de atendimento e a documentação desta sessão — **nada commitado ainda** |
-| WhatsApp | **Recebimento parado desde 26/08.** Depende de reconfigurar a URL no painel da UAZAPI — ver abaixo |
+| Banco | migrations `0001` a `0021` aplicadas — a `0021` em 31/08/2026, pelo cliente, confirmada no catálogo (`pg_publication_tables`) |
+| Diferença | `fix/realtime-atendimento` (`a16964a`) tem a `0021`, a assinatura do Realtime e a documentação. **Não commitado em `main`, não publicado** |
+| WhatsApp | **Restaurado em 31/08.** URL nova colada no painel da UAZAPI; tráfego real dos dois lados confirmado no banco |
 | Ramo em uso | `main`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1, já mergeado — pode ser apagado |
 
 O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
@@ -148,8 +148,12 @@ que escondeu o problema por quatro dias.
 Correção: entrar em Atendimento → Configurações como `org_admin`, copiar a URL
 do webhook e colá-la no campo de **mensagens recebidas** da instância em
 `https://jidmidia.uazapi.com`. A instância já tem `webhook_secret`; **não** gere
-outro — só obrigaria a colar de novo. Confirme pelo log de produção que o POST
-passou a responder 200.
+outro — só obrigaria a colar de novo.
+
+**Feito e verificado em 31/08/2026.** Os 401 cessaram e o tráfego real voltou
+nos dois sentidos: `inbound` e `outbound` gravados, a última entrada às
+`15:34 UTC`. A `0021` foi aplicada no mesmo dia; as duas tabelas aparecem em
+`pg_publication_tables`.
 
 Em aberto: as mensagens recebidas entre 26/08 e a reconfiguração provavelmente
 estão perdidas. A UAZAPI levou 401 em todas; se não houver fila de reenvio do
@@ -189,11 +193,13 @@ Em ordem de risco. O item 1 é o único que tem cliente esperando; o 2 conclui a
 validação da publicação; o 3 é o que mais reduz risco de acidente; do 4 em
 diante é dívida e produto.
 
-1. **Retomar o WhatsApp**, na ordem: colar a URL nova no painel da UAZAPI,
-   confirmar 200 no log, aplicar a `0021` e então commitar/publicar a assinatura
-   da lista lateral. Depois disso, o smoke que nunca houve das `0010/0011`:
-   receber e responder pela mesma instância, transferir responsável, conferir
-   isolamento de `seller`/`agent` e visão consolidada de `org_admin`.
+1. **Publicar a `fix/realtime-atendimento`.** A URL da UAZAPI e a `0021` já
+   estão em produção; o que falta é o código. Enquanto ele não sobe, a conversa
+   aberta atualiza sozinha (a `0021` basta para ela), mas o não lido e a ordem
+   da lista lateral ainda dependem de recarregar a página. Depois de publicar,
+   o smoke que nunca houve das `0010/0011`: receber e responder pela mesma
+   instância, transferir responsável, conferir isolamento de `seller`/`agent` e
+   visão consolidada de `org_admin`.
 2. **Smoke autenticado em produção**, depois do deploy:
    - o caso que motivou a `0020`: aplicar tag, desativá-la no catálogo, e então
      editar as tags do mesmo lead. Precisa salvar e preservar o vínculo antigo,
