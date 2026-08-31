@@ -234,6 +234,44 @@ export function WhatsAppClient({
     };
   }, [selectedId, supabase]);
 
+  // Realtime: a LISTA lateral. O canal acima cobre só a conversa aberta — sem
+  // este, mensagem que chega em qualquer outra conversa não move nada na tela:
+  // nem o não lido, nem a ordem, nem a conversa nova que acabou de existir.
+  //
+  // `router.refresh()` em vez de espelhar a linha em estado local. A lista vem
+  // do Server Component já ordenada, já filtrada pelo RLS e com os campos que
+  // a tela usa; remontá-la no cliente seria reimplementar a visibilidade por
+  // responsável da 0011, e errar nela mostra a conversa de um vendedor para
+  // outro. O refresh preserva o rascunho e a conversa aberta — é o mesmo
+  // caminho que as ações desta tela já usam.
+  //
+  // O debounce existe porque cada mensagem gera INSERT em `whatsapp_messages`
+  // e UPDATE em `whatsapp_conversations` quase juntos: numa rajada, seria um
+  // refresh por evento.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel(`wa-conversas-${organizationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "whatsapp_conversations",
+          filter: `organization_id=eq.${organizationId}`,
+        },
+        () => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => router.refresh(), 700);
+        }
+      )
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [organizationId, supabase, router]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);

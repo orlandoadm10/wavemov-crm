@@ -2,6 +2,87 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-31 — o WhatsApp parou de receber, por dois motivos independentes
+
+O cliente relatou que "as mensagens não sincronizam". O diagnóstico separou
+duas falhas distintas que se somavam: **nada entrava** no banco, e **nada
+aparecia** na tela mesmo quando entrasse.
+
+### Diagnosticado — ingestão parada desde 2026-08-26 (não é defeito de código)
+
+- Última mensagem `inbound` gravada: `2026-08-26 18:20:52 UTC`. O PR #1
+  (`fix/isolamento-webhook-uazapi`) foi mergeado às `19:20:34 UTC` do mesmo
+  dia — uma hora depois.
+- Esse PR trocou o `UAZAPI_WEBHOOK_SECRET` global pelo segredo por instância
+  da migration `0010`, e o global deixou de ser aceito
+  (`app/api/webhooks/uazapi/route.ts`). A URL no painel da UAZAPI nunca foi
+  reconfigurada.
+- O log de produção confirma: a UAZAPI chama `POST /api/webhooks/uazapi` a
+  cada ~30–50 s e recebe **401** em todas, com
+  `[uazapi-webhook] segredo não reconhecido { hasOrgParam: true, viaHeader: false }`.
+- A saída continuou funcionando porque usa o token da instância, não o
+  segredo — foi o que disfarçou o problema no teste de envio de 28/08.
+- **Correção é operacional**, no painel da UAZAPI: copiar a URL em
+  Atendimento → Configurações (visível a `org_admin`) e colá-la no campo de
+  mensagens recebidas. A instância já tem `webhook_secret`; gerar um novo só
+  obrigaria a colar de novo.
+- Isto encerra, com resultado negativo, o item "WhatsApp `0010/0011`: nunca
+  houve smoke em produção" — o smoke que faltava era exatamente este.
+
+### Corrigido — `0021`: as tabelas do atendimento não estavam no Realtime
+
+- A publicação `supabase_realtime` do projeto está **vazia**: nenhuma tabela.
+  A assinatura `postgres_changes` de `whatsapp-client.tsx` conectava e nunca
+  recebia evento. Depois de consertar o webhook, a mensagem entraria no banco
+  e a tela só a mostraria ao recarregar a página.
+- `supabase/migrations/0021_realtime_do_atendimento.sql` publica
+  `whatsapp_messages` (thread da conversa aberta) e `whatsapp_conversations`
+  (lista lateral: não lido, ordem e conversa nova) em `supabase_realtime`.
+  Idempotente por consulta ao catálogo; cria a publicação quando ela não
+  existe, e não faz nada quando ela é `for all tables`.
+- `REPLICA IDENTITY` fica no padrão de propósito: o payload de INSERT/UPDATE
+  já traz a linha nova, que é a única que o cliente lê, e `full` dobraria o
+  WAL para carregar o `raw_payload` antigo que ninguém consome.
+- O RLS não muda. O Realtime avalia as policies da `0011` por assinante antes
+  de entregar o evento; publicar a tabela não abre visibilidade nenhuma.
+
+### Adicionado
+
+- `whatsapp-client.tsx` passa a assinar `whatsapp_conversations` da
+  organização e a chamar `router.refresh()` com debounce de 700 ms. Sem isso a
+  `0021` só serviria à conversa aberta — mensagem em qualquer outra conversa
+  não movia o não lido nem a ordem. O refresh reaproveita a lista do Server
+  Component em vez de remontá-la no cliente, que seria reimplementar a
+  visibilidade por responsável da `0011`.
+- `npm run test:db` ganhou asserções de catálogo para a `0021` (as duas
+  tabelas publicadas) e o replay da própria `0021`, que prova a guarda de
+  idempotência — `alter publication ... add table` numa tabela já publicada é
+  erro.
+
+### Gates
+
+`git diff --check`, `npx tsc --noEmit`, `npm run build`, `npm run test:unit`
+(78 testes) e `npm run test:db` executados, todos verdes.
+
+## 2026-08-28 — landing e marca publicadas em produção
+
+### Alterado
+
+- Push de `main` concluído de `2d23f73` até `316a2b6`; `main` e `origin/main`
+  ficaram sincronizados.
+- `NEXT_PUBLIC_APP_URL` do ambiente Production da Vercel foi corrigida para
+  `https://wavemov-crm.vercel.app` antes do build.
+
+### Verificado
+
+- O deployment `dpl_5Qp21kRf3gHUa648KQR3oN6RGz1W` ficou `Ready` em
+  `https://wavemov-e17wha6lb-orlandoadm10s-projects.vercel.app`, associado ao
+  alias de produção e ao commit `316a2b6`.
+- Smokes públicos: `/` e `/login` responderam HTTP 200; canonical aponta para
+  o alias; marca CRM JID Mídia e CTA para `/login` estão presentes.
+- Nenhuma migration foi aplicada nesta publicação; o banco permanece em
+  `0001..0020`. Sem bump de versão: `0.2.0`.
+
 ## 2026-08-28 — a marca visível passa a ser JID Mídia
 
 O produto se chama **CRM JID Mídia**: a JID Mídia é quem fornece o CRM às
