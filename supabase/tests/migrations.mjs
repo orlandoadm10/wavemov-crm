@@ -145,6 +145,38 @@ try {
 }
 
 // ------------------------------------------------------------
+// 0023 — índice das tarefas pendentes por responsável
+//
+// A asserção que importa é `assigned_to` estar na chave: o índice que já
+// existia (`tasks_org_idx`) tem organização, status e prazo, e passaria num
+// teste ingênuo de "existe índice em tasks" — filtrando a pessoa linha a linha.
+// ------------------------------------------------------------
+console.log("\n== 0023: índice das tarefas do responsável ==");
+const idxTarefas = await db.query(
+  `select indexdef from pg_indexes
+    where schemaname = 'public' and indexname = 'tasks_responsavel_pendentes_idx'`
+);
+if (idxTarefas.rows.length === 0) {
+  fail("0023: índice tasks_responsavel_pendentes_idx não existe");
+} else {
+  const def = idxTarefas.rows[0].indexdef;
+  ok("0023: índice tasks_responsavel_pendentes_idx criado");
+  if (/where\s+\(?status\s*=\s*'pending'/i.test(def))
+    ok("0023: o índice é parcial em status = 'pending'");
+  else fail("0023: o índice não é parcial — carregaria todo o histórico concluído", def);
+  if (/organization_id,\s*assigned_to,\s*due_at/i.test(def))
+    ok("0023: chaveado por (organization_id, assigned_to, due_at)");
+  else fail("0023: sem assigned_to no prefixo, a pessoa é filtrada linha a linha", def);
+}
+
+try {
+  await db.exec(readFileSync(path.join(MIG, "0023_indice_das_tarefas_do_responsavel.sql"), "utf8"));
+  ok("0023 roda duas vezes sem erro");
+} catch (e) {
+  fail("0023 não é idempotente", e.message);
+}
+
+// ------------------------------------------------------------
 // Cenário: duas organizações, papéis distintos
 // ------------------------------------------------------------
 const uid = (nome) => db.query(`select id from auth.users where email = $1`, [nome]).then((r) => r.rows[0].id);

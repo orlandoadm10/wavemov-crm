@@ -3,6 +3,7 @@
 import { DealModal } from "@/components/crm/deal-modal";
 import { Badge, TemperatureBadge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
+import { UnreadConversationsPill } from "@/components/crm/unread-conversations-pill";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -281,6 +282,14 @@ export function KanbanBoard({
               </Link>
             </>
           )}
+          {/* O contador que o cliente pediu "na página do kanban". Empurrado
+              para a direita da fileira; em telas estreitas o `flex-wrap` já
+              existente o joga para a linha de baixo, com largura própria —
+              nunca `w-full`, porque pílula esticada de borda a borda vira
+              faixa, e faixa nesta tela é do aviso de ingestão. */}
+          <div className="ml-auto">
+            <UnreadConversationsPill />
+          </div>
         </div>
         {moveError && (
           <p

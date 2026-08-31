@@ -2,6 +2,101 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-31 — indicadores de atenção (notificações, v1)
+
+O cliente pediu um "sistema de notificações". A consulta ao squad (produto,
+backend e frontend) devolveu três leituras divergentes; o recorte aprovado foi
+o mais estreito: **três indicadores derivados, sem tabela e sem sino.**
+
+Descoberta que reformulou o pedido: **o CRM já tinha um badge de notificação, e
+ele media a coisa errada.** `app/(dashboard)/layout.tsx` contava `tasks` com
+`status='pending'` da organização inteira, ignorando `due_at` e `assigned_to` —
+um número que não mudava quando a pessoa trabalhava, e que por isso ninguém
+olhava.
+
+### Adicionado
+
+- **`lib/features/notifications/domain/attention.ts`** — a regra, pura e sem
+  banco: quem vê, o que conta, teto `99+`, janela de 24h dos leads novos e a
+  redação dos rótulos. 17 testes.
+- **Três badges no menu superior**: tarefas vencidas **minhas** (vermelho, é
+  dívida), conversas aguardando resposta e leads novos das últimas 24h.
+- **Pílula no toolbar do Kanban** — o contador que o cliente pediu "na página
+  do kanban". Ela faz o que um badge de 20 px não faz: explica o número
+  (`3 conversas · 11 mensagens`) e leva ao atendimento.
+- **Toast de lead novo**, para lead que é seu ou está sem responsável.
+  `components/ui/toast.tsx` nasceu aqui — não havia toast no projeto, e não
+  entrou biblioteca para isso.
+- **`components/ui/count-badge.tsx`** — o badge inline do `top-nav` virou
+  componente. Eram um; agora são três, e três cópias divergiriam.
+- **`components/layout/attention-provider.tsx`** — um provider, um canal
+  Realtime por aba, uma contagem.
+
+### Banco
+
+- **`0023_indice_das_tarefas_do_responsavel.sql`** — índice parcial
+  `tasks (organization_id, assigned_to, due_at) where status = 'pending'`. O
+  `tasks_org_idx` da `0001` não tem `assigned_to` e filtraria a pessoa linha a
+  linha, em toda página do CRM. Aditivo e `if not exists`.
+- **Nenhuma tabela nova, nenhum trigger, nenhuma publicação nova.**
+
+### Decisões que a implementação precisa preservar
+
+- **Sem tabela `notifications` no v1.** Os três números são derivados de
+  `tasks.due_at`, `whatsapp_conversations.unread_count` e `deals.created_at`,
+  então não existe estado de "lida" para divergir do real — um badge derivado
+  nunca aponta para tarefa já concluída. A tabela passa a valer **junto com o
+  e-mail**, quando a linha vira o outbox que sobrevive ao provedor cair; antes
+  disso custaria ~27 mil linhas/dia depois do Bubble para reexibir o que os
+  badges já mostram.
+- **`deals` não foi publicada no Realtime.** Ela é escrita a cada arraste de
+  card no Kanban; todo esse WAL entraria na replicação para ganhar segundos
+  num aviso que tolera minutos. Leads e tarefas reconciliam no foco da janela
+  e a cada 60 s.
+- **O recorte é "meu" para todos os papéis, inclusive `org_admin`** — mais a
+  fila sem responsável, que não é de ninguém. Dar ao administrador a soma da
+  empresa produz um número que depende de a equipe inteira trabalhar, nunca
+  chega a zero, e mata o badge por irrelevância.
+- **`viewer` não vê indicador nenhum.** Não é hierarquia, é mecânica: ele não
+  conclui tarefa e não zera `unread_count` (a escrita é barrada de propósito
+  em `whatsapp-client.tsx`), então os contadores dele subiriam para sempre.
+- **O badge conta conversas, não mensagens.** Um lead que manda sete linhas
+  viraria "7", e a equipe aprenderia que o número não significa esforço. A
+  soma de mensagens só aparece na frase da pílula.
+- **`null` é "não sei" e esconde o badge; zero também não desenha.** Mesma
+  disciplina do `unknown` da saúde da entrada de leads.
+- **O Realtime é otimização de latência, não fonte da verdade.** Desligá-lo
+  não pode quebrar o contador, só deixá-lo mais lento.
+- **Nada tem botão de dispensar.** Cada indicador zera pelo trabalho
+  correspondente.
+- **Uma faixa por tela**, e ela continua sendo a do aviso de silêncio da
+  ingestão. Nenhum indicador desta entrega desenha faixa.
+
+### Regressão consciente
+
+O badge de tarefas do `org_admin` **vai mostrar um número menor**: era o total
+pendente da empresa, passa a ser só as vencidas dele. É correção, não defeito.
+A visão da equipe já existe em `/relatorios/vendedores`.
+
+### Fora de escopo, com motivo
+
+Sino e centro de notificações (no v1 só reexibiriam o que os três badges já
+mostram), e-mail (não há remetente transacional; ver abaixo), Web Push, som,
+contador por card do Kanban (obrigaria a juntar `whatsapp_conversations` na
+consulta de `/negociacoes`, que já traz 500 deals com dois embeds), e as
+notificações de etapa/tag/nota — cada uma entra com nome e destinatário, ou não
+entra.
+
+**E-mail, direção aprovada para o v2:** avisar só quando o lead ficou ~30 min
+**sem toque**, mais um resumo diário. Pega o caso que dói e não dispara quando o
+processo funcionou. Pré-requisito de dados que não existe hoje: `deals` não
+registra primeiro contato.
+
+### Gates
+
+`git diff --check` · `npx tsc --noEmit` · `npm run build` · `npm run test:unit`
+(94 → 111) · `npm run test:db` — todos executados, todos verdes.
+
 ## 2026-08-31 — saúde da entrada de leads
 
 Frente escolhida depois do incidente do mesmo dia. O problema de usuário:

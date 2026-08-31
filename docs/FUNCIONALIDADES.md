@@ -277,6 +277,51 @@ O detalhe separa a operação comercial do conteúdo integral do WhatsApp no car
 - As bolhas são compartilhadas com `/atendimento` por
   `components/whatsapp/message-thread.tsx`.
 
+### Indicadores de atenção — menu superior e `/negociacoes`
+
+Respondem "o que está esperando por mim?". São **três números derivados** do
+dado que já existe; não há tabela de notificações, não há evento persistido e
+não há estado de "lida" — por isso um badge nunca aponta para trabalho já
+feito. A regra vive em `lib/features/notifications/domain/attention.ts`,
+coberta por `npm run test:unit`.
+
+| Indicador | Onde | O que conta |
+|---|---|---|
+| Tarefas vencidas | badge vermelho em **Tarefas** | minhas, `status='pending'`, `due_at` no passado |
+| Conversas aguardando | badge em **Atendimento** + pílula no Kanban | `unread_count > 0`, minhas ou sem responsável |
+| Leads novos | badge em **Negociações** + toast | `status='open'`, últimas 24h, meus ou sem responsável |
+
+Contratos que precisam permanecer:
+
+- **O recorte é "meu" para todos os papéis, inclusive `org_admin`**, mais a
+  fila sem responsável. A soma da organização produziria um número que depende
+  de a equipe inteira trabalhar, nunca chegaria a zero e mataria o badge por
+  irrelevância. O total da empresa é métrica de gestão e vive em `/atendimento`
+  com filtro e nos relatórios.
+- **`viewer` não vê nenhum indicador.** Mecânica, não hierarquia: ele não
+  conclui tarefa e não zera `unread_count` (barrado de propósito em
+  `whatsapp-client.tsx`), então os contadores dele subiriam para sempre.
+  Continua vendo o banner de saúde da entrada, que é estado e não convocação.
+- **O badge conta conversas, não mensagens.** A soma de mensagens só aparece
+  na frase da pílula do Kanban.
+- **`null` é "não sei" e esconde o badge; zero também não desenha.** No Kanban
+  a pílula é a exceção: em zero ela vira "Atendimento em dia", porque elemento
+  que desaparece deixa dúvida sobre estar em dia ou quebrado.
+- **O Realtime é otimização de latência, não fonte da verdade.** Só
+  `whatsapp_conversations` é assinada (publicada pela `0021`); leads e tarefas
+  reconciliam no foco da janela e a cada 60 s. Desligar o Realtime deixa o
+  contador lento, nunca errado.
+- **`deals` não é publicada no Realtime**, de propósito: é escrita a cada
+  arraste de card no Kanban.
+- **Tarefa vencida nunca terá Realtime** — ela vence pela passagem do relógio,
+  sem nenhuma linha mudar no banco.
+- **Um provider, um canal por aba, uma contagem.** O badge do menu e a pílula
+  leem do mesmo valor; duas assinaturas divergiriam em minutos.
+- **Nada tem botão de dispensar**, e o toast nunca dispara na primeira leitura
+  da aba: abrir o CRM com sete leads das últimas 24h é estado, não chegada.
+- A pílula **nunca** dispara `router.refresh()`: o Kanban usa `dnd-kit` com
+  estado local, e revalidar no meio de um arraste puxa o tapete do usuário.
+
 ### Saúde da entrada de leads — `/atendimento/configuracoes`, `/formularios`, `/dashboard` e `/atendimento`
 
 Responde à pergunta que a operação faz todo dia: **"entrou alguma coisa?"**. O
@@ -507,6 +552,7 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0020_set_deal_tags_preserva_tag_inativa.sql` | `set_deal_tags` deixa de esbarrar na guarda de tag inativa ao preservar vínculo existente |
 | `0021_realtime_do_atendimento.sql` | **`whatsapp_messages` e `whatsapp_conversations` publicadas em `supabase_realtime`** |
 | `0022_indice_da_ultima_entrada.sql` | Índice parcial da última mensagem recebida por organização |
+| `0023_indice_das_tarefas_do_responsavel.sql` | Índice parcial das tarefas pendentes por responsável |
 
 ### `0021_realtime_do_atendimento.sql`
 

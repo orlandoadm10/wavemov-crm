@@ -18,13 +18,13 @@ o histórico detalhado.
 
 | Item | Estado |
 |---|---|
-| `main` local | `ba546d6` — merge do PR #2, o Realtime do atendimento |
-| `origin/main` | `ba546d6` |
-| Produção | `ba546d6` — deploy `https://wavemov-pgjq7fv7i-...`, `Ready` em 31/08/2026 |
-| Banco | migrations `0001` a `0022` aplicadas — a `0021` e a `0022` em 31/08/2026, pelo cliente. A `0022` conferida em `pg_indexes` |
-| Diferença | `feat/saude-da-entrada` (PR #4) é o único código fora de `main`. A `0022` que ele usa **já está no banco** |
+| `main` local | `d548975` — merge do PR #4, a saúde da entrada de leads |
+| `origin/main` | `d548975` |
+| Produção | `d548975` — deploy `https://wavemov-kmfkc2i2o-...`, `Ready` em 31/08/2026 |
+| Banco | migrations `0001` a `0022` aplicadas. **A `0023` está escrita e testada, aguardando aplicação** |
+| Diferença | `feat/indicadores-de-atencao` é o único código fora de `main`. Depende da `0023` |
 | WhatsApp | **Restaurado em 31/08.** URL nova colada no painel da UAZAPI; tráfego real dos dois lados confirmado no banco |
-| Ramo em uso | `feat/saude-da-entrada`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado; `fix/realtime-atendimento` já foi |
+| Ramo em uso | `feat/indicadores-de-atencao`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
 
 O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
 deploy de produção automaticamente. O alias `https://wavemov-crm.vercel.app`
@@ -224,18 +224,71 @@ mudar, ou seja, reproduz o incidente de 26/08 deliberadamente e em escala. Os
 critérios de aceite pedem "webhooks validados" sem dizer com qual instrumento —
 este é o instrumento.
 
+## Indicadores de atenção (notificações, v1) — 31/08/2026
+
+Pedido do cliente: "sistema de notificações" — tarefas em aberto/atrasadas,
+contador de mensagens no Kanban, aviso de lead novo no front e por e-mail.
+Consultei produto, backend e frontend; **os três divergiram** e a arbitragem
+está registrada no `CHANGELOG`. O recorte aprovado foi o mais estreito.
+
+**A descoberta que reformulou o pedido:** o CRM já tinha um badge de
+notificação no menu, e ele media a coisa errada — `tasks` com
+`status='pending'` da organização inteira, sem `due_at` e sem `assigned_to`.
+Não era "construir do zero", era consertar e completar.
+
+Entregue: três badges no menu (tarefas vencidas minhas, conversas aguardando,
+leads novos 24h), pílula no toolbar do Kanban, toast de lead novo, e a
+migration `0023` (índice parcial das tarefas por responsável). Sem tabela, sem
+trigger, sem publicação nova no Realtime.
+
+Contratos a preservar, em ordem de risco de alguém quebrar sem perceber:
+
+- **O recorte é "meu" para todos os papéis, inclusive `org_admin`**, mais a
+  fila sem responsável. É o erro mais provável de quem mexer aqui: dar ao
+  administrador a soma da empresa produz um número que nunca chega a zero e
+  mata o badge em duas semanas;
+- **`viewer` não vê indicador** — ele não zera `unread_count` (barrado de
+  propósito), então os contadores dele subiriam para sempre;
+- **`deals` não entra no Realtime.** Ela é escrita a cada arraste de card;
+- **tarefa vencida nunca terá Realtime** — vence pela passagem do relógio, sem
+  nenhuma linha mudar;
+- **o Realtime é latência, não verdade**: desligá-lo deixa o contador lento,
+  nunca errado. É critério de aceite;
+- **badge conta conversas, não mensagens**;
+- **`null` esconde o badge; zero também não desenha.**
+
+**Regressão consciente:** o badge de tarefas do `org_admin` vai mostrar um
+número menor do que antes. É correção, não defeito — comunique assim. A visão
+da equipe está em `/relatorios/vendedores`.
+
+**O v2 já tem direção aprovada pelo cliente:** e-mail de lead novo disparado
+por **falta de toque** (~30 min) mais um resumo diário, em vez de um e-mail por
+lead. Dois pré-requisitos que não existem hoje: um remetente transacional
+(nenhum provedor está configurado, e o domínio remetente esbarra no corte do
+Bubble) e uma marca de **primeiro contato** em `deals` — sem ela, "sem toque"
+não é calculável. A tabela `notifications` entra junto com o e-mail, porque é
+aí que a linha persistida ganha função: ser o outbox que sobrevive ao provedor
+cair. O desenho completo dela está no `CHANGELOG` desta data.
+
+**Extensões:** `pg_cron`, `pg_net` e `pgmq` estão **disponíveis e não
+instalados** neste projeto. Se o v2 precisar de agendador, a recomendação é
+usar o **n8n**, que o cliente já opera e que já autentica em
+`/api/ingest/leads` — em vez de ligar extensão nova num projeto cujo ledger de
+migrations já diverge.
+
 ## Próxima sessão
 
 Em ordem de risco. O item 1 é o único que tem cliente esperando; o 2 conclui a
 validação da publicação; o 3 é o que mais reduz risco de acidente; do 4 em
 diante é dívida e produto.
 
-1. **Publicar o PR #4** (`feat/saude-da-entrada`). O PR #2 já foi mergeado em
-   `ba546d6` e está em produção; a `0022` que o #4 usa já está no banco, então o
-   merge é direto. Nota de processo, aprendida na marra: o `--delete-branch` do
-   PR #2 **fechou automaticamente** o PR empilhado sobre ele (o #3), que teve de
-   ser reaberto como #4. Se voltar a empilhar branches, reaponte o PR de cima
-   para `main` **antes** de mergear o de baixo. Publicado isso,
+1. **Aplicar a `0023` e publicar `feat/indicadores-de-atencao`.** A migration é
+   um índice parcial, aditiva e `if not exists`; precisa entrar **antes** do
+   deploy, senão a contagem de tarefas vencidas filtra a pessoa linha a linha em
+   toda página. Nota de processo, aprendida na marra: o `--delete-branch` de um
+   merge **fecha automaticamente** o PR empilhado sobre aquela branch, e PR
+   fechado não aceita troca de base nem reabertura. Reaponte o de cima para
+   `main` antes de mergear o de baixo. Publicado isso,
    o smoke que nunca houve das `0010/0011`: receber e responder pela mesma
    instância, transferir responsável, conferir isolamento de `seller`/`agent` e
    visão consolidada de `org_admin`.
