@@ -5,8 +5,10 @@ import {
   SalesPerMonthChart,
 } from "@/components/crm/dashboard-charts";
 import { DashboardFilters } from "@/components/crm/dashboard-filters";
+import { IngestionAlertBanner } from "@/components/crm/ingestion-alert-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardHeader, StatCard } from "@/components/ui/card";
+import { getIngestionHealth } from "@/lib/features/lead-ingestion/infrastructure/ingestion-health-query";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency, fullName } from "@/lib/utils";
@@ -137,6 +139,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const pendingTasks = tasks.filter((t) => t.status === "pending").length;
   const doneTasks = tasks.filter((t) => t.status === "done").length;
 
+  // Saúde da entrada de leads — só para quem enxerga a organização inteira.
+  // `seller`/`agent` ficam de fora: sob a 0011 eles leem apenas os próprios
+  // leads e conversas, então o indicador diria "sem entrada há N dias" para um
+  // vendedor num dia quieto, com a empresa recebendo normalmente.
+  const canSeeIngestionHealth =
+    session.membership.role === "org_admin" ||
+    session.membership.role === "viewer" ||
+    session.profile.is_global_admin;
+  const ingestionHealth = canSeeIngestionHealth
+    ? await getIngestionHealth(supabase, orgId)
+    : null;
+
   return (
     <div className="animate-fade-up">
       <PageHeader
@@ -144,6 +158,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         subtitle="Visão geral do funil, performance e atividades"
         actions={<DashboardFilters pipelines={pipelines} members={members} />}
       />
+
+      {ingestionHealth && (
+        <IngestionAlertBanner
+          healths={ingestionHealth.all}
+          canFix={session.membership.role === "org_admin" || session.profile.is_global_admin}
+        />
+      )}
 
       {/* Linha 1 — contadores */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

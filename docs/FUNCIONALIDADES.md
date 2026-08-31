@@ -16,7 +16,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/relatorios/ultimo-lead` | `app/(dashboard)/relatorios/ultimo-lead/page.tsx` | **Último lead recebido** com origem, respostas e timeline |
 | `/tarefas` | `app/(dashboard)/tarefas/page.tsx` | Lista de tarefas com prioridade, vencimento e banner da próxima |
 | `/atendimento` | `app/(dashboard)/atendimento/page.tsx` | WhatsApp em 3 colunas com realtime; troca de funil e etapa do lead sem sair da conversa; **Informações do Lead editáveis** |
-| `/atendimento/configuracoes` | `app/(dashboard)/atendimento/configuracoes/page.tsx` | Conexão UAZAPI, QR Code, webhook, respostas rápidas |
+| `/atendimento/configuracoes` | `app/(dashboard)/atendimento/configuracoes/page.tsx` | **Saúde do recebimento**, conexão UAZAPI, QR Code, webhook, respostas rápidas |
 | `/empresas` | `app/(dashboard)/empresas/page.tsx` | Lista de organizações com total de leads e inatividade |
 | `/empresas/[id]` | `app/(dashboard)/empresas/[id]/page.tsx` | **Resumo da empresa** — KPIs, saúde da conta, evolução de leads, últimos leads, pessoas |
 | `/contatos` | `app/(dashboard)/contatos/page.tsx` | CRUD de contatos com vínculo a negociações. O formulário é o `components/crm/contact-modal.tsx`, compartilhado com o detalhe do lead |
@@ -277,6 +277,58 @@ O detalhe separa a operação comercial do conteúdo integral do WhatsApp no car
 - As bolhas são compartilhadas com `/atendimento` por
   `components/whatsapp/message-thread.tsx`.
 
+### Saúde da entrada de leads — `/atendimento/configuracoes`, `/formularios`, `/dashboard` e `/atendimento`
+
+Responde à pergunta que a operação faz todo dia: **"entrou alguma coisa?"**. O
+CRM tem três entradas — webhook da UAZAPI, `POST /api/ingest/leads` (n8n) e o
+formulário público `/f/[slug]` — e nenhuma declarava o próprio estado até aqui.
+A regra vive em `lib/features/lead-ingestion/domain/ingestion-health.ts`, é pura
+e coberta por `npm run test:unit`.
+
+- **Painel "Recebimento"** em `/atendimento/configuracoes`, antes do formulário
+  de conexão: os três canais com semáforo, o tempo relativo, a data absoluta em
+  `America/Sao_Paulo` e o que fazer a respeito. É onde o problema se conserta.
+- **Banner** em `/dashboard` e `/atendimento`, que é onde a equipe já está. O
+  painel sozinho não bastaria: ninguém abre configurações sem já suspeitar de
+  alguma coisa. Não tem botão de dispensar — some quando o canal volta a
+  receber, e só então.
+- **Linha por formulário** no painel n8n de `/formularios`: ali a pergunta é
+  qual **fluxo** parou, não se a integração está viva.
+
+Estados, e quais alertam:
+
+| Estado | Significado | Alerta? |
+|---|---|---|
+| `receiving` | dentro do limiar | não |
+| `silent` | passou do limiar e ainda é recente | **sim** |
+| `dormant` | parou há tanto tempo que virou decisão | não |
+| `never_received` | configurado, nada chegou ainda (implantação) | não |
+| `not_configured` | não há integração | não |
+| `unknown` | a leitura falhou | não |
+
+Limiares fixos: **48 h** para WhatsApp; **7 dias** para n8n e formulário
+público, que entram em rajada. Depois de `limiar + 30 dias` o canal vira
+`dormant`.
+
+Contratos que precisam permanecer:
+
+- **A tela afirma ausência, nunca falha.** "Nenhuma entrada há 4 dias", jamais
+  "integração com falha": o dado não distingue integração quebrada de semana
+  fraca. Há teste prendendo a redação.
+- **A última entrada do WhatsApp sai de `whatsapp_messages` com
+  `direction = 'inbound'`**, nunca de `whatsapp_conversations.last_message_at`
+  — o envio também escreve nessa coluna, e foi essa contaminação que escondeu o
+  incidente de 26/08 por quatro dias.
+- **`seller`/`agent` não veem o indicador.** Sob a `0011` eles leem apenas as
+  próprias conversas; a mesma consulta diria "12 dias sem receber" para um
+  vendedor num dia quieto. `org_admin`, `viewer` e admin global veem — `viewer`
+  sem CTA de conserto, porque a URL do webhook carrega o segredo da instância.
+- **Erro de leitura vira `unknown`**, nunca `never_received`. Um indicador de
+  falha silenciosa que responde com falso conforto quando ele mesmo falha não
+  vale nada.
+- O `HealthRow` é compartilhado (`components/crm/health-row.tsx`) com a saúde
+  da conta de `/empresas/[id]`.
+
 ### Atualização em tempo real — `/atendimento`
 
 Dois canais Supabase Realtime, com papéis distintos
@@ -454,6 +506,7 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0019_tags_de_negociacao.sql` | **Catálogo, vínculos N:N e três RPCs de métricas de tags** |
 | `0020_set_deal_tags_preserva_tag_inativa.sql` | `set_deal_tags` deixa de esbarrar na guarda de tag inativa ao preservar vínculo existente |
 | `0021_realtime_do_atendimento.sql` | **`whatsapp_messages` e `whatsapp_conversations` publicadas em `supabase_realtime`** |
+| `0022_indice_da_ultima_entrada.sql` | Índice parcial da última mensagem recebida por organização |
 
 ### `0021_realtime_do_atendimento.sql`
 
