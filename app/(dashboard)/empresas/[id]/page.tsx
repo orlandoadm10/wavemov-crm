@@ -1,4 +1,5 @@
 import { DailyLeadsChart } from "@/components/crm/dashboard-charts";
+import { HealthRow } from "@/components/crm/health-row";
 import { PeriodFilter } from "@/components/crm/period-filter";
 import { PageHeader } from "@/components/layout/page-header";
 import { Avatar } from "@/components/ui/avatar";
@@ -405,43 +406,6 @@ export default async function EmpresaPerfilPage({
         </ul>
       </Card>
     </div>
-  );
-}
-
-const TONE_DOT: Record<string, string> = {
-  green: "bg-emerald-500",
-  amber: "bg-amber-500",
-  red: "bg-rose-500",
-  slate: "bg-slate-300",
-};
-
-function HealthRow({
-  icon,
-  title,
-  description,
-  value,
-  tone,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  value: React.ReactNode;
-  tone: "green" | "amber" | "red" | "slate";
-}) {
-  return (
-    <li className="flex items-center gap-3 px-5 py-3.5">
-      <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone]}`} aria-hidden="true" />
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-ink-faint">
-        {icon}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-ink">{title}</p>
-        <p className="truncate text-xs text-ink-faint">{description}</p>
-      </div>
-      <Badge tone={tone === "red" ? "red" : tone === "amber" ? "amber" : tone === "green" ? "green" : "slate"}>
-        {value}
-      </Badge>
-    </li>
   );
 }
 

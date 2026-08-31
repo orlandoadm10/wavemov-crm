@@ -1,8 +1,11 @@
+import { IngestionHealthPanel } from "@/components/crm/ingestion-health-panel";
 import { InstanceSettings } from "@/components/whatsapp/instance-settings";
 import { PageHeader } from "@/components/layout/page-header";
+import { getIngestionHealth } from "@/lib/features/lead-ingestion/infrastructure/ingestion-health-query";
 import { getInstanceForOrg, toPublicInstance } from "@/lib/services/whatsapp";
 import { getSessionContext } from "@/lib/services/session";
 import { buildWebhookUrl } from "@/lib/services/webhook-secret";
+import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
 export const metadata = { title: "Configurações WhatsApp" };
@@ -29,6 +32,23 @@ export default async function ConfiguracoesWhatsAppPage() {
       ? buildWebhookUrl(appUrl, session.organization.id, instance.webhook_secret)
       : null;
 
+  // Saúde da entrada: só para quem enxerga a organização inteira.
+  //
+  // `seller`/`agent` ficam de fora por decisão, não por esquecimento. Desde a
+  // 0011 eles leem apenas as próprias conversas, então a consulta devolveria
+  // "12 dias sem receber" para um vendedor num dia quieto, com a empresa
+  // recebendo normalmente. Indicador de organização calculado com visão
+  // parcial é alarme falso por construção — e alarme falso mata o alarme.
+  const canSeeHealth =
+    session.membership.role === "org_admin" ||
+    session.membership.role === "viewer" ||
+    session.profile.is_global_admin;
+
+  const supabase = await createClient();
+  const health = canSeeHealth
+    ? await getIngestionHealth(supabase, session.organization.id)
+    : null;
+
   return (
     <div className="animate-fade-up">
       <PageHeader
@@ -43,6 +63,14 @@ export default async function ConfiguracoesWhatsAppPage() {
           </Link>
         }
       />
+      {/* Antes do formulário de propósito: quem chega nesta tela porque
+          "parou de chegar mensagem" precisa ver o estado antes de mexer na
+          configuração. */}
+      {health && (
+        <div className="mb-4">
+          <IngestionHealthPanel healths={health.all} canFix={canManageWebhook} />
+        </div>
+      )}
       <InstanceSettings
         organizationId={session.organization.id}
         instance={toPublicInstance(instance)}

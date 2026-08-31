@@ -13,6 +13,15 @@ interface ConnectedForm {
   name: string;
   externalId: string;
   isActive: boolean;
+  /**
+   * Saúde da entrada deste fluxo, já resolvida no servidor.
+   *
+   * Vem pronta em vez de o painel calcular: a regra vive em
+   * `lib/features/lead-ingestion/domain/ingestion-health.ts`, é testada lá, e
+   * este arquivo é Client Component — recalcular aqui levaria a regra para o
+   * bundle e abriria a porta para as duas cópias divergirem.
+   */
+  health: { tone: "green" | "amber" | "red" | "slate"; label: string };
 }
 
 /**
@@ -212,6 +221,9 @@ export function ExternalIngestPanel({
                         {form.externalId}
                       </code>
                       {!form.isActive && <Badge tone="slate">Inativo</Badge>}
+                      {/* A pergunta desta lista é mais fina que a do banner:
+                          não é "a integração está viva", é QUAL fluxo parou. */}
+                      <Badge tone={form.health.tone}>{form.health.label}</Badge>
                       <Button
                         variant="outline"
                         size="icon"

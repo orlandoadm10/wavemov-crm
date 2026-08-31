@@ -2,6 +2,8 @@ import { ExternalIngestPanel } from "@/components/forms/external-ingest-panel";
 import { FormsClient } from "@/components/forms/forms-client";
 import { PageHeader } from "@/components/layout/page-header";
 import { findIngestSecretForOrganization } from "@/lib/features/lead-ingestion/infrastructure/ingest-queries";
+import { getFormsHealth } from "@/lib/features/lead-ingestion/infrastructure/ingestion-health-query";
+import { formatSilence } from "@/lib/features/lead-ingestion/domain/ingestion-health";
 import { getSessionContext } from "@/lib/services/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -38,6 +40,13 @@ export default async function FormulariosPage() {
   // empresa — por isso ela é lida SÓ para administradores, e a leitura nem
   // acontece para os demais: sem esta condição o segredo entraria no payload
   // do Server Component mesmo que a tela não o desenhasse.
+  // Uma linha de saúde por fluxo do n8n. Só para quem administra a ingestão —
+  // é a mesma guarda do painel, e o painel inteiro já é de `org_admin`.
+  const formsHealth =
+    session.membership.role === "org_admin" || session.profile.is_global_admin
+      ? await getFormsHealth(supabase, orgId)
+      : [];
+
   const canManageIngest =
     session.membership.role === "org_admin" || session.profile.is_global_admin;
 
@@ -66,7 +75,28 @@ export default async function FormulariosPage() {
           secret={ingestSecret}
           connectedForms={forms
             .filter((f) => f.external_id)
-            .map((f) => ({ id: f.id, name: f.name, externalId: f.external_id as string, isActive: f.is_active }))}
+            .map((f) => {
+              const saude = formsHealth.find((h) => h.formId === f.id)?.health;
+              return {
+                id: f.id,
+                name: f.name,
+                externalId: f.external_id as string,
+                isActive: f.is_active,
+                health: {
+                  tone: saude?.tone ?? "slate",
+                  // Curto porque divide a linha com o nome e o
+                  // identificador do formulário.
+                  label:
+                    saude && saude.hoursSince !== null
+                      ? formatSilence(saude.hoursSince)
+                      : saude?.status === "never_received"
+                        ? "Aguardando"
+                        : saude?.status === "unknown"
+                          ? "Sem apuração"
+                          : "—",
+                },
+              };
+            })}
         />
       )}
     </div>

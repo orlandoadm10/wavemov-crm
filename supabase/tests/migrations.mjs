@@ -113,6 +113,38 @@ try {
 }
 
 // ------------------------------------------------------------
+// 0022 — índice da última entrada recebida
+//
+// A asserção que importa não é "o índice existe": é que ele é PARCIAL em
+// `inbound`. Um índice cheio responderia à mesma consulta e passaria num teste
+// de existência, gastando o dobro de espaço numa tabela que só cresce.
+// ------------------------------------------------------------
+console.log("\n== 0022: índice da última entrada recebida ==");
+const indice = await db.query(
+  `select indexdef from pg_indexes
+    where schemaname = 'public' and indexname = 'whatsapp_messages_org_inbound_idx'`
+);
+if (indice.rows.length === 0) {
+  fail("0022: índice whatsapp_messages_org_inbound_idx não existe");
+} else {
+  const def = indice.rows[0].indexdef;
+  ok("0022: índice whatsapp_messages_org_inbound_idx criado");
+  if (/where\s+\(?direction\s*=\s*'inbound'/i.test(def))
+    ok("0022: o índice é parcial em direction = 'inbound'");
+  else fail("0022: o índice não é parcial — gastaria o dobro à toa", def);
+  if (/organization_id/.test(def) && /created_at\s+desc/i.test(def))
+    ok("0022: chaveado por (organization_id, created_at desc)");
+  else fail("0022: chave errada para `order by created_at desc limit 1` por empresa", def);
+}
+
+try {
+  await db.exec(readFileSync(path.join(MIG, "0022_indice_da_ultima_entrada.sql"), "utf8"));
+  ok("0022 roda duas vezes sem erro");
+} catch (e) {
+  fail("0022 não é idempotente", e.message);
+}
+
+// ------------------------------------------------------------
 // Cenário: duas organizações, papéis distintos
 // ------------------------------------------------------------
 const uid = (nome) => db.query(`select id from auth.users where email = $1`, [nome]).then((r) => r.rows[0].id);

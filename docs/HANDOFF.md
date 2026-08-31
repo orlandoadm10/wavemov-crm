@@ -18,13 +18,13 @@ o histórico detalhado.
 
 | Item | Estado |
 |---|---|
-| `main` local | `316a2b6` — documentação da migração Bubble/domínio beta |
-| `origin/main` | `316a2b6` |
-| Produção | `316a2b6` — deploy `dpl_5Qp21kRf3gHUa648KQR3oN6RGz1W`, `Ready` |
-| Banco | migrations `0001` a `0021` aplicadas — a `0021` em 31/08/2026, pelo cliente, confirmada no catálogo (`pg_publication_tables`) |
-| Diferença | `fix/realtime-atendimento` (`a16964a`) tem a `0021`, a assinatura do Realtime e a documentação. **Não commitado em `main`, não publicado** |
+| `main` local | `ba546d6` — merge do PR #2, o Realtime do atendimento |
+| `origin/main` | `ba546d6` |
+| Produção | `ba546d6` — deploy `https://wavemov-pgjq7fv7i-...`, `Ready` em 31/08/2026 |
+| Banco | migrations `0001` a `0022` aplicadas — a `0021` e a `0022` em 31/08/2026, pelo cliente. A `0022` conferida em `pg_indexes` |
+| Diferença | `feat/saude-da-entrada` (PR #4) é o único código fora de `main`. A `0022` que ele usa **já está no banco** |
 | WhatsApp | **Restaurado em 31/08.** URL nova colada no painel da UAZAPI; tráfego real dos dois lados confirmado no banco |
-| Ramo em uso | `main`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1, já mergeado — pode ser apagado |
+| Ramo em uso | `feat/saude-da-entrada`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado; `fix/realtime-atendimento` já foi |
 
 O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
 deploy de produção automaticamente. O alias `https://wavemov-crm.vercel.app`
@@ -187,16 +187,55 @@ Contratos a preservar:
   em estado local. Remontá-la no cliente é reimplementar a visibilidade por
   responsável — e errar nisso mostra a conversa de um vendedor para outro.
 
+## Saúde da entrada de leads — 31/08/2026
+
+Frente escolhida pelo P.O. depois do incidente, em `feat/saude-da-entrada`
+(empilhada sobre o PR #2). O problema: **ninguém no CRM sabia dizer se a
+empresa ainda estava recebendo leads**. As três entradas — webhook da UAZAPI,
+n8n e formulário público — não declaravam o próprio estado em lugar nenhum.
+
+Entregue: painel "Recebimento" em `/atendimento/configuracoes`, banner em
+`/dashboard` e `/atendimento`, linha por formulário no painel n8n, e a
+migration `0022` (índice parcial da última mensagem recebida por organização),
+**já aplicada em produção**.
+Detalhe completo em `docs/FUNCIONALIDADES.md` e `docs/CHANGELOG.md`.
+
+Contratos a preservar, em ordem de risco de alguém quebrar sem perceber:
+
+- **`seller`/`agent` não veem o indicador.** É o erro mais provável de quem
+  mexer aqui: reaproveitar a consulta na tela do vendedor. Sob a `0011` ele lê
+  só as próprias conversas, então o número seria "12 dias sem receber" num dia
+  quieto, com a empresa saudável;
+- **a última entrada do WhatsApp sai de `whatsapp_messages` com
+  `direction = 'inbound'`**, nunca de `whatsapp_conversations.last_message_at`
+  — o envio escreve nessa coluna e foi ela que escondeu o incidente;
+- **a tela afirma ausência, nunca falha** — há teste prendendo a redação;
+- **erro de leitura vira `unknown`**, nunca "aguardando";
+- só `silent` alerta. Os outros cinco estados existem para o indicador **não**
+  gritar; alarme falso mata o alarme.
+
+Reconhecidamente limitado: o indicador não distingue "quebrado" de "mercado
+parado", e o ganho é tempo de detecção — de cinco dias para menos de dois. Se
+ninguém abrir o CRM, não adianta.
+
+**Isto é pré-requisito do corte de domínio do Bubble.** O passo 7 do runbook
+manda atualizar toda URL absoluta de webhook quando `NEXT_PUBLIC_APP_URL`
+mudar, ou seja, reproduz o incidente de 26/08 deliberadamente e em escala. Os
+critérios de aceite pedem "webhooks validados" sem dizer com qual instrumento —
+este é o instrumento.
+
 ## Próxima sessão
 
 Em ordem de risco. O item 1 é o único que tem cliente esperando; o 2 conclui a
 validação da publicação; o 3 é o que mais reduz risco de acidente; do 4 em
 diante é dívida e produto.
 
-1. **Publicar a `fix/realtime-atendimento`.** A URL da UAZAPI e a `0021` já
-   estão em produção; o que falta é o código. Enquanto ele não sobe, a conversa
-   aberta atualiza sozinha (a `0021` basta para ela), mas o não lido e a ordem
-   da lista lateral ainda dependem de recarregar a página. Depois de publicar,
+1. **Publicar o PR #4** (`feat/saude-da-entrada`). O PR #2 já foi mergeado em
+   `ba546d6` e está em produção; a `0022` que o #4 usa já está no banco, então o
+   merge é direto. Nota de processo, aprendida na marra: o `--delete-branch` do
+   PR #2 **fechou automaticamente** o PR empilhado sobre ele (o #3), que teve de
+   ser reaberto como #4. Se voltar a empilhar branches, reaponte o PR de cima
+   para `main` **antes** de mergear o de baixo. Publicado isso,
    o smoke que nunca houve das `0010/0011`: receber e responder pela mesma
    instância, transferir responsável, conferir isolamento de `seller`/`agent` e
    visão consolidada de `org_admin`.
@@ -393,12 +432,13 @@ cliente.
    e a `0016` continuam de fora, e foi por isso que passaram batidas.
 10. Trocar o `whatsapp_phone` de um contato não reconcilia conversas: mensagens
     do número antigo criam contato duplicado no webhook.
-11. **Nada avisa quando a ingestão para.** O webhook da UAZAPI devolveu 401 a
-    cada ~40 segundos durante quatro dias e ninguém soube até o cliente
-    reclamar; o mesmo vale para `POST /api/ingest/leads`. Um alerta barato
-    resolveria: alguém precisa olhar 401/403 recorrentes nas rotas de ingestão,
-    ou a tela de Configurações precisa mostrar quando a última mensagem
-    recebida chegou. Prefira o segundo — ele fica onde o problema é resolvido.
+11. ~~Nada avisa quando a ingestão para.~~ **Resolvido pela saúde da entrada de
+    leads** (`feat/saude-da-entrada`), com um recorte diferente do que este
+    débito propunha: o aviso não ficou só em Configurações, porque ali é onde se
+    conserta e não onde se descobre. O banner vai para `/dashboard` e
+    `/atendimento`. A contagem de 401 por organização foi **descartada como
+    inimplementável**: o 401 acontece antes de a organização ser resolvida e o
+    `?org=` de uma requisição não autenticada é controlado por quem chama.
 
 Demais melhorias e histórico pertencem a `README.md`, `docs/CHANGELOG.md` e
 `docs/FUNCIONALIDADES.md`, não a este handoff.

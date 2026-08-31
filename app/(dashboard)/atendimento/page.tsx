@@ -1,5 +1,7 @@
+import { IngestionAlertBanner } from "@/components/crm/ingestion-alert-banner";
 import { WhatsAppClient } from "@/components/whatsapp/whatsapp-client";
 import { getInstanceForOrg, toPublicInstance } from "@/lib/services/whatsapp";
+import { getIngestionHealth } from "@/lib/features/lead-ingestion/infrastructure/ingestion-health-query";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
 import type { Deal, DealTag, Pipeline, Profile, QuickReply, WhatsAppConversation } from "@/types";
@@ -106,8 +108,22 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
     return (r.data ?? []) as unknown as Deal[];
   });
 
+  // O mesmo gate da lista de conversas serve aqui, e não por coincidência: quem
+  // não enxerga a organização inteira também não pode receber um indicador
+  // calculado sobre ela. Para um `seller`, "sem entrada há N dias" seria a
+  // contagem das conversas DELE — alarme falso num dia quieto.
+  const ingestionHealth = canViewAllConversations
+    ? await getIngestionHealth(supabase, orgId)
+    : null;
+
   return (
     <div className="animate-fade-up">
+      {ingestionHealth && (
+        <IngestionAlertBanner
+          healths={ingestionHealth.all}
+          canFix={session.membership.role === "org_admin" || session.profile.is_global_admin}
+        />
+      )}
       <WhatsAppClient
         organizationId={orgId}
         profileId={session.profile.id}

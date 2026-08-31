@@ -2,6 +2,82 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-31 — saúde da entrada de leads
+
+Frente escolhida depois do incidente do mesmo dia. O problema de usuário:
+*ninguém no CRM sabia dizer se a empresa ainda estava recebendo leads* — a
+descoberta de que o WhatsApp havia parado veio do cliente reclamando, cinco
+dias depois. O produto tem três entradas (webhook UAZAPI, `POST
+/api/ingest/leads` do n8n e o formulário público `/f/[slug]`) e nenhuma delas
+declarava o próprio estado em lugar nenhum da interface.
+
+### Adicionado
+
+- **`lib/features/lead-ingestion/domain/ingestion-health.ts`** — a regra, pura
+  e sem banco. Seis estados, e só um deles (`silent`) alerta: canal nunca
+  configurado, empresa em implantação, canal abandonado há meses e leitura que
+  falhou ficam quietos de propósito. Alarme falso ensina a equipe a ignorar o
+  alarme. Limiares: 48 h para WhatsApp, 7 dias para n8n e formulário, que
+  entram em rajada.
+- **Painel "Recebimento" em `/atendimento/configuracoes`** — os três canais com
+  semáforo, o relativo ("há 4 dias"), a data absoluta em `America/Sao_Paulo` e
+  o que fazer a respeito. Fica onde o problema se conserta.
+- **Banner em `/dashboard` e `/atendimento`** — porque é onde as pessoas já
+  estão. Ninguém abre a tela de configurações sem já suspeitar de alguma coisa,
+  e foi exatamente por isso que o incidente durou cinco dias. Sem botão de
+  dispensar: o banner some quando o canal volta a receber, e só então.
+- **Linha de saúde por formulário** no painel n8n de `/formularios`. A pergunta
+  ali é mais fina que a do banner: não é "a integração está viva", é **qual
+  fluxo parou**.
+- **`components/crm/health-row.tsx`** — o `HealthRow` era privado de
+  `/empresas/[id]`; virou compartilhado ao ganhar o segundo consumidor. A
+  extração aconteceu antes da duplicação, não depois.
+- 16 testes novos em `npm run test:unit` (78 → 94). O primeiro reproduz a
+  janela real do incidente; a maioria dos outros existe pelo motivo oposto —
+  provar que o indicador **não** grita.
+
+### Banco
+
+- **`0022_indice_da_ultima_entrada.sql`** — índice parcial
+  `whatsapp_messages (organization_id, created_at desc) where direction =
+  'inbound'`. Sem ele, cada render de `/dashboard` e `/atendimento` varreria a
+  tabela que mais cresce no schema. Aditivo e `if not exists`: é a migration
+  menos perigosa possível enquanto o ledger remoto seguir divergindo (débito 8).
+- n8n e formulário público não precisaram de banco: `form_submissions_form_idx`
+  já existe desde a `0002`.
+
+### Decisões que a implementação precisa preservar
+
+- **A tela afirma ausência, nunca falha.** "Nenhuma entrada há 4 dias", jamais
+  "integração com falha": o dado não distingue integração quebrada de semana
+  fraca, e prometer diagnóstico com ele seria mentir. Há teste prendendo isso.
+- **A última entrada nunca sai de `whatsapp_conversations.last_message_at`.** O
+  envio também escreve nessa coluna, e foi essa contaminação que escondeu o
+  incidente por quatro dias — o CRM respondia normalmente enquanto nada entrava.
+- **`seller`/`agent` não veem o indicador.** Sob a `0011` eles leem apenas as
+  próprias conversas, então a mesma consulta diria "12 dias sem receber" para
+  um vendedor num dia quieto, com a empresa saudável. Indicador de organização
+  calculado com visão parcial é alarme falso por construção.
+- **Leitura que falha vira `unknown`, nunca "aguardando".** Sem isso, uma
+  consulta que estoura devolveria falso conforto — exatamente o defeito que a
+  funcionalidade existe para denunciar. Encontrado na auditoria de QA da
+  própria entrega.
+
+### Fora de escopo, com motivo
+
+Notificação por e-mail (não há remetente transacional), limiar configurável por
+empresa (afinar um indicador em que ninguém confia ainda é otimizar antes de
+medir), contagem de 401/403 por organização (o 401 acontece **antes** de a
+organização ser resolvida, e o `?org=` de uma requisição não autenticada é
+controlado por quem chama — seria um painel que qualquer um polui), histórico
+de uptime, **saúde do envio** (nunca parou, e foi ele que escondeu o problema)
+e painel cross-org em `/admin`, que é o que a migração do Bubble vai pedir.
+
+### Gates
+
+`git diff --check` · `npx tsc --noEmit` · `npm run build` · `npm run test:unit`
+(94 testes) · `npm run test:db` — todos executados, todos verdes.
+
 ## 2026-08-31 — o WhatsApp parou de receber, por dois motivos independentes
 
 O cliente relatou que "as mensagens não sincronizam". O diagnóstico separou
