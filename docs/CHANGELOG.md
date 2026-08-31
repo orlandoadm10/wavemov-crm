@@ -2,6 +2,43 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-31 — a `0024` não roda no SQL Editor com tabela temporária
+
+A primeira versão da `0024` falhou na aplicação em produção:
+
+```
+ERROR: 42P01: relation "contato_duplicado" does not exist
+```
+
+**Causa:** o SQL Editor da Supabase não garante que as instruções de um script
+rodem na mesma sessão — o pooler pode entregar cada uma a um backend diferente,
+e **tabela temporária morre com a sessão que a criou**. O script montava o mapa
+duplicata→sobrevivente numa `create temporary table` e o consultava nas
+instruções seguintes.
+
+**Nada foi corrompido.** A falha aconteceu na primeira instrução que dependia
+do mapa, antes de qualquer merge, repontamento ou exclusão. Verificado em
+produção: índice não criado, `activity_logs` intacto, nenhum contato apagado.
+
+### Corrigido
+
+- A `0024` deixou de guardar estado entre instruções: **cada `update`
+  recalcula o mapa no próprio CTE.** É repetitivo de propósito — cada instrução
+  passa a ser independente e idempotente, o script sobrevive a ser executado em
+  pedaços, e reexecutar depois de uma falha no meio é seguro. O custo é
+  recomputar uma janela sobre algumas centenas de linhas cinco vezes.
+- Pelo mesmo motivo, `begin`/`commit` no meio do script também não seria
+  confiável ali, e não foi usado.
+- Asserção nova no `test:db` que **falha se alguém reintroduzir
+  `create temporary table`** na migration — com os comentários removidos antes
+  do teste, porque o cabeçalho cita a frase ao explicar por que ela saiu.
+
+### Confirmado em produção: a correção de código funcionou
+
+Depois do deploy do PR #6, dois contatos novos foram criados — e são **dois
+telefones distintos, um contato cada**. O laço que criava um contato por
+mensagem está morto. Restam as 4 duplicatas antigas, que a `0024` repara.
+
 ## 2026-08-31 — o contato duplicava a cada mensagem
 
 O cliente relatou que "toda interação vira contato na lista" e sugeriu agrupar

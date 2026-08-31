@@ -296,6 +296,22 @@ duplicaram — porque a `0002` e a `0011` lhes deram índice único. **Todo
 aceso.** Se algum desses índices for derrubado, o mesmo laço acontece com
 mensagens.
 
+### A `0024` não pode usar tabela temporária
+
+A primeira versão falhou na aplicação com
+`42P01: relation "contato_duplicado" does not exist`. **O SQL Editor da Supabase
+não garante que as instruções de um script rodem na mesma sessão** — o pooler
+pode entregar cada uma a um backend diferente, e tabela temporária morre com a
+sessão que a criou. Pelo mesmo motivo, `begin`/`commit` no meio de um script
+também não é confiável ali.
+
+A `0024` foi reescrita para não guardar estado entre instruções: cada `update`
+recalcula o mapa duplicata→sobrevivente no próprio CTE. Há asserção no
+`test:db` que falha se alguém reintroduzir a tabela temporária.
+
+**Vale para toda migration futura deste projeto**, porque o cliente aplica tudo
+à mão pelo painel.
+
 ### A ordem de execução, que não pode ser invertida
 
 1. **Deploy do código** (`fix/contato-duplicado`).
