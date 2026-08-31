@@ -2263,6 +2263,22 @@ console.log("\n== 0024: contato único por WhatsApp ==");
     ok("0024: o histórico da duplicata foi repontado para o sobrevivente");
   else fail("0024: o histórico ficou órfão ou apontando para linha apagada");
 
+  // O SQL Editor da Supabase nao garante que as instrucoes de um script rodem
+  // na MESMA sessao: o pooler pode entregar cada uma a um backend diferente, e
+  // tabela temporaria morre com a sessao que a criou. A primeira versao desta
+  // migration usava uma, e falhou em producao com
+  // `42P01: relation "contato_duplicado" does not exist`. Esta assercao existe
+  // para que ninguem reintroduza estado partilhado entre instrucoes.
+  // Os comentarios do cabecalho CITAM a frase ao explicar por que ela saiu, e
+  // por isso precisam ser removidos antes do teste.
+  const sql0024 = readFileSync(path.join(MIG, "0024_contato_unico_por_whatsapp.sql"), "utf8")
+    .split("\n")
+    .filter((linha) => !linha.trim().startsWith("--"))
+    .join("\n");
+  if (!/create\s+(temp|temporary)\s+table/i.test(sql0024))
+    ok("0024: nao usa tabela temporaria (o pooler da Supabase nao a preserva)");
+  else fail("0024: voltou a usar tabela temporaria — vai falhar com 42P01 no SQL Editor");
+
   // Reaplicar com o dado já limpo não pode falhar nem mexer em nada.
   try {
     await db.exec(readFileSync(path.join(MIG, "0024_contato_unico_por_whatsapp.sql"), "utf8"));
