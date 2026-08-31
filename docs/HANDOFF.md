@@ -18,13 +18,13 @@ o histórico detalhado.
 
 | Item | Estado |
 |---|---|
-| `main` local | `316a2b6` — documentação da migração Bubble/domínio beta |
-| `origin/main` | `316a2b6` |
-| Produção | `316a2b6` — deploy `dpl_5Qp21kRf3gHUa648KQR3oN6RGz1W`, `Ready` |
-| Banco | migrations `0001` a `0021` aplicadas — a `0021` em 31/08/2026, pelo cliente. **A `0022` está escrita e testada, aguardando aplicação** |
-| Diferença | Duas branches empilhadas, nenhuma em `main`: `fix/realtime-atendimento` (PR #2) e `feat/saude-da-entrada`, que sai dela |
+| `main` local | `ba546d6` — merge do PR #2, o Realtime do atendimento |
+| `origin/main` | `ba546d6` |
+| Produção | `ba546d6` — deploy `https://wavemov-pgjq7fv7i-...`, `Ready` em 31/08/2026 |
+| Banco | migrations `0001` a `0022` aplicadas — a `0021` e a `0022` em 31/08/2026, pelo cliente. A `0022` conferida em `pg_indexes` |
+| Diferença | `feat/saude-da-entrada` (PR #4) é o único código fora de `main`. A `0022` que ele usa **já está no banco** |
 | WhatsApp | **Restaurado em 31/08.** URL nova colada no painel da UAZAPI; tráfego real dos dois lados confirmado no banco |
-| Ramo em uso | `main`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1, já mergeado — pode ser apagado |
+| Ramo em uso | `feat/saude-da-entrada`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado; `fix/realtime-atendimento` já foi |
 
 O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
 deploy de produção automaticamente. O alias `https://wavemov-crm.vercel.app`
@@ -196,7 +196,8 @@ n8n e formulário público — não declaravam o próprio estado em lugar nenhum
 
 Entregue: painel "Recebimento" em `/atendimento/configuracoes`, banner em
 `/dashboard` e `/atendimento`, linha por formulário no painel n8n, e a
-migration `0022` (índice parcial da última mensagem recebida por organização).
+migration `0022` (índice parcial da última mensagem recebida por organização),
+**já aplicada em produção**.
 Detalhe completo em `docs/FUNCIONALIDADES.md` e `docs/CHANGELOG.md`.
 
 Contratos a preservar, em ordem de risco de alguém quebrar sem perceber:
@@ -229,13 +230,12 @@ Em ordem de risco. O item 1 é o único que tem cliente esperando; o 2 conclui a
 validação da publicação; o 3 é o que mais reduz risco de acidente; do 4 em
 diante é dívida e produto.
 
-1. **Publicar as duas branches, nesta ordem.** Primeiro o PR #2
-   (`fix/realtime-atendimento`): a URL da UAZAPI e a `0021` já estão em
-   produção, falta o código — sem ele a conversa aberta atualiza sozinha, mas o
-   não lido e a ordem da lista lateral ainda dependem de recarregar. Depois
-   `feat/saude-da-entrada`, que sai dessa branch e precisa da `0022` aplicada
-   pelo cliente **antes** do deploy: sem o índice, `/dashboard` e `/atendimento`
-   varrem `whatsapp_messages` a cada render. Publicado isso,
+1. **Publicar o PR #4** (`feat/saude-da-entrada`). O PR #2 já foi mergeado em
+   `ba546d6` e está em produção; a `0022` que o #4 usa já está no banco, então o
+   merge é direto. Nota de processo, aprendida na marra: o `--delete-branch` do
+   PR #2 **fechou automaticamente** o PR empilhado sobre ele (o #3), que teve de
+   ser reaberto como #4. Se voltar a empilhar branches, reaponte o PR de cima
+   para `main` **antes** de mergear o de baixo. Publicado isso,
    o smoke que nunca houve das `0010/0011`: receber e responder pela mesma
    instância, transferir responsável, conferir isolamento de `seller`/`agent` e
    visão consolidada de `org_admin`.
