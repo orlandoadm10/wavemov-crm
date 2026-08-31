@@ -1,7 +1,10 @@
 "use client";
 
+import { useAttention } from "@/components/layout/attention-provider";
 import { Avatar } from "@/components/ui/avatar";
+import { CountBadge } from "@/components/ui/count-badge";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
+import { ATTENTION_LABELS } from "@/lib/features/notifications/domain/attention";
 import { cn, fullName } from "@/lib/utils";
 import type { SessionContext } from "@/types";
 import { Building2, LogOut, Menu, UserCircle, Waves, X } from "lucide-react";
@@ -10,14 +13,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { NAV_ITEMS } from "./nav-links";
 
-export function TopNav({
-  session,
-  pendingTasks,
-}: {
-  session: SessionContext;
-  pendingTasks: number;
-}) {
+export function TopNav({ session }: { session: SessionContext }) {
   const pathname = usePathname();
+  // Os números vêm do provider, não de props: eles se movem sozinhos entre
+  // navegações (Realtime, foco da janela, intervalo) e o menu não deve
+  // aguardar um re-render do servidor para mostrar o valor novo.
+  const atencao = useAttention();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [, startTransition] = useTransition();
@@ -72,10 +73,31 @@ export function TopNav({
       >
         <Icon className={cn("h-4 w-4", active ? "text-primary-600" : "text-ink-faint")} />
         {item.label}
-        {item.href === "/tarefas" && pendingTasks > 0 && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-bold text-white">
-            {pendingTasks}
-          </span>
+        {/* Um badge por rota, e só nas três que têm trabalho esperando. O menu
+            já tem 10 itens: badge em tudo vira árvore de Natal e nenhum número
+            é lido. Vermelho só para o atraso — os outros dois são presença de
+            trabalho, não dívida. */}
+        {item.href === "/tarefas" && (
+          <CountBadge
+            value={atencao.overdueTasks}
+            label={ATTENTION_LABELS.overdueTasks(atencao.overdueTasks ?? 0)}
+            tone="rose"
+          />
+        )}
+        {item.href === "/atendimento" && (
+          <CountBadge
+            value={atencao.unreadConversations}
+            label={ATTENTION_LABELS.unread(
+              atencao.unreadConversations ?? 0,
+              atencao.unreadMessages ?? 0
+            )}
+          />
+        )}
+        {item.href === "/negociacoes" && (
+          <CountBadge
+            value={atencao.newLeads}
+            label={ATTENTION_LABELS.newLeads(atencao.newLeads ?? 0)}
+          />
         )}
       </Link>
     );

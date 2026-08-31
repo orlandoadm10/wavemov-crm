@@ -96,6 +96,44 @@ body {
   animation: shimmer 1.4s infinite linear;
 }
 
+/* ------------------------------------------------------------
+   Indicadores de atenção (badge do menu, toast de lead novo)
+
+   O pulso é UM, de 600ms, disparado só quando o número SOBE e nunca na
+   primeira montagem — a tela abrindo com "7" é estado, não chegada. Badge que
+   pisca para sempre é a diferença entre avisar e implorar atenção.
+   ------------------------------------------------------------ */
+@keyframes attention-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.attention-pop {
+  animation: attention-pop 0.6s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.22s ease-out both;
+}
+
 /* ============================================================
    Landing page pública (`/`)
    ============================================================ */
@@ -208,6 +246,14 @@ body {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  /* Animação de ATENÇÃO é exatamente o que esta media query existe para
+     desligar — diferente do spinner e do skeleton, que comunicam progresso.
+     O badge e o toast continuam aparecendo; só param de se mexer. */
+  .attention-pop,
+  .animate-toast-in {
+    animation: none;
   }
 
   /* Escopado a `.landing` de propósito: um reset com `*` global congelaria o
