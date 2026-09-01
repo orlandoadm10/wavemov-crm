@@ -21,10 +21,10 @@ o histórico detalhado.
 | `main` local | `d548975` — merge do PR #4, a saúde da entrada de leads |
 | `origin/main` | `d548975` |
 | Produção | `d548975` — deploy `https://wavemov-kmfkc2i2o-...`, `Ready` em 31/08/2026 |
-| Banco | migrations `0001` a `0024` aplicadas e registradas no ledger. **A `0025` está escrita e testada, aguardando aplicação** |
-| Diferença | `feat/carteira-de-leads` é o único código fora de `main`. Depende da `0025` |
+| Banco | migrations `0001` a `0025` aplicadas e registradas no ledger. `db push --dry-run` responde em dia |
+| Diferença | Nenhum código fora de `main`. Só o plano de responsividade, aguardando sinal do cliente |
 | WhatsApp | **Restaurado em 31/08.** URL nova colada no painel da UAZAPI; tráfego real dos dois lados confirmado no banco |
-| Ramo em uso | `feat/carteira-de-leads`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
+| Ramo em uso | `main`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
 
 O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
 deploy de produção automaticamente. O alias `https://wavemov-crm.vercel.app`
@@ -469,16 +469,113 @@ aberto importado entra sem histórico e a carteira fica 100% vermelha no dia 1.
 Ou o import gera um marco de tratativa, ou a tela declara o corte. Registrar em
 `docs/MIGRACAO_BUBBLE_DOMINIO.md`.
 
+## Responsividade mobile — auditoria e plano, aguardando sinal
+
+Pedido do cliente em 01/09/2026: *"o app não está responsivo para celular"*.
+Auditei antes de mexer. **O trabalho é grande e não cabe numa sessão sem
+atropelo**, então aqui está o plano; nenhuma linha de código foi escrita ainda.
+
+### O que JÁ está correto — não refaça
+
+Metade do que parece quebrado é padrão deliberado e documentado:
+
+| Peça | Estado | Onde |
+|---|---|---|
+| `Modal` | bottom sheet no mobile, `max-h-[92dvh]`, `safe-area-inset` | `components/ui/modal.tsx:116,129` |
+| Gráficos | `ResponsiveContainer` em todos | `components/crm/dashboard-charts.tsx` |
+| Menu superior | hambúrguer abaixo de `lg` | `components/layout/top-nav.tsx` |
+| `/atendimento` | painéis alternados (`list`/`chat`/`info`) | `whatsapp-client.tsx:559-766` |
+| Kanban | colunas de 280px com scroll horizontal — **é o padrão certo** para kanban e está no guia (linha 439) | `kanban-board.tsx:357` |
+| `/funis` | fluxo horizontal com scroll, mesmo raciocínio | `pipeline-stages-client.tsx:763` |
+| `/relatorios/carteira` | cartões abaixo de `md` | feito em 01/09 |
+
+### O trabalho real, medido
+
+**1. Oito tabelas em scroll horizontal.** O `DataTable` tem `min-w-[640px]`; as
+duas tabelas cruas têm `min-w-[720px]` e `min-w-[760px]`. Em 375px, todas rolam.
+
+| Tela | Colunas | Prioridade |
+|---|---|---|
+| `seller-performance-table.tsx` | **10** | alta — o pior caso |
+| `companies-client.tsx` | 7 | alta |
+| `contacts-client.tsx` | 7 | alta — recém-paginada, é a mais usada |
+| `people-client.tsx` | 7 | média |
+| `distribution-audit-table.tsx` | 7 | média |
+| `leads-report-table.tsx` (`<table>` cru) | 7 | média |
+| `admin-client.tsx` | 6 | baixa — admin global |
+| `/relatorios/tags` (`<table>` cru) | 2 | nenhuma — já cabe |
+
+**2. Onze `grid-cols-2` sem breakpoint.** Campos de formulário lado a lado em
+375px ficam com ~160px cada. É o item mais barato do plano: uma linha por
+ocorrência (`grid-cols-1 sm:grid-cols-2`).
+
+`register`, `companies-client:273`, `contact-modal:160`, `people-client:157,168,176`,
+`task-modal:126`, `forms-client:374,420`, `instance-settings:215`,
+`landing/management:28`.
+
+### A decisão de design que precede o código
+
+**O `DESIGN_GUIDE` se contradiz e precisa de emenda antes de qualquer tabela
+ser tocada:**
+
+- linha 224: *"Container: scroll horizontal no mobile"*
+- linha 482: *"Listagens principais: tabelas responsivas ou cards em grid"*
+
+A carteira de leads criou o precedente (cartões abaixo de `md`) com um motivo
+específico: **a coluna que ordena é a primeira, e o scroll a esconde quando o
+dedo empurra**. Esse motivo não vale para toda tabela — numa lista sem
+ordenação por urgência, o scroll é honesto e muito mais barato.
+
+Critério proposto, a ser confirmado e escrito no guia:
+
+> Vira cartão quando a informação que **decide a ação** está na primeira coluna
+> ou depende de comparar duas colunas distantes. Continua tabela com scroll
+> quando é consulta e o usuário procura uma linha específica.
+
+Por esse critério: `seller-performance` (comparação entre colunas) e `contatos`
+(ação por linha) viram cartão; `admin` e `distribution-audit` continuam tabela.
+
+### Lotes sugeridos, em ordem
+
+1. **Os onze `grid-cols-2`** — uma sessão curta, risco zero, ganho imediato em
+   todo formulário do produto. Pode ir sozinho, sem depender da decisão acima.
+2. **Emenda ao `DESIGN_GUIDE`** com o critério, mais o débito de contraste
+   abaixo. Sem isso, cada tabela vira uma decisão nova e elas divergem.
+3. **Cartões nas tabelas de prioridade alta** (`seller-performance`,
+   `companies`, `contatos`), reaproveitando o padrão da carteira: duas
+   apresentações, **um** cálculo — `components/crm/lead-portfolio-table.tsx`
+   mostra a forma, com `avaliar()` compartilhado entre tabela e cartão.
+4. **Prioridade média**, se o uso justificar.
+5. **Passo de QA em 375 / 768 / 1440** nas 26 rotas. É o que fecha o pedido —
+   sem ele a entrega é "mexi nas telas que eu lembrei".
+
+### Débito de acessibilidade que aparece junto
+
+O `DESIGN_GUIDE` define o badge de não lidas do atendimento como `emerald-500`
+com texto branco: **~2,5:1, reprova AA** até para texto grande, e ali é 10px. O
+`CountBadge` do menu já usa `primary-600` (~5,2:1) por causa disso. Corrigir é
+emenda ao guia, não desvio silencioso — entra no lote 2.
+
+### Riscos
+
+- **Cartão que esconde coluna vira defeito de dado.** A tabela mostra 7 campos;
+  o cartão mostra 4. Os 3 que sobram precisam ser decisão explícita, não corte
+  por espaço — foi o cuidado que a carteira tomou.
+- **Duas apresentações, dois cálculos.** O risco real da duplicação não é a
+  marcação, é a lógica: tabela e cartão dizendo coisas diferentes sobre a mesma
+  linha na primeira mudança de regra.
+- **Sem CI (débito 1)**, nada disso tem gate automático. O QA de larguras é
+  manual e precisa estar no roteiro.
+
 ## Próxima sessão
 
 Em ordem de risco. O item 1 é o único que tem cliente esperando; o 2 conclui a
 validação da publicação; o 3 é o que mais reduz risco de acidente; do 4 em
 diante é dívida e produto.
 
-1. **Aplicar a `0025` e publicar `feat/carteira-de-leads`.** A migration é
-   aditiva (RPC + índice) e precisa entrar **antes** do deploy, senão a tela
-   chama uma função que não existe. Registre a linha no ledger no mesmo ato.
-   Publicado isso,
+1. **Responsividade mobile** — o plano está na seção acima e **aguarda sinal do
+   cliente**. O lote 1 (onze `grid-cols-2`) pode sair sozinho, sem depender da
+   decisão de design. Antes ou depois disso,
    o smoke que nunca houve das `0010/0011`: receber e responder pela mesma
    instância, transferir responsável, conferir isolamento de `seller`/`agent` e
    visão consolidada de `org_admin`.
@@ -634,9 +731,14 @@ cliente.
 - **O ledger está em dia desde 31/08/2026** (`0001..0024`), e `db push
   --dry-run` responde `Remote database is up to date`. A armadilha de reaplicar
   `0009..0024` sobre um schema que já as tem foi desarmada.
-- **Isso só continua verdade se cada aplicação manual registrar a linha.** O
-  fluxo permanece manual — o cliente aplica pelo SQL Editor — então o passo
-  final de toda migration é:
+- **Isso só continua verdade se cada aplicação manual registrar a linha** — e
+  **já falhou uma vez**: a `0025` foi aplicada em 01/09 sem a linha do ledger, na
+  PRIMEIRA migration depois da reconciliação. Foi corrigido no mesmo dia, mas a
+  fragilidade é real: enquanto aplicar e registrar forem dois atos separados,
+  vai voltar a acontecer. **Ideia para eliminar o passo humano:** colar o
+  `insert` do ledger no rodapé de cada arquivo de migration, para que copiar o
+  arquivo inteiro já registre. O fluxo permanece manual, então o passo final de
+  toda migration é:
 
   ```sql
   insert into supabase_migrations.schema_migrations (version, name)
