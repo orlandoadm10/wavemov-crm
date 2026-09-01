@@ -1,6 +1,5 @@
 "use client";
 
-
 import { ContactModal } from "@/components/crm/contact-modal";
 import { Avatar } from "@/components/ui/avatar";
 import { DealStatusBadge } from "@/components/ui/badge";
@@ -9,32 +8,104 @@ import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Select } from "@/components/ui/input";
 import { DataTable, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
+import { totalPages } from "@/lib/features/contacts/domain/contact-search";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Contact, Deal } from "@/types";
-import { Contact as ContactIcon, ExternalLink, MoreVertical, Pencil, Plus, Search } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Contact as ContactIcon,
+  ExternalLink,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Search,
+  TriangleAlert,
+} from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+/**
+ * Espera antes de levar o que foi digitado para a URL.
+ *
+ * Cada mudança de URL é uma ida ao servidor. Sem a espera, "Maria" seriam cinco
+ * consultas e a última poderia chegar antes da penúltima.
+ */
+const BUSCA_DEBOUNCE_MS = 400;
 
 export function ContactsClient({
   organizationId,
   contacts,
   deals,
   canEdit,
+  total,
+  page,
+  perPage,
+  busca,
+  status,
+  loadError,
 }: {
   organizationId: string;
+  /** Só os contatos DESTA página — a filtragem acontece no servidor. */
   contacts: Contact[];
+  /** Só as negociações dos contatos desta página. */
   deals: Deal[];
   /** `viewer` é somente leitura: sem gatilho de escrita, e não só sem permissão. */
   canEdit: boolean;
+  /** Total de contatos que casam com os filtros, não o tamanho da página. */
+  total: number;
+  page: number;
+  perPage: number;
+  busca: string;
+  status: string;
+  /** A consulta falhou. Estado vazio mentiria; ver `EmptyState` abaixo. */
+  loadError: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  // O input é controlado localmente para não perder caractere enquanto a
+  // navegação acontece; a URL é a fonte da verdade e o efeito abaixo
+  // ressincroniza quando ela muda por outro caminho (voltar, link colado).
+  const [termo, setTermo] = useState(busca);
+  useEffect(() => setTermo(busca), [busca]);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
 
-  // Última negociação de cada contato (para status/funil/etapa/valor)
+  const paginas = totalPages(total, perPage);
+  const primeiroDaPagina = total === 0 ? 0 : (page - 1) * perPage + 1;
+  const ultimoDaPagina = Math.min(page * perPage, total);
+  const temFiltro = Boolean(busca || status);
+
+  function setParams(mudancas: Record<string, string>) {
+    const next = new URLSearchParams(params.toString());
+    for (const [chave, valor] of Object.entries(mudancas)) {
+      if (valor) next.set(chave, valor);
+      else next.delete(chave);
+    }
+    // Toda mudança de filtro volta para a primeira página: manter a página 7
+    // ao trocar a busca costuma cair num intervalo vazio, e a tela diz "nenhum
+    // contato" quando na verdade há resultados na página 1.
+    if (!("pagina" in mudancas)) next.delete("pagina");
+    router.replace(`${pathname}?${next.toString()}`);
+  }
+
+  // Debounce do que é digitado. O `ref` guarda o timer entre renders; sem ele,
+  // cada tecla criaria um agendamento novo sem cancelar o anterior.
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function onBuscaChange(valor: string) {
+    setTermo(valor);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setParams({ busca: valor }), BUSCA_DEBOUNCE_MS);
+  }
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  // Última negociação de cada contato desta página. As linhas chegam ordenadas
+  // por `created_at desc`, então a primeira que aparece é a mais recente.
   const dealByContact = useMemo(() => {
     const map = new Map<string, Deal>();
     for (const d of deals) {
@@ -42,25 +113,6 @@ export function ContactsClient({
     }
     return map;
   }, [deals]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return contacts.filter((c) => {
-      if (
-        q &&
-        !c.name.toLowerCase().includes(q) &&
-        !c.email?.toLowerCase().includes(q) &&
-        !c.phone?.includes(q) &&
-        !c.whatsapp_phone?.includes(q)
-      )
-        return false;
-      if (statusFilter) {
-        const deal = dealByContact.get(c.id);
-        if (!deal || deal.status !== statusFilter) return false;
-      }
-      return true;
-    });
-  }, [contacts, search, statusFilter, dealByContact]);
 
   function closeModal() {
     setModalOpen(false);
@@ -75,19 +127,21 @@ export function ContactsClient({
           <Input
             className="pl-9"
             placeholder="Buscar contato por nome, e-mail ou telefone…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar contato por nome, e-mail ou telefone"
+            value={termo}
+            onChange={(e) => onBuscaChange(e.target.value)}
           />
         </div>
         <Select
-          className="w-auto min-w-36"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-auto min-w-44"
+          aria-label="Filtrar por status da negociação"
+          value={status}
+          onChange={(e) => setParams({ status: e.target.value })}
         >
           <option value="">Todos os status</option>
-          <option value="open">Em andamento</option>
-          <option value="won">Ganhos</option>
-          <option value="lost">Perdidos</option>
+          <option value="open">Com negociação em andamento</option>
+          <option value="won">Com negociação ganha</option>
+          <option value="lost">Com negociação perdida</option>
         </Select>
         {canEdit && (
           <Button onClick={() => setModalOpen(true)}>
@@ -97,13 +151,34 @@ export function ContactsClient({
         )}
       </div>
 
-      {filtered.length === 0 ? (
+      {loadError ? (
+        // Falha de leitura tem estado próprio. Cair no vazio afirmaria que a
+        // empresa não tem contatos — e o dado não sustenta essa afirmação.
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-2xl border border-line bg-rose-50 p-4 text-sm text-rose-800"
+        >
+          <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            Não foi possível carregar os contatos agora. Atualize a página; se continuar,
+            avise um administrador.
+          </span>
+        </div>
+      ) : contacts.length === 0 ? (
         <EmptyState
           icon={<ContactIcon className="h-6 w-6" />}
-          title="Nenhum contato encontrado"
-          description="Cadastre contatos ou receba leads automaticamente via formulários e WhatsApp."
+          title={temFiltro ? "Nenhum contato para este filtro" : "Nenhum contato ainda"}
+          description={
+            temFiltro
+              ? "Nenhum contato da empresa casa com a busca ou o status escolhido."
+              : "Cadastre contatos ou receba leads automaticamente via formulários e WhatsApp."
+          }
           action={
-            canEdit ? (
+            temFiltro ? (
+              <Button variant="outline" onClick={() => setParams({ busca: "", status: "" })}>
+                Limpar filtros
+              </Button>
+            ) : canEdit ? (
               <Button onClick={() => setModalOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Criar contato
@@ -112,73 +187,125 @@ export function ContactsClient({
           }
         />
       ) : (
-        <DataTable>
-          <THead>
-            <Th>Cliente</Th>
-            <Th>Status</Th>
-            <Th>Data</Th>
-            <Th>Valor</Th>
-            <Th>Telefone</Th>
-            <Th>Cidade</Th>
-            <Th className="text-right">Ações</Th>
-          </THead>
-          <TBody>
-            {filtered.map((c) => {
-              const deal = dealByContact.get(c.id);
-              return (
-                <Tr key={c.id}>
-                  <Td>
-                    <div className="flex items-center gap-3">
-                      <Avatar name={c.name} src={c.avatar_url} size="sm" />
-                      <div className="min-w-0">
-                        <p className="font-semibold text-ink">{c.name}</p>
-                        {c.email && (
-                          <p className="truncate text-xs text-ink-faint">{c.email}</p>
-                        )}
+        <>
+          <DataTable>
+            <THead>
+              <Th>Cliente</Th>
+              <Th>Status</Th>
+              <Th>Data</Th>
+              <Th>Valor</Th>
+              <Th>Telefone</Th>
+              <Th>Cidade</Th>
+              <Th className="text-right">Ações</Th>
+            </THead>
+            <TBody>
+              {contacts.map((c) => {
+                const deal = dealByContact.get(c.id);
+                return (
+                  <Tr key={c.id}>
+                    <Td>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={c.name} src={c.avatar_url} size="sm" />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink">{c.name}</p>
+                          {c.email && (
+                            <p className="truncate text-xs text-ink-faint">{c.email}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </Td>
-                  <Td>{deal ? <DealStatusBadge status={deal.status} /> : <span className="text-ink-faint">—</span>}</Td>
-                  <Td className="text-ink-soft">{formatDate(c.created_at)}</Td>
-                  <Td className="font-medium text-ink">
-                    {deal ? formatCurrency(deal.value) : "—"}
-                  </Td>
-                  <Td className="text-ink-soft">
-                    {c.whatsapp_phone ? `+${c.whatsapp_phone}` : c.phone ?? "—"}
-                  </Td>
-                  <Td className="text-ink-soft">
-                    {[c.city, c.state].filter(Boolean).join(" / ") || "—"}
-                  </Td>
-                  <Td>
-                    <div className="flex justify-end">
-                      <Dropdown
-                        trigger={
-                          <button className="rounded-lg p-2 text-ink-faint hover:bg-slate-100 hover:text-ink">
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-                        }
-                      >
-                        {canEdit && (
-                          <DropdownItem icon={<Pencil className="h-4 w-4" />} onClick={() => setEditing(c)}>
-                            Editar contato
-                          </DropdownItem>
-                        )}
-                        {deal && (
-                          <DropdownItem
-                            icon={<ExternalLink className="h-4 w-4" />}
-                            onClick={() => router.push(`/negociacoes/${deal.id}`)}
-                          >
-                            Abrir negociação
-                          </DropdownItem>
-                        )}
-                      </Dropdown>
-                    </div>
-                  </Td>
-                </Tr>
-              );
-            })}
-          </TBody>
-        </DataTable>
+                    </Td>
+                    <Td>
+                      {deal ? (
+                        <DealStatusBadge status={deal.status} />
+                      ) : (
+                        <span className="text-ink-faint">—</span>
+                      )}
+                    </Td>
+                    <Td className="text-ink-soft">{formatDate(c.created_at)}</Td>
+                    <Td className="font-medium text-ink">
+                      {deal ? formatCurrency(deal.value) : "—"}
+                    </Td>
+                    <Td className="text-ink-soft">
+                      {c.whatsapp_phone ? `+${c.whatsapp_phone}` : c.phone ?? "—"}
+                    </Td>
+                    <Td className="text-ink-soft">
+                      {[c.city, c.state].filter(Boolean).join(" / ") || "—"}
+                    </Td>
+                    <Td>
+                      <div className="flex justify-end">
+                        <Dropdown
+                          trigger={
+                            <button className="rounded-lg p-2 text-ink-faint hover:bg-slate-100 hover:text-ink">
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                          }
+                        >
+                          {canEdit && (
+                            <DropdownItem
+                              icon={<Pencil className="h-4 w-4" />}
+                              onClick={() => setEditing(c)}
+                            >
+                              Editar contato
+                            </DropdownItem>
+                          )}
+                          {deal && (
+                            <DropdownItem
+                              icon={<ExternalLink className="h-4 w-4" />}
+                              onClick={() => router.push(`/negociacoes/${deal.id}`)}
+                            >
+                              Abrir negociação
+                            </DropdownItem>
+                          )}
+                        </Dropdown>
+                      </div>
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </TBody>
+          </DataTable>
+
+          {/* O total sempre aparece, mesmo com uma página só: é ele que diz que
+              a lista está completa. A ausência dessa informação foi o que fez o
+              corte em 1000 linhas passar despercebido. */}
+          <nav
+            aria-label="Paginação dos contatos"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white px-4 py-3 shadow-(--shadow-card)"
+          >
+            <p className="text-sm text-ink-soft" aria-live="polite">
+              <span className="font-medium text-ink tabular-nums">
+                {primeiroDaPagina}–{ultimoDaPagina}
+              </span>{" "}
+              de <span className="font-medium text-ink tabular-nums">{total}</span>{" "}
+              {total === 1 ? "contato" : "contatos"}
+            </p>
+            {paginas > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  disabled={page <= 1}
+                  onClick={() => setParams({ pagina: String(page - 1) })}
+                  aria-label="Página anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <span className="text-sm text-ink-soft tabular-nums">
+                  {page} / {paginas}
+                </span>
+                <Button
+                  variant="outline"
+                  disabled={page >= paginas}
+                  onClick={() => setParams({ pagina: String(page + 1) })}
+                  aria-label="Próxima página"
+                >
+                  Próxima
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </nav>
+        </>
       )}
 
       <ContactModal

@@ -339,22 +339,26 @@ funcionando, e agrupar não unificaria nada — as duplicatas são `contact_id`
 distintos, com deals e mensagens espalhadas entre elas. A linha agrupada daria
 a ilusão de um cliente único enquanto o usuário cai num registro vazio.
 
-### Dívida da tela de contatos, levantada e NÃO corrigida aqui
+### Dívida da tela de contatos — corrigida em 31/08
 
-Fica registrada porque a migração do Bubble a torna urgente:
+`limit(1000)` sem paginação, busca em memória sobre o array truncado, `error`
+descartado e filtros fora da URL: tudo resolvido. Ver o `CHANGELOG` desta data.
 
-- **`limit(1000)` sem paginação é perda silenciosa** — passado o milésimo
-  contato a lista trunca e nada avisa;
-- **a busca mente**: é client-side sobre o array já truncado, então o contato
-  na posição 1200 não existe para ela — e a tela afirma "Nenhum contato
-  encontrado";
-- `error` descartado nas duas queries de `contatos/page.tsx`: falha de rede
-  vira estado vazio;
-- filtros fora da URL, `select("*")`, 2000 deals trafegando ao browser só para
-  montar um `Map`, e `as unknown as Deal[]` sobre uma query de 8 colunas;
-- não há rota de detalhe do contato, nem tela de mesclagem. A mesclagem vale
-  como escopo próprio **depois** da importação do Bubble, que vai gerar um lote
-  de quase-duplicatas de uma vez.
+Contratos que nasceram daí:
+
+- **`document` e `notes` precisam continuar na consulta da lista.** O
+  `contact-modal.tsx` semeia o formulário com o contato que a lista entregou e
+  regrava todos os campos no `submit` — tirá-los faz a edição apagar observação
+  e documento em silêncio. Foi encontrado durante a própria mudança;
+- o filtro de status agora significa "**tem** negociação naquele status", não
+  "a mais recente está nele". Os rótulos da tela dizem isso;
+- toda troca de filtro volta para a página 1.
+
+**O que continua em aberto:** não há rota de detalhe do contato nem tela de
+mesclagem. A mesclagem vale como escopo próprio **depois** da importação do
+Bubble, que vai gerar um lote de quase-duplicatas de uma vez — e agora que a
+`0024` recusa duplicata de WhatsApp, a importação precisa tratar isso na
+origem.
 
 ## Próxima sessão
 
