@@ -2,6 +2,131 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-01 — carteira de leads: quem está esperando por nós
+
+O cliente pediu paginação na lista de últimos leads, ajuste de duplicatas, e uma
+visão de últimas interações para o administrador saber quais leads estão
+pendentes de tratativa. A consulta ao squad (produto, backend e frontend) e a
+medição em produção mudaram três coisas do pedido.
+
+### A descoberta que reorientou tudo
+
+86% dos `activity_logs` são `whatsapp_inbound` — **o lead escrevendo, não a
+equipe trabalhando**. Uma métrica de "última interação" sobre essa tabela faria
+o lead que escreve todo dia e nunca é respondido aparecer como o mais bem
+atendido da carteira.
+
+Pior: `whatsapp_messages` tinha **466 mensagens enviadas** e `activity_logs`
+apenas **4** do tipo `whatsapp_outbound`. O webhook só grava log quando
+`!msg.fromMe`, então **461 das 466 respostas — as que a equipe manda pelo
+próprio celular — são invisíveis em `activity_logs`**. Um relatório construído
+só sobre aquela tabela acusaria a equipe de abandonar praticamente toda a
+carteira enquanto ela respondia. Mesma classe de erro do incidente de 26/08:
+ler a coluna errada.
+
+**Tratativa passou a unir duas fontes:** os tipos de trabalho da equipe em
+`activity_logs` **e** `whatsapp_messages.direction = 'outbound'`.
+
+Com a fonte correta, das 53 negociações abertas: **23 aguardando resposta**
+agora, 10 nunca respondidas, 19 sem resposta há 3+ dias.
+
+### Adicionado — `/relatorios/carteira`
+
+Uma tabela, duas perguntas: `?ordem=parados` (padrão) responde "quem está
+esperando"; `?ordem=recentes` é a lista de últimos leads paginada que o cliente
+pediu. Foi assim que a entrega não criou a terceira lista de leads do produto —
+o rodapé de `/relatorios/ultimo-lead` virou um link, e aquela tela voltou a ser
+sobre um lead.
+
+- Colunas: **Parado há** (primeira, porque é a que ordena), Lead, Situação,
+  Etapa, Responsável, Última tratativa, Reg.
+- Quatro KPIs sobre a carteira inteira, não sobre a página — senão o número
+  mudaria conforme se navega e ninguém confiaria nele.
+- Filtros e ordenação na URL; trocar qualquer um volta à página 1.
+- `seller`/`agent` veem a mesma tela recortada nos próprios leads, sem a coluna
+  Responsável. Diferente de `/relatorios/vendedores`, que os bloqueia: lá o
+  número estaria **errado**; aqui está certo e é a fila de trabalho da pessoa.
+
+### Banco — `0025_carteira_sem_tratativa.sql`
+
+RPC `security definer` no molde da `0019`, mais um índice
+`activity_logs (deal_id, type, created_at desc) where deal_id is not null`.
+
+**Por que RPC e não embed do PostgREST:** ele não ordena o recurso pai por
+agregado de embed *to-many*. `range(0,24)` escolheria 25 leads por `created_at`
+e só então calcularia o agregado — a página 1 mostraria uma amostra arbitrária,
+e o lead mais abandonado poderia não estar nela. Errado com cara de certo, a
+mesma classe de defeito da busca sobre o `limit(1000)` de `/contatos`.
+
+Coluna denormalizada em `deals` mantida por trigger foi recusada com gatilho
+objetivo de reabertura (p95 acima de ~500 ms ou 50 mil leads abertos): o
+trigger rodaria dentro da transação do webhook, com ~86% de execuções que não
+fazem nada, e congelaria a definição de tratativa no corpo dele.
+
+Detalhes que evitam defeito silencioso:
+
+- `coalesce(max(...), created_at)` na ordenação — sem isso o `nulls last`
+  jogaria o lead **nunca tratado**, o pior caso da carteira, para a última
+  página;
+- `left join lateral` separado por agregado: um join direto de notas e tarefas
+  multiplicaria linhas (3 notas × 2 tarefas devolveria 6 e 6);
+- lista de **inclusão** de tipos, nunca de exclusão: uma lista desatualizada
+  gera alarme falso, que alguém percebe; excluir só `whatsapp_inbound` faria
+  uma mensagem do lead contar como tratativa e esconderia, em silêncio, o lead
+  abandonado.
+
+### Decisões contra o pedido literal, declaradas
+
+- **Não são duas colunas de "quantas notas" e "quantas tarefas".** A base tem 2
+  notas e 2 tarefas: seriam 50 zeros por página, e zero repetido ensina a
+  ignorar a tabela. Viraram uma coluna `Reg.` que só desenha quando há algo,
+  mais o KPI "com registro no CRM" — que é a frase que o admin leva para a
+  reunião.
+- **A lista não agrupa duplicatas.** O que o cliente via eram os 246 contatos,
+  já corrigidos pela `0024`. Sobram 6 contatos com mais de uma negociação, o
+  que é legítimo — ganharam um marcador "N negociações deste contato", que
+  sinaliza sem esconder.
+- Um aviso aparece **uma vez**, não por linha, quando a cobertura de registro é
+  menor que 10%: a tela mede o que foi registrado, não o esforço da equipe. É a
+  diferença entre um relatório e uma acusação.
+
+### Compartilhado
+
+`resolvePagination`/`totalPages` saíram de `contact-search.ts` para
+`lib/utils/pagination.ts`, e a barra virou `components/ui/pagination.tsx` — ela
+carrega uma regra, não só estilo: **o total sempre aparece, mesmo com uma
+página só**. Foi a ausência dele que fez o `limit(1000)` truncar em silêncio.
+
+Nota para quem for promover outro módulo: **o alias `@/` não resolve no runner
+de teste do Node**, então módulo de domínio não pode importar runtime de outro
+módulo. Os testes vieram junto com as funções.
+
+### As duas dívidas de UI que o frontend apontou, pagas antes do merge
+
+**Cartões no mobile.** Abaixo de `md` a tabela vira cartões. O `DataTable` tem
+`min-w-[640px]` e rola na horizontal — aceitável numa tabela de consulta,
+inadequado aqui: a primeira coluna é a que **ordena**, e o scroll a esconde
+exatamente quando o dedo empurra para ver o resto. O ranking sumiria no
+aparelho em que o administrador abre relatório. A marcação duplica; o cálculo
+não — `avaliar()` é uma função só, senão tabela e cartão diriam coisas
+diferentes sobre o mesmo lead na primeira mudança de limiar.
+
+**Sub-navegação de relatórios** (`components/crm/report-nav.tsx`). O
+`PageHeader` de `/relatorios` carregava o filtro de período mais um botão por
+sub-relatório; eram quatro, com a carteira viraram cinco, e a fileira quebra em
+375px. Virou uma linha de pills compartilhada pelas cinco rotas, que rola na
+horizontal no celular e cabe o crescimento. Os links "voltar para Relatórios"
+de cada sub-relatório saíram — a sub-nav os torna redundantes.
+
+`aria-current="page"` no item ativo, e a comparação é de igualdade exata:
+`startsWith` deixaria `/relatorios` permanentemente ativo, já que é prefixo de
+todos os outros.
+
+### Gates
+
+`git diff --check` · `npx tsc --noEmit` · `npm run build` · `npm run test:unit`
+(125 → 139) · `npm run test:db` (16 asserções novas) — todos verdes.
+
 ## 2026-08-31 — o ledger de migrations foi reconciliado
 
 Era o **débito 8**, e o de maior potencial de estrago silencioso. O ledger

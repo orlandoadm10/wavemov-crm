@@ -1,6 +1,7 @@
 import { DailyLeadsChart } from "@/components/crm/dashboard-charts";
 import { LeadsReportTable } from "@/components/crm/leads-report-table";
 import { PeriodFilter } from "@/components/crm/period-filter";
+import { ReportNav } from "@/components/crm/report-nav";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
   Tags,
   UserRound,
   Zap,
+  Layers,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -174,33 +176,9 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
       <PageHeader
         title="Relatório de entrada de leads"
         subtitle="Acompanhe a entrada de leads por período e formulário"
-        actions={
-          <>
-            <PeriodFilter />
-            <Link
-              href="/relatorios/vendedores"
-              className={buttonClasses({ variant: "outline" })}
-            >
-              <UserRound className="h-4 w-4" />
-              Por vendedor
-            </Link>
-            <Link
-              href="/relatorios/tags"
-              className={buttonClasses({ variant: "outline" })}
-            >
-              <Tags className="h-4 w-4" />
-              Por tags
-            </Link>
-            <Link
-              href="/relatorios/ultimo-lead"
-              className={buttonClasses({ variant: "outline" })}
-            >
-              <Zap className="h-4 w-4" />
-              Último lead
-            </Link>
-          </>
-        }
+        actions={<PeriodFilter />}
       />
+      <ReportNav />
 
       {/* Indicadores fixos — independentes do período selecionado */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

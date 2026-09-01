@@ -2288,6 +2288,248 @@ console.log("\n== 0024: contato único por WhatsApp ==");
   }
 }
 
+// ============================================================
+// 0025 — carteira sem tratativa
+//
+// A asserção que dá sentido ao bloco é a da mensagem recebida: se ela contar
+// como tratativa, o lead que escreve todo dia e nunca é respondido aparece
+// como o mais bem atendido da carteira. E a da resposta pelo celular: 461 das
+// 466 respostas da produção não existem em `activity_logs`.
+// ============================================================
+console.log("\n== 0025: carteira sem tratativa ==");
+{
+  const ORG = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+  await db.query(`insert into public.organizations (id, name) values ($1,'Empresa Carteira')`, [ORG]);
+  await db.query(`select public.provision_organization_defaults($1)`, [ORG]);
+
+  await db.exec(`
+    insert into auth.users (email, raw_user_meta_data)
+    values ('admin.k@teste.com', '{"first_name":"Kelly"}'),
+           ('seller.k@teste.com', '{"first_name":"Kaio"}');
+  `);
+  const adminK = await uid("admin.k@teste.com");
+  const sellerK = await uid("seller.k@teste.com");
+  const pAdminK = await perfil(adminK);
+  const pSellerK = await perfil(sellerK);
+  await db.query(
+    `insert into public.organization_members (organization_id, profile_id, role)
+     values ($1,$2,'org_admin'), ($1,$3,'seller')`,
+    [ORG, pAdminK, pSellerK]
+  );
+
+  const funil = (
+    await db.query(`select id from public.pipelines where organization_id = $1 limit 1`, [ORG])
+  ).rows[0].id;
+  const etapa = (
+    await db.query(
+      `select id from public.pipeline_stages where pipeline_id = $1 and is_won_stage = false
+         and is_lost_stage = false order by order_index limit 1`,
+      [funil]
+    )
+  ).rows[0].id;
+
+  const criarLead = async (titulo, responsavel, diasAtras) =>
+    (
+      await db.query(
+        `insert into public.deals (organization_id, pipeline_id, stage_id, title, responsible_id, status, created_at)
+         values ($1,$2,$3,$4,$5,'open', now() - make_interval(days => $6)) returning id`,
+        [ORG, funil, etapa, titulo, responsavel, diasAtras]
+      )
+    ).rows[0].id;
+
+  const nuncaTratado = await criarLead("Nunca tratado", pAdminK, 20);
+  const soInbound = await criarLead("So o lead falou", pAdminK, 15);
+  const tratadoNoLog = await criarLead("Tratado por nota", pAdminK, 10);
+  const tratadoNoZap = await criarLead("Respondido pelo celular", pAdminK, 10);
+  const doSeller = await criarLead("Do vendedor", pSellerK, 5);
+
+  const comoAdmin = async () => db.exec(`set local role = none;`).catch(() => {});
+  void comoAdmin;
+
+  // --- A armadilha 1: mensagem RECEBIDA nao pode contar como tratativa ---
+  // Muitas mensagens do lead, nenhuma resposta. Se `whatsapp_inbound` contasse,
+  // este lead apareceria como o mais ativo da carteira.
+  // O evento real gera as DUAS linhas: o espelho em `activity_logs` (que a
+  // carteira precisa ignorar) e a mensagem em `whatsapp_messages` (a fonte de
+  // `lead_falou_em`).
+  await db.query(
+    `insert into public.activity_logs (organization_id, deal_id, type, title, created_at)
+     values ($1,$2,'whatsapp_inbound','Mensagem recebida', now())`,
+    [ORG, soInbound]
+  );
+  const conversaInbound = (
+    await db.query(
+      `insert into public.whatsapp_conversations (organization_id, deal_id, phone, status)
+       values ($1,$2,'5511911111111','open') returning id`,
+      [ORG, soInbound]
+    )
+  ).rows[0].id;
+  await db.query(
+    `insert into public.whatsapp_messages (organization_id, conversation_id, direction, message_type, content, created_at)
+     values ($1,$2,'inbound','text','Oi, tem alguem ai?', now())`,
+    [ORG, conversaInbound]
+  );
+
+  // --- Tratativa registrada em activity_logs ---
+  await db.query(
+    `insert into public.activity_logs (organization_id, deal_id, type, title, created_at)
+     values ($1,$2,'note','Liguei para o cliente', now() - interval '1 day')`,
+    [ORG, tratadoNoLog]
+  );
+
+  // --- A armadilha 2: resposta pelo CELULAR ---
+  // Chega pelo webhook como `fromMe`, entra em whatsapp_messages e NAO gera
+  // activity_logs. Sem a segunda fonte, este lead seria "nunca tratado".
+  const conversa = (
+    await db.query(
+      `insert into public.whatsapp_conversations (organization_id, deal_id, phone, status)
+       values ($1,$2,'5511900000000','open') returning id`,
+      [ORG, tratadoNoZap]
+    )
+  ).rows[0].id;
+  await db.query(
+    `insert into public.whatsapp_messages (organization_id, conversation_id, direction, message_type, content, created_at)
+     values ($1,$2,'outbound','text','Resposta pelo celular', now() - interval '2 days')`,
+    [ORG, conversa]
+  );
+
+  // --- Fan-out: 3 notas e 2 tarefas no MESMO lead devem devolver (3,2) ---
+  const comContagem = await criarLead("Com registros", pAdminK, 8);
+  for (let i = 0; i < 3; i++) {
+    await db.query(
+      `insert into public.activity_logs (organization_id, deal_id, type, title)
+       values ($1,$2,'note',$3)`,
+      [ORG, comContagem, `Nota ${i + 1}`]
+    );
+  }
+  for (let i = 0; i < 2; i++) {
+    await db.query(
+      `insert into public.tasks (organization_id, deal_id, title, status, assigned_to)
+       values ($1,$2,$3,'pending',$4)`,
+      [ORG, comContagem, `Tarefa ${i + 1}`, pAdminK]
+    );
+  }
+
+  const chamar = async (perfilId, extra = {}) => {
+    // `false` = escopo de SESSAO. Com `true` o valor seria local a transacao e
+    // o PGlite nao esta em uma, entao `auth.uid()` voltaria nulo e
+    // `has_org_access` recusaria com 42501.
+    await db.query(`select set_config('test.uid', $1, false)`, [
+      perfilId === pAdminK ? adminK : sellerK,
+    ]);
+    const args = {
+      org_id: ORG,
+      ordem: extra.ordem ?? "parados",
+      dias_minimos: extra.dias_minimos ?? null,
+      apenas_nunca: extra.apenas_nunca ?? false,
+      busca: extra.busca ?? null,
+      pagina: extra.pagina ?? 0,
+      tamanho: extra.tamanho ?? 25,
+    };
+    const r = await db.query(
+      `select * from public.carteira_sem_tratativa($1,$2,$3,$4,$5,$6,$7)`,
+      [args.org_id, args.ordem, args.dias_minimos, args.apenas_nunca, args.busca, args.pagina, args.tamanho]
+    );
+    return r.rows;
+  };
+
+  const linhas = await chamar(pAdminK);
+  const por = (id) => linhas.find((l) => l.deal_id === id);
+
+  if (por(soInbound)?.equipe_tratou_em === null)
+    ok("0025: mensagem RECEBIDA nao conta como tratativa");
+  else fail("0025: o lead que so falou aparece como tratado — a metrica inverteu");
+
+  if (por(soInbound)?.lead_falou_em !== null)
+    ok("0025: a fala do lead e registrada na coluna dela, nao descartada");
+  else fail("0025: a fala do lead sumiu");
+
+  if (por(tratadoNoZap)?.equipe_tratou_em !== null)
+    ok("0025: resposta pelo celular conta como tratativa (whatsapp_messages)");
+  else fail("0025: a resposta enviada fora do CRM ficou invisivel — 461 de 466 na producao");
+
+  if (por(tratadoNoZap)?.ultima_tratativa_tipo === "whatsapp_outbound")
+    ok("0025: o tipo da tratativa por celular e rotulado como mensagem enviada");
+  else fail("0025: tipo errado para a resposta por celular", String(por(tratadoNoZap)?.ultima_tratativa_tipo));
+
+  if (por(nuncaTratado)?.equipe_tratou_em === null)
+    ok("0025: lead nunca tratado vem com tratativa nula");
+  else fail("0025: lead nunca tratado apareceu como tratado");
+
+  if (Number(por(comContagem)?.notas) === 3 && Number(por(comContagem)?.tarefas) === 2)
+    ok("0025: 3 notas e 2 tarefas devolvem (3,2) — sem fan-out");
+  else
+    fail(
+      "0025: fan-out nas contagens",
+      `notas=${por(comContagem)?.notas} tarefas=${por(comContagem)?.tarefas}`
+    );
+
+  // --- Ordenacao: o mais parado primeiro, e o nunca tratado nao cai no fim ---
+  if (linhas[0]?.deal_id === nuncaTratado)
+    ok("0025: o lead parado ha mais tempo vem primeiro (nunca tratado ha 20 dias)");
+  else fail("0025: ordenacao errada — o `nulls last` engoliu o pior caso", String(linhas[0]?.titulo));
+
+  // --- total: a paginacao nao pode mentir ---
+  const pagina1 = await chamar(pAdminK, { tamanho: 2, pagina: 0 });
+  if (pagina1.length === 2 && Number(pagina1[0].total) === linhas.length)
+    ok("0025: `total` reflete o conjunto inteiro, nao o tamanho da pagina");
+  else fail("0025: total errado", `linhas=${pagina1.length} total=${pagina1[0]?.total}`);
+
+  const pagina2 = await chamar(pAdminK, { tamanho: 2, pagina: 1 });
+  if (pagina2[0] && pagina2[0].deal_id !== pagina1[0].deal_id)
+    ok("0025: a segunda pagina nao repete a primeira");
+  else fail("0025: paginas se sobrepoem");
+
+  // --- Isolamento: a 0011 reimplementada sob security definer ---
+  const doVendedor = await chamar(pSellerK);
+  if (doVendedor.every((l) => l.responsavel_id === pSellerK))
+    ok("0025: seller recebe apenas os proprios leads (0011 preservada)");
+  else fail("0025: VAZOU lead de outro responsavel para o seller");
+
+  if (doVendedor.length > 0 && Number(doVendedor[0].total) === doVendedor.length)
+    ok("0025: o total do seller e o dele, nao o da empresa");
+  else fail("0025: total do seller inclui leads que ele nao ve");
+
+  // --- Guarda de organizacao ---
+  try {
+    await db.query(
+      `select * from public.carteira_sem_tratativa($1,'parados',null,false,null,0,25)`,
+      ["11111111-1111-1111-1111-111111111111"]
+    );
+    fail("0025: aceitou org_id de outra empresa");
+  } catch (e) {
+    if (String(e.message).includes("Sem acesso"))
+      ok("0025: org_id de outra empresa e recusado");
+    else fail("0025: recusado por outro motivo", e.message.split("\n")[0]);
+  }
+
+  // --- Filtros ---
+  const soNunca = await chamar(pAdminK, { apenas_nunca: true });
+  if (soNunca.every((l) => l.equipe_tratou_em === null) && soNunca.length > 0)
+    ok("0025: o filtro `apenas_nunca` devolve so os nunca tratados");
+  else fail("0025: filtro apenas_nunca errado");
+
+  const parados7 = await chamar(pAdminK, { dias_minimos: 7 });
+  if (parados7.every((l) => l.deal_id !== tratadoNoLog))
+    ok("0025: o filtro de dias exclui quem foi tratado ontem");
+  else fail("0025: filtro de dias deixou passar lead tratado ontem");
+
+  const buscado = await chamar(pAdminK, { busca: "celular" });
+  if (buscado.length === 1 && buscado[0].deal_id === tratadoNoZap)
+    ok("0025: a busca por titulo encontra o lead certo");
+  else fail("0025: busca errada", String(buscado.length));
+
+  // --- Idempotencia ---
+  try {
+    await db.exec(readFileSync(path.join(MIG, "0025_carteira_sem_tratativa.sql"), "utf8"));
+    ok("0025 roda duas vezes sem erro");
+  } catch (e) {
+    fail("0025 nao e idempotente", e.message.split("\n")[0]);
+  }
+
+  await db.query(`select set_config('test.uid', '', false)`);
+}
+
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);
 await db.close();
 process.exit(falhas === 0 ? 0 : 1);

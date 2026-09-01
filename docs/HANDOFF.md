@@ -21,10 +21,10 @@ o histórico detalhado.
 | `main` local | `d548975` — merge do PR #4, a saúde da entrada de leads |
 | `origin/main` | `d548975` |
 | Produção | `d548975` — deploy `https://wavemov-kmfkc2i2o-...`, `Ready` em 31/08/2026 |
-| Banco | migrations `0001` a `0023` aplicadas. **A `0024` está escrita e testada, aguardando aplicação — e o código dela precisa subir ANTES** |
-| Diferença | `fix/contato-duplicado` é o único código fora de `main` |
+| Banco | migrations `0001` a `0024` aplicadas e registradas no ledger. **A `0025` está escrita e testada, aguardando aplicação** |
+| Diferença | `feat/carteira-de-leads` é o único código fora de `main`. Depende da `0025` |
 | WhatsApp | **Restaurado em 31/08.** URL nova colada no painel da UAZAPI; tráfego real dos dois lados confirmado no banco |
-| Ramo em uso | `fix/contato-duplicado`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
+| Ramo em uso | `feat/carteira-de-leads`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
 
 O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
 deploy de produção automaticamente. O alias `https://wavemov-crm.vercel.app`
@@ -409,16 +409,76 @@ linha no mesmo ato** — o `README.md` agora traz o `insert` pronto, na seção
 Se alguém aplicar uma migration sem registrar, a divergência recomeça do zero e
 a armadilha volta armada.
 
+## Carteira de leads — 01/09/2026
+
+O cliente pediu paginação na lista de últimos leads e uma visão de "últimas
+interações" para saber quem está pendente de tratativa. A medição mudou o
+pedido.
+
+**A descoberta, e é a que precisa sobreviver a esta sessão:** `whatsapp_messages`
+tinha **466 mensagens enviadas** contra **4** `activity_logs` do tipo
+`whatsapp_outbound`. O webhook só grava log quando `!msg.fromMe`
+(`app/api/webhooks/uazapi/route.ts`), então **as respostas que a equipe manda
+pelo próprio celular não existem em `activity_logs`**. Uma métrica de tratativa
+construída só sobre aquela tabela acusaria a equipe de abandonar toda a
+carteira enquanto ela respondia — mesma classe de erro do incidente de 26/08.
+
+E 86% dos `activity_logs` são `whatsapp_inbound`: o lead falando. Contá-lo como
+"interação" faria o lead que escreve todo dia e nunca é respondido parecer o
+mais bem atendido.
+
+**Tratativa = tipos de trabalho da equipe em `activity_logs` UNIÃO
+`whatsapp_messages.direction = 'outbound'`.** Quem mexer nisso precisa manter as
+duas fontes; a definição vive na `0025` e está documentada em
+`docs/FUNCIONALIDADES.md`.
+
+Com a fonte correta, das 53 abertas: 23 aguardando resposta, 10 nunca
+respondidas, 19 sem resposta há 3+ dias.
+
+Contratos a preservar, em ordem de risco de alguém quebrar sem perceber:
+
+- **A segunda fonte não é opcional.** Remover `whatsapp_messages` da RPC
+  reintroduz o defeito inteiro, e ele parece correto na tela;
+- **lista de INCLUSÃO de tipos**, nunca exclusão de `whatsapp_inbound`;
+- **`coalesce(max(...), created_at)`** na ordenação: sem isso o `nulls last`
+  joga o lead nunca tratado, o pior caso, para a última página;
+- **laterais separados** por agregado — join direto de notas e tarefas
+  multiplica linhas;
+- **os KPIs medem a carteira inteira**, não a página;
+- **`seller`/`agent` veem a tela recortada**, e a RPC é `security definer`: um
+  erro ali vaza entre empresas. As asserções A/B estão no `test:db`.
+
+**Por que RPC e não embed:** o PostgREST não ordena o recurso pai por agregado
+de embed *to-many*. `range(0,24)` escolheria 25 leads por `created_at` e só
+então calcularia o agregado — página 1 com amostra arbitrária, e o pior lead
+possivelmente fora dela.
+
+**Reabrir a denormalização** (`deals.last_touch_at` por trigger) quando o p95 da
+RPC passar de ~500 ms ou uma organização passar de ~50 mil leads abertos.
+
+### Débito que esta entrega expôs e não resolveu
+
+`activity_logs` está virando o maior objeto do schema guardando **cópia**: 527
+de 612 linhas são `whatsapp_inbound`, dado que já existe em `whatsapp_messages`
+com índice próprio desde a `0022`. Duas saídas — parar de espelhar o inbound
+(a timeline passa a ler `whatsapp_messages`) ou política de retenção. **Decidir
+antes da importação do Bubble**, não depois.
+
+E um risco de escala já mapeado: na importação das ~300 empresas, todo lead
+aberto importado entra sem histórico e a carteira fica 100% vermelha no dia 1.
+Ou o import gera um marco de tratativa, ou a tela declara o corte. Registrar em
+`docs/MIGRACAO_BUBBLE_DOMINIO.md`.
+
 ## Próxima sessão
 
 Em ordem de risco. O item 1 é o único que tem cliente esperando; o 2 conclui a
 validação da publicação; o 3 é o que mais reduz risco de acidente; do 4 em
 diante é dívida e produto.
 
-1. **Publicar `fix/contato-duplicado` e DEPOIS aplicar a `0024`** — nesta ordem,
-   pelos motivos da seção acima. É o item mais urgente: enquanto o código não
-   sobe, `contacts` cresce uma linha por mensagem recebida ou enviada. Publicado
-   isso,
+1. **Aplicar a `0025` e publicar `feat/carteira-de-leads`.** A migration é
+   aditiva (RPC + índice) e precisa entrar **antes** do deploy, senão a tela
+   chama uma função que não existe. Registre a linha no ledger no mesmo ato.
+   Publicado isso,
    o smoke que nunca houve das `0010/0011`: receber e responder pela mesma
    instância, transferir responsável, conferir isolamento de `seller`/`agent` e
    visão consolidada de `org_admin`.

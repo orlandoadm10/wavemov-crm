@@ -64,36 +64,16 @@ export function parseDealStatus(value: string | undefined | null): ContactDealSt
     : null;
 }
 
-/** Quantos contatos por página. */
+/**
+ * Quantos contatos por página.
+ *
+ * Fica aqui, e não em `lib/utils/pagination.ts`: quantos itens cabem numa
+ * página é decisão de CADA tela, não regra do projeto.
+ */
 export const CONTACTS_PER_PAGE = 25;
 
-export interface Pagination {
-  /** Página atual, começando em 1. */
-  page: number;
-  /** Índice inicial para o `.range()` do PostgREST. */
-  from: number;
-  /** Índice final, inclusivo. */
-  to: number;
-}
-
-/**
- * Página pedida → intervalo do `.range()`.
- *
- * Página inválida, zero ou negativa vira 1 pelo mesmo motivo do `status`: a URL
- * é editável. Não há teto superior aqui — pedir a página 900 de uma lista de 3
- * devolve vazio, e a tela mostra o estado vazio com o caminho de volta.
- */
-export function resolvePagination(
-  value: string | undefined | null,
-  perPage: number = CONTACTS_PER_PAGE
-): Pagination {
-  const pedida = Number(value);
-  const page = Number.isFinite(pedida) && pedida >= 1 ? Math.floor(pedida) : 1;
-  const from = (page - 1) * perPage;
-  return { page, from, to: from + perPage - 1 };
-}
-
-/** Total de páginas para um total de linhas. Zero linhas ainda é uma página. */
-export function totalPages(total: number, perPage: number = CONTACTS_PER_PAGE): number {
-  return Math.max(1, Math.ceil(total / perPage));
-}
+// `resolvePagination` e `totalPages` nasceram aqui e foram promovidas para
+// `lib/utils/pagination.ts` ao ganharem o segundo consumidor (a carteira de
+// leads). Não são reexportadas: o alias `@/` não resolve no runner de teste do
+// Node, e um import de runtime entre módulos de domínio quebraria
+// `npm run test:unit`. Quem precisa delas importa de `@/lib/utils/pagination`.

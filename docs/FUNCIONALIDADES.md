@@ -14,6 +14,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/funis` | `app/(dashboard)/funis/page.tsx` | **Editor de etapas do funil** — fluxo com volume e retenção + CRUD de etapas |
 | `/relatorios` | `app/(dashboard)/relatorios/page.tsx` | **Relatório de entrada de leads** por período e formulário |
 | `/relatorios/ultimo-lead` | `app/(dashboard)/relatorios/ultimo-lead/page.tsx` | **Último lead recebido** com origem, respostas e timeline |
+| `/relatorios/carteira` | `app/(dashboard)/relatorios/carteira/page.tsx` | **Carteira de leads** — quem está esperando tratativa, paginada e ordenável |
 | `/tarefas` | `app/(dashboard)/tarefas/page.tsx` | Lista de tarefas com prioridade, vencimento e banner da próxima |
 | `/atendimento` | `app/(dashboard)/atendimento/page.tsx` | WhatsApp em 3 colunas com realtime; troca de funil e etapa do lead sem sair da conversa; **Informações do Lead editáveis** |
 | `/atendimento/configuracoes` | `app/(dashboard)/atendimento/configuracoes/page.tsx` | **Saúde do recebimento**, conexão UAZAPI, QR Code, webhook, respostas rápidas |
@@ -276,6 +277,69 @@ O detalhe separa a operação comercial do conteúdo integral do WhatsApp no car
   timeline operacional e não são duplicadas na guia de conversas.
 - As bolhas são compartilhadas com `/atendimento` por
   `components/whatsapp/message-thread.tsx`.
+
+### Carteira de leads — `/relatorios/carteira`
+
+Responde a pergunta do administrador: **quem está esperando por nós?**
+
+Uma tabela serve a duas perguntas. `?ordem=parados` (padrão) lista quem está há
+mais tempo sem tratativa; `?ordem=recentes` é a lista de últimos leads
+recebidos, paginada. Por isso `/relatorios/ultimo-lead` perdeu a tabela do
+rodapé — o produto teria três listas de lead, com filtros divergindo.
+
+**A definição de tratativa é o contrato central desta tela**, e ela une duas
+fontes:
+
+1. `activity_logs` nos tipos de trabalho da equipe — `whatsapp_outbound`,
+   `note`, `task_created`, `task_done`, `stage_changed`, `responsible_changed`,
+   `lead_info_updated`, `deal_won`, `deal_lost`, `deal_archived`;
+2. **`whatsapp_messages.direction = 'outbound'`**, alcançado por
+   `whatsapp_conversations.deal_id`.
+
+A segunda **não é opcional**: o webhook só grava `activity_logs` quando
+`!msg.fromMe`, e em 31/08/2026 havia 466 mensagens enviadas contra 4 logs do
+tipo. As respostas que a equipe manda pelo próprio celular só existem em
+`whatsapp_messages`.
+
+Ficam **fora** de tratativa: `whatsapp_inbound` (é o lead falando — alimenta a
+coluna "lead falou", nunca a de tratativa), `lead_assigned` (a máquina
+distribuindo; lead distribuído e nunca tocado é o alvo do relatório),
+`form_submission` e `deal_created` (a entrada — contá-los daria a todo lead novo
+um toque falso em t=0).
+
+É **lista de inclusão**, nunca de exclusão: todo tipo novo precisa ser
+classificado de propósito na `0025`. Lista desatualizada gera alarme falso, que
+alguém percebe; exclusão gera falso negativo silencioso.
+
+Situações, e a ordem é a da gravidade:
+
+| Situação | Significado |
+|---|---|
+| `nunca_tratado` | nenhuma tratativa; o relógio corre desde a criação |
+| `aguardando_resposta` | o lead falou **depois** da última tratativa |
+| `sem_retorno` | a equipe falou por último e passou do limiar |
+| `em_dia` | tratado dentro de 3 dias |
+
+Contratos que precisam permanecer:
+
+- **`aguardando_resposta` vence qualquer prazo.** Alguém está esperando agora,
+  e isso é pior que silêncio mútuo — mesmo que faça duas horas.
+- **Nunca tratado conta desde a criação**, não desde sempre. Ordenar como
+  infinito jogaria para o topo, todo dia, o lead que entrou há cinco minutos.
+- **Os KPIs medem a carteira inteira, não a página** — senão o número muda
+  conforme se navega.
+- **`stage_changed` conta como tratativa**, e o tipo da última tratativa
+  aparece na célula: arrastar cards numa arrumação de segunda "trata" leads sem
+  ninguém falar com ninguém. Mostrar o tipo deixa o administrador julgar.
+- **A tabela ordena leads, não pessoas.** Nada colore o nome do responsável por
+  atraso nem soma atrasos por vendedor — esse número é de
+  `/relatorios/vendedores`, com o contexto dele.
+- **A lista não agrupa duplicatas**; contato com mais de uma negociação ganha
+  um marcador. Duas entradas do mesmo contato são dois recebimentos reais.
+- **`seller`/`agent` veem a mesma tela recortada nos próprios leads**, sem a
+  coluna Responsável. A RPC reimplementa a `0011` no recorte de `deals`, então
+  os números deles são corretos, não parciais.
+- Limiares fixos: 3 dias (atenção) e 7 dias (crítico), **corridos**.
 
 ### Indicadores de atenção — menu superior e `/negociacoes`
 
@@ -554,6 +618,7 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0022_indice_da_ultima_entrada.sql` | Índice parcial da última mensagem recebida por organização |
 | `0023_indice_das_tarefas_do_responsavel.sql` | Índice parcial das tarefas pendentes por responsável |
 | `0024_contato_unico_por_whatsapp.sql` | **Reparo das duplicatas de contato e índice único `(organization_id, whatsapp_phone)`** |
+| `0025_carteira_sem_tratativa.sql` | **RPC da carteira de leads** e índice `activity_logs (deal_id, type, created_at desc)` |
 
 ### `0021_realtime_do_atendimento.sql`
 

@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { ReportNav } from "@/components/crm/report-nav";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, DealStatusBadge, TemperatureBadge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
@@ -33,7 +34,7 @@ export default async function UltimoLeadPage() {
   const orgId = session.organization.id;
   const now = new Date();
 
-  const [{ data: latestRaw }, todayCount, { data: recentRaw }] = await Promise.all([
+  const [{ data: latestRaw }, todayCount] = await Promise.all([
     supabase
       .from("deals")
       .select(
@@ -49,18 +50,6 @@ export default async function UltimoLeadPage() {
       .select("id", { count: "exact", head: true })
       .eq("organization_id", orgId)
       .gte("created_at", startOfDay(now).toISOString()),
-    supabase
-      .from("deals")
-      .select(
-        "id,title,created_at,value,status,source," +
-          "contact:contacts(name)," +
-          "stage:pipeline_stages(name)," +
-          "pipeline:pipelines(name)," +
-          "responsible:profiles!deals_responsible_id_fkey(first_name,last_name)"
-      )
-      .eq("organization_id", orgId)
-      .order("created_at", { ascending: false })
-      .limit(6),
   ]);
 
   const lead = latestRaw as unknown as Deal | null;
@@ -104,7 +93,6 @@ export default async function UltimoLeadPage() {
     | (FormSubmission & { form: Pick<Form, "id" | "name" | "slug" | "is_active"> | null })
     | null;
   const activities = (activitiesRaw ?? []) as unknown as ActivityLog[];
-  const recent = (recentRaw ?? []) as unknown as Deal[];
 
   const minutesSince = Math.max(
     0,
@@ -135,13 +123,8 @@ export default async function UltimoLeadPage() {
       <PageHeader
         title="Último lead recebido"
         subtitle="Veja rapidamente os dados do lead mais recente da empresa"
-        actions={
-          <Link href="/relatorios" className={buttonClasses({ variant: "outline" })}>
-            <ArrowRight className="h-4 w-4" />
-            Relatório de entrada
-          </Link>
-        }
       />
+      <ReportNav />
 
       {/* Cabeçalho do lead */}
       <Card className="p-5">
@@ -328,71 +311,31 @@ export default async function UltimoLeadPage() {
         </Card>
       </div>
 
-      {/* Últimos leads */}
-      <Card className="mt-4 overflow-hidden">
-        <CardHeader
-          title="Últimos leads recebidos"
-          subtitle="Os seis mais recentes da empresa"
-          action={
-            <Link
-              href="/relatorios"
-              className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
-            >
-              Ver todos
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          }
-        />
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-line bg-slate-50/80 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
-                <th className="px-5 py-3.5 whitespace-nowrap">Recebido em</th>
-                <th className="px-5 py-3.5 whitespace-nowrap">Lead</th>
-                <th className="px-5 py-3.5 whitespace-nowrap">Funil / Etapa</th>
-                <th className="px-5 py-3.5 whitespace-nowrap">Responsável</th>
-                <th className="px-5 py-3.5 whitespace-nowrap">Valor</th>
-                <th className="px-5 py-3.5 whitespace-nowrap">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {recent.map((d) => (
-                <tr key={d.id} className="transition-colors hover:bg-primary-50/40">
-                  <td className="px-5 py-3.5 whitespace-nowrap text-ink-soft">
-                    {formatDateTime(d.created_at)}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <Link
-                      href={`/negociacoes/${d.id}`}
-                      className="flex items-center gap-2.5 hover:text-primary-700"
-                    >
-                      <Avatar name={d.contact?.name ?? d.title} size="xs" />
-                      <span className="max-w-40 truncate font-medium text-ink">
-                        {d.contact?.name ?? d.title}
-                      </span>
-                    </Link>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="block max-w-40 truncate text-ink-soft">
-                      {d.pipeline?.name ?? "—"}
-                    </span>
-                    <span className="block max-w-40 truncate text-xs text-ink-faint">
-                      {d.stage?.name ?? "—"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 whitespace-nowrap text-ink-soft">
-                    {fullName(d.responsible)}
-                  </td>
-                  <td className="px-5 py-3.5 whitespace-nowrap font-semibold text-ink">
-                    {formatCurrency(d.value)}
-                  </td>
-                  <td className="px-5 py-3.5 whitespace-nowrap">
-                    <DealStatusBadge status={d.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* A lista de leads saiu daqui.
+          Esta tela responde "quem acabou de chegar?" — uma entidade, detalhe
+          profundo. A lista de carteira responde "quem está esperando?" — muitas
+          entidades, uma linha cada, ordenada por urgência. São perguntas de
+          cadência e cardinalidade diferentes, e mantê-las juntas produziria dois
+          conjuntos de filtros na mesma rota, divergindo com o tempo.
+
+          A tabela de seis linhas que ficava aqui virou a carteira paginada em
+          `/relatorios/carteira?ordem=recentes`. */}
+      <Card className="mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <div>
+            <p className="text-sm font-semibold text-ink">Ver a carteira completa</p>
+            <p className="text-xs text-ink-faint">
+              Todos os leads abertos, com quanto tempo cada um está sem tratativa da
+              equipe.
+            </p>
+          </div>
+          <Link
+            href="/relatorios/carteira"
+            className={buttonClasses({ variant: "outline" })}
+          >
+            Abrir a carteira
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </Card>
     </div>
