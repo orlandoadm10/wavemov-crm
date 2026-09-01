@@ -1,6 +1,7 @@
 import { DailyLeadsChart, HorizontalCountChart } from "@/components/crm/dashboard-charts";
 import { PeriodFilter } from "@/components/crm/period-filter";
 import { PageHeader } from "@/components/layout/page-header";
+import { ReportNav } from "@/components/crm/report-nav";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Card, CardHeader, StatCard } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/utils";
 import { resolvePeriod, zonedDayRange } from "@/lib/utils/period";
 import type { DealTagEvolutionPoint, DealTagResponsibleTotal, DealTagTotal } from "@/types";
-import { ArrowLeft, BarChart3, Tags, TrendingUp } from "lucide-react";
+import { BarChart3, Tags, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Relatório de tags" };
@@ -110,9 +111,6 @@ export default async function TagsReportPage({ searchParams }: { searchParams: S
                 <Tags className="h-4 w-4" /> Catálogo
               </Link>
             )}
-            <Link href="/relatorios" className={buttonClasses({ variant: "outline" })}>
-              <ArrowLeft className="h-4 w-4" /> Relatórios
-            </Link>
           </>
         }
       />

@@ -144,9 +144,9 @@ export function LeadPortfolioTable({
             </option>
           ))}
         </Select>
-        {/* O `Select` de ordenação não é redundância do cabeçalho clicável:
-            abaixo de `md` a tabela rola horizontalmente e o cabeçalho sai de
-            vista. Sem ele, ordenar deixa de existir no celular. */}
+        {/* O `Select` de ordenação é a ÚNICA forma de ordenar abaixo de `md`:
+            ali a tabela vira cartões e não existe cabeçalho para clicar. Sem
+            ele, ordenar deixaria de existir no celular. */}
         <Select
           className="w-auto min-w-44"
           aria-label="Ordenar a carteira"
@@ -197,6 +197,88 @@ export function LeadPortfolioTable({
         )
       ) : (
         <>
+          {/* ------------------------------------------------------------
+              Duas apresentações do MESMO array.
+
+              Abaixo de `md` a tabela vira cartões. O `DataTable` tem
+              `min-w-[640px]` e rola na horizontal — aceitável numa tabela de
+              consulta, inadequado aqui: a primeira coluna é a que ORDENA, e o
+              scroll a esconde exatamente quando o dedo empurra para ver o
+              resto. O ranking sumiria justamente no aparelho em que o
+              administrador abre relatório.
+
+              A marcação duplica; o cálculo, não — `avaliar()` é uma função só.
+              ------------------------------------------------------------ */}
+          <ul className="space-y-2 md:hidden">
+            {linhas.map((l) => {
+              const { dias, sit, tom } = avaliar(l, agora);
+              return (
+                <li key={l.deal_id}>
+                  <Link
+                    href={`/negociacoes/${l.deal_id}`}
+                    className="block rounded-2xl border border-line bg-white p-4 shadow-(--shadow-card) transition-colors hover:border-primary-200"
+                  >
+                    <div className="flex items-start gap-3">
+                      {tom === "slate" ? (
+                        <span className="shrink-0 text-sm tabular-nums text-ink-soft">
+                          {formatarAtraso(dias)}
+                        </span>
+                      ) : (
+                        <Badge tone={tom}>
+                          <span className="tabular-nums">{formatarAtraso(dias)}</span>
+                        </Badge>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-ink">
+                          {l.contato_nome ?? l.titulo}
+                        </p>
+                        <p className="truncate text-xs text-ink-faint">
+                          {[l.valor ? formatCurrency(l.valor) : null, l.origem]
+                            .filter(Boolean)
+                            .join(" · ") || l.titulo}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Badge tone={SITUACAO_TOM[sit]} dot>
+                        {SITUACAO_LABEL[sit]}
+                      </Badge>
+                      {l.etapa_nome && (
+                        <span className="text-xs text-ink-soft">{l.etapa_nome}</span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-ink-faint">
+                      {mostraResponsavel
+                        ? `${l.responsavel_nome ?? "Sem responsável"} · `
+                        : ""}
+                      {rotularTratativa(l.ultima_tratativa_tipo)}
+                    </p>
+                    {(l.notas > 0 || l.tarefas > 0 || l.negociacoes_do_contato > 1) && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {l.notas > 0 && (
+                          <Badge tone="slate">
+                            {l.notas} {l.notas === 1 ? "nota" : "notas"}
+                          </Badge>
+                        )}
+                        {l.tarefas > 0 && (
+                          <Badge tone="slate">
+                            {l.tarefas} {l.tarefas === 1 ? "tarefa" : "tarefas"}
+                          </Badge>
+                        )}
+                        {l.negociacoes_do_contato > 1 && (
+                          <Badge tone="slate">
+                            {l.negociacoes_do_contato} negociações
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="hidden md:block">
           <DataTable>
             <THead>
               {/* "Parado há" é a primeira coluna porque é a que ordena: o olho
@@ -211,14 +293,7 @@ export function LeadPortfolioTable({
             </THead>
             <TBody>
               {linhas.map((l) => {
-                const followUp = {
-                  equipeTratouEm: l.equipe_tratou_em,
-                  leadFalouEm: l.lead_falou_em,
-                  criadoEm: l.criado_em,
-                };
-                const dias = diasParado(followUp, agora);
-                const sit = situacao(followUp, agora);
-                const tom = tomDoAtraso(dias);
+                const { dias, sit, tom } = avaliar(l, agora);
                 return (
                   <Tr key={l.deal_id}>
                     <Td>
@@ -318,6 +393,7 @@ export function LeadPortfolioTable({
               })}
             </TBody>
           </DataTable>
+          </div>
 
           <Pagination
             total={total}
@@ -332,4 +408,21 @@ export function LeadPortfolioTable({
       )}
     </div>
   );
+}
+
+/**
+ * O cálculo de uma linha, usado pela tabela e pelos cartões.
+ *
+ * Duplicar a marcação de duas apresentações é aceitável; duplicar o cálculo
+ * não — as duas divergiriam na primeira mudança de limiar, e a tabela e o
+ * cartão diriam coisas diferentes sobre o mesmo lead.
+ */
+function avaliar(l: LinhaCarteira, agora: Date) {
+  const followUp = {
+    equipeTratouEm: l.equipe_tratou_em,
+    leadFalouEm: l.lead_falou_em,
+    criadoEm: l.criado_em,
+  };
+  const dias = diasParado(followUp, agora);
+  return { dias, sit: situacao(followUp, agora), tom: tomDoAtraso(dias) };
 }

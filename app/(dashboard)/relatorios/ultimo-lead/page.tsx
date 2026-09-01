@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { ReportNav } from "@/components/crm/report-nav";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, DealStatusBadge, TemperatureBadge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
@@ -122,13 +123,8 @@ export default async function UltimoLeadPage() {
       <PageHeader
         title="Último lead recebido"
         subtitle="Veja rapidamente os dados do lead mais recente da empresa"
-        actions={
-          <Link href="/relatorios" className={buttonClasses({ variant: "outline" })}>
-            <ArrowRight className="h-4 w-4" />
-            Relatório de entrada
-          </Link>
-        }
       />
+      <ReportNav />
 
       {/* Cabeçalho do lead */}
       <Card className="p-5">

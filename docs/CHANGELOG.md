@@ -101,6 +101,27 @@ Nota para quem for promover outro módulo: **o alias `@/` não resolve no runner
 de teste do Node**, então módulo de domínio não pode importar runtime de outro
 módulo. Os testes vieram junto com as funções.
 
+### As duas dívidas de UI que o frontend apontou, pagas antes do merge
+
+**Cartões no mobile.** Abaixo de `md` a tabela vira cartões. O `DataTable` tem
+`min-w-[640px]` e rola na horizontal — aceitável numa tabela de consulta,
+inadequado aqui: a primeira coluna é a que **ordena**, e o scroll a esconde
+exatamente quando o dedo empurra para ver o resto. O ranking sumiria no
+aparelho em que o administrador abre relatório. A marcação duplica; o cálculo
+não — `avaliar()` é uma função só, senão tabela e cartão diriam coisas
+diferentes sobre o mesmo lead na primeira mudança de limiar.
+
+**Sub-navegação de relatórios** (`components/crm/report-nav.tsx`). O
+`PageHeader` de `/relatorios` carregava o filtro de período mais um botão por
+sub-relatório; eram quatro, com a carteira viraram cinco, e a fileira quebra em
+375px. Virou uma linha de pills compartilhada pelas cinco rotas, que rola na
+horizontal no celular e cabe o crescimento. Os links "voltar para Relatórios"
+de cada sub-relatório saíram — a sub-nav os torna redundantes.
+
+`aria-current="page"` no item ativo, e a comparação é de igualdade exata:
+`startsWith` deixaria `/relatorios` permanentemente ativo, já que é prefixo de
+todos os outros.
+
 ### Gates
 
 `git diff --check` · `npx tsc --noEmit` · `npm run build` · `npm run test:unit`

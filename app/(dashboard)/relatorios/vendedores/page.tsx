@@ -1,6 +1,7 @@
 import { PeriodFilter } from "@/components/crm/period-filter";
 import { SellerPerformanceTable } from "@/components/crm/seller-performance-table";
 import { PageHeader } from "@/components/layout/page-header";
+import { ReportNav } from "@/components/crm/report-nav";
 import { buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fullName } from "@/lib/utils";
 import { resolvePeriod } from "@/lib/utils/period";
 import type { Profile } from "@/types";
-import { ArrowLeft, Scale, Target, UserRound, Users } from "lucide-react";
+import { Scale, Target, UserRound, Users } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Rendimento por vendedor" };
@@ -269,10 +270,6 @@ export default async function RendimentoPorVendedorPage({
             <Link href="/distribuicao" className={buttonClasses({ variant: "outline" })}>
               <Scale className="h-4 w-4" />
               Configurar distribuição
-            </Link>
-            <Link href="/relatorios" className={buttonClasses({ variant: "outline" })}>
-              <ArrowLeft className="h-4 w-4" />
-              Relatórios
             </Link>
           </>
         }

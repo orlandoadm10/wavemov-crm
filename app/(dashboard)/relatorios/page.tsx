@@ -1,6 +1,7 @@
 import { DailyLeadsChart } from "@/components/crm/dashboard-charts";
 import { LeadsReportTable } from "@/components/crm/leads-report-table";
 import { PeriodFilter } from "@/components/crm/period-filter";
+import { ReportNav } from "@/components/crm/report-nav";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
@@ -175,45 +176,9 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
       <PageHeader
         title="Relatório de entrada de leads"
         subtitle="Acompanhe a entrada de leads por período e formulário"
-        actions={
-          <>
-            <PeriodFilter />
-            {/* Primeiro da fileira de propósito: é o relatório que produz
-                ação imediata. Sem um ponto de entrada visível, a carteira vira
-                a rota que só encontra quem já sabe que ela existe — e um
-                relatório que exige lembrar de visitar tem meia-vida de duas
-                semanas. */}
-            <Link
-              href="/relatorios/carteira"
-              className={buttonClasses({ variant: "outline" })}
-            >
-              <Layers className="h-4 w-4" />
-              Carteira
-            </Link>
-            <Link
-              href="/relatorios/vendedores"
-              className={buttonClasses({ variant: "outline" })}
-            >
-              <UserRound className="h-4 w-4" />
-              Por vendedor
-            </Link>
-            <Link
-              href="/relatorios/tags"
-              className={buttonClasses({ variant: "outline" })}
-            >
-              <Tags className="h-4 w-4" />
-              Por tags
-            </Link>
-            <Link
-              href="/relatorios/ultimo-lead"
-              className={buttonClasses({ variant: "outline" })}
-            >
-              <Zap className="h-4 w-4" />
-              Último lead
-            </Link>
-          </>
-        }
+        actions={<PeriodFilter />}
       />
+      <ReportNav />
 
       {/* Indicadores fixos — independentes do período selecionado */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

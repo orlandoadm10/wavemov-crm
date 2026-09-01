@@ -1,6 +1,6 @@
 import { LeadPortfolioTable, type LinhaCarteira } from "@/components/crm/lead-portfolio-table";
 import { PageHeader } from "@/components/layout/page-header";
-import { buttonClasses } from "@/components/ui/button";
+import { ReportNav } from "@/components/crm/report-nav";
 import { StatCard } from "@/components/ui/card";
 import {
   ATRASO_ATENCAO_DIAS,
@@ -14,8 +14,7 @@ import {
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_PER_PAGE, resolvePagination } from "@/lib/utils/pagination";
-import { AlertTriangle, ArrowLeft, Clock, MessageCircleWarning, NotebookPen } from "lucide-react";
-import Link from "next/link";
+import { AlertTriangle, Clock, MessageCircleWarning, NotebookPen } from "lucide-react";
 
 export const metadata = { title: "Carteira de leads" };
 export const dynamic = "force-dynamic";
@@ -109,13 +108,8 @@ export default async function CarteiraPage({ searchParams }: { searchParams: Sea
             ? "Quem está esperando tratativa da equipe"
             : "Seus leads abertos, do mais parado ao mais recente"
         }
-        actions={
-          <Link href="/relatorios" className={buttonClasses({ variant: "outline" })}>
-            <ArrowLeft className="h-4 w-4" />
-            Relatórios
-          </Link>
-        }
       />
+      <ReportNav />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
