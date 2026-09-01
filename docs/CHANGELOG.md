@@ -2,6 +2,65 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-31 — busca e paginação de contatos no servidor
+
+A tela de contatos trazia `limit(1000)` sem paginação e filtrava em memória
+sobre o array já truncado. Duas consequências, ambas silenciosas: o contato de
+número 1001 **não existia** para a tela, e a busca respondia "Nenhum contato
+encontrado" com convicção para quem estivesse além do corte. Com ~300 empresas
+chegando do Bubble, isso deixaria de ser hipótese em semanas.
+
+### Corrigido
+
+- **Paginação no servidor** com `.range()`, 25 por página, e o total sempre
+  visível — é ele que prova que a lista está completa. A ausência dessa
+  informação foi o que fez o corte em 1000 linhas passar despercebido.
+- **Busca no servidor** (`ilike` sobre nome, e-mail, telefone e WhatsApp), com
+  debounce de 400 ms antes de ir para a URL.
+- **Filtros na URL** (`?busca=&status=&pagina=`) — link compartilhável e
+  contexto preservado ao voltar. Trocar qualquer filtro volta para a página 1:
+  manter a página 7 costuma cair num intervalo vazio e a tela diria "nenhum
+  contato" havendo resultados na primeira.
+- **Estado de erro próprio.** As duas queries descartavam `error`, então falha
+  de rede ou RLS virava "Nenhum contato encontrado" — uma afirmação que o dado
+  não sustenta. Mesma disciplina do `unknown` da saúde da entrada.
+- **Estado vazio com e sem filtro** são textos diferentes, e o com filtro
+  oferece "Limpar filtros" em vez de "Criar contato".
+- **2000 deals deixaram de trafegar ao navegador.** As negociações agora são
+  buscadas só para os contatos da página visível, e a consulta nem acontece
+  quando a página está vazia.
+- `select("*")` virou colunas explícitas.
+
+### Mudança de significado, declarada
+
+O filtro de status olhava a negociação **mais recente** do contato. Agora
+seleciona contatos que **têm** negociação naquele status (embed `!inner`) — os
+rótulos mudaram para "Com negociação em andamento/ganha/perdida". "A mais
+recente" não é respondível sem recalcular a base inteira a cada página, e "tem
+negociação ganha" é a pergunta que o operador de fato faz.
+
+### Uma armadilha encontrada durante a mudança
+
+Ao trocar `select("*")` por colunas explícitas, `document` e `notes` saíram da
+consulta. O `contact-modal.tsx` **semeia o formulário com o contato que a lista
+entregou e regrava todos os campos no `submit`** — então editar qualquer
+contato pela lista apagaria a observação e o documento em silêncio, mandando
+`null` para campos que o formulário nunca recebeu. As duas colunas voltaram, com
+o motivo registrado no código para ninguém "otimizar" de novo.
+
+### Adicionado
+
+- `lib/features/contacts/domain/contact-search.ts` — montagem do filtro,
+  validação de status e resolução de página, puras e testáveis. **14 testes**
+  (111 para 125), a maioria sobre o que **não** pode passar: vírgula não pode
+  virar um segundo filtro do `or`, parêntese não pode quebrar a expressão, e
+  `%`, `_` ou `*` digitados não podem transformar a busca em "traga tudo".
+
+### Gates
+
+`git diff --check`, `npx tsc --noEmit`, `npm run build`, `npm run test:unit`
+(125) e `npm run test:db` — todos executados, todos verdes.
+
 ## 2026-08-31 — a `0024` não roda no SQL Editor com tabela temporária
 
 A primeira versão da `0024` falhou na aplicação em produção:
