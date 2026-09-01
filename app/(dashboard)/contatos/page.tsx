@@ -4,10 +4,10 @@ import {
   buildContactSearchFilter,
   CONTACTS_PER_PAGE,
   parseDealStatus,
-  resolvePagination,
 } from "@/lib/features/contacts/domain/contact-search";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
+import { resolvePagination } from "@/lib/utils/pagination";
 import type { Contact, Deal } from "@/types";
 
 export const metadata = { title: "Contatos" };

@@ -7,13 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Select } from "@/components/ui/input";
+import { Pagination } from "@/components/ui/pagination";
 import { DataTable, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
-import { totalPages } from "@/lib/features/contacts/domain/contact-search";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Contact, Deal } from "@/types";
 import {
-  ChevronLeft,
-  ChevronRight,
   Contact as ContactIcon,
   ExternalLink,
   MoreVertical,
@@ -74,9 +72,9 @@ export function ContactsClient({
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
 
-  const paginas = totalPages(total, perPage);
-  const primeiroDaPagina = total === 0 ? 0 : (page - 1) * perPage + 1;
-  const ultimoDaPagina = Math.min(page * perPage, total);
+  // O cálculo de intervalo e o desenho da barra vivem em
+  // `components/ui/pagination.tsx` desde que a carteira de leads virou o
+  // segundo consumidor.
   const temFiltro = Boolean(busca || status);
 
   function setParams(mudancas: Record<string, string>) {
@@ -265,46 +263,15 @@ export function ContactsClient({
             </TBody>
           </DataTable>
 
-          {/* O total sempre aparece, mesmo com uma página só: é ele que diz que
-              a lista está completa. A ausência dessa informação foi o que fez o
-              corte em 1000 linhas passar despercebido. */}
-          <nav
-            aria-label="Paginação dos contatos"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white px-4 py-3 shadow-(--shadow-card)"
-          >
-            <p className="text-sm text-ink-soft" aria-live="polite">
-              <span className="font-medium text-ink tabular-nums">
-                {primeiroDaPagina}–{ultimoDaPagina}
-              </span>{" "}
-              de <span className="font-medium text-ink tabular-nums">{total}</span>{" "}
-              {total === 1 ? "contato" : "contatos"}
-            </p>
-            {paginas > 1 && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  disabled={page <= 1}
-                  onClick={() => setParams({ pagina: String(page - 1) })}
-                  aria-label="Página anterior"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Anterior
-                </Button>
-                <span className="text-sm text-ink-soft tabular-nums">
-                  {page} / {paginas}
-                </span>
-                <Button
-                  variant="outline"
-                  disabled={page >= paginas}
-                  onClick={() => setParams({ pagina: String(page + 1) })}
-                  aria-label="Próxima página"
-                >
-                  Próxima
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </nav>
+          <Pagination
+            total={total}
+            page={page}
+            perPage={perPage}
+            singular="contato"
+            plural="contatos"
+            ariaLabel="Paginação dos contatos"
+            onPageChange={(p) => setParams({ pagina: String(p) })}
+          />
         </>
       )}
 

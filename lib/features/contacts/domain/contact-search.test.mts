@@ -12,11 +12,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   buildContactSearchFilter,
-  CONTACTS_PER_PAGE,
   parseDealStatus,
-  resolvePagination,
   sanitizeSearchTerm,
-  totalPages,
 } from "./contact-search.ts";
 
 test("busca simples vira um ilike por coluna", () => {
@@ -73,36 +70,4 @@ test("status inválido vira ausência de filtro, não erro", () => {
   assert.equal(parseDealStatus("arquivado"), null);
   assert.equal(parseDealStatus(""), null);
   assert.equal(parseDealStatus(undefined), null);
-});
-
-test("a primeira página começa no zero", () => {
-  const p = resolvePagination("1");
-  assert.deepEqual(p, { page: 1, from: 0, to: CONTACTS_PER_PAGE - 1 });
-});
-
-test("a segunda página não repete nem pula linha", () => {
-  const primeira = resolvePagination("1");
-  const segunda = resolvePagination("2");
-  assert.equal(segunda.from, primeira.to + 1, "sem buraco e sem sobreposição entre páginas");
-});
-
-test("página inválida, zero ou negativa cai na primeira", () => {
-  for (const entrada of ["0", "-3", "abc", "", undefined, "NaN"]) {
-    assert.equal(resolvePagination(entrada).page, 1, `entrada: ${String(entrada)}`);
-  }
-});
-
-test("página fracionária é truncada", () => {
-  assert.equal(resolvePagination("2.9").page, 2);
-});
-
-test("lista vazia ainda é uma página", () => {
-  // Zero páginas produziria "Página 1 de 0" na tela.
-  assert.equal(totalPages(0), 1);
-});
-
-test("o total de páginas arredonda para cima", () => {
-  assert.equal(totalPages(CONTACTS_PER_PAGE), 1);
-  assert.equal(totalPages(CONTACTS_PER_PAGE + 1), 2);
-  assert.equal(totalPages(248), Math.ceil(248 / CONTACTS_PER_PAGE));
 });
