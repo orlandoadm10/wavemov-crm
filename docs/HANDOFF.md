@@ -360,6 +360,55 @@ Bubble, que vai gerar um lote de quase-duplicatas de uma vez — e agora que a
 `0024` recusa duplicata de WhatsApp, a importação precisa tratar isso na
 origem.
 
+## O ledger de migrations, reconciliado — 31/08/2026
+
+Era o **débito 8**, e o de maior potencial de estrago silencioso. O ledger
+remoto (`supabase_migrations.schema_migrations`) listava `0001..0008` enquanto o
+repositório chegava à `0024` — 16 migrations de diferença, todas aplicadas à mão
+pelo painel e nenhuma registrada.
+
+**O risco concreto, para quem for entender por que isso importava:** um
+`supabase db push` distraído (o CLI está linkado à produção) tentaria reaplicar
+`0009..0024`. Ele pararia na `0011` com `policy already exists`, sem perder
+dado — mas quem destravasse essa parede chegaria à `0016`, que **reinscreve na
+fila de distribuição todo membro que o administrador removeu**, em todas as
+organizações; a `0018` então renumera a fila e zera o cursor. Silencioso, sem
+erro e sem linha em `lead_distribution_log`.
+
+### Como foi feito, e por que nessa ordem
+
+1. **Primeiro a prova de que as 16 estavam mesmo aplicadas.** Registrar como
+   aplicada uma migration que não rodou é pior que a divergência: ela nunca
+   mais rodaria, e o schema ficaria sem ela para sempre. Cada uma foi conferida
+   pelo objeto que cria — a view `organization_deal_stats` da `0009`, a função
+   `deals_pipeline_stage_guard` da `0013`, a tabela `deal_tags` da `0019`, o
+   índice `contacts_org_whatsapp_key` da `0024`, e assim por diante. As 16
+   passaram.
+2. **`insert` das 16 linhas pelo painel**, com `on conflict (version) do
+   nothing`. É a mesma escrita que o `supabase migration repair` faria, sem
+   trazer o CLI para perto do banco.
+3. **`statements` fica nulo** nas 16, e isso é deliberado: o CLI preenche essa
+   coluna quando é ele quem aplica. Nulo diz a verdade — foram aplicadas à mão.
+
+### Verificação
+
+`npx supabase migration list --linked` mostra `local` e `remote` alinhados nas
+24. `npx supabase db push --linked --dry-run` responde:
+
+```json
+{"upToDate": true, "migrations": [], "message": "Remote database is up to date."}
+```
+
+### O que mantém isso verdadeiro
+
+O fluxo continua manual. **Toda migration aplicada à mão precisa registrar a
+linha no mesmo ato** — o `README.md` agora traz o `insert` pronto, na seção
+"Sobre o `supabase db push`", junto da distinção entre projeto novo (onde o
+`db push` é o caminho recomendado) e este projeto de produção.
+
+Se alguém aplicar uma migration sem registrar, a divergência recomeça do zero e
+a armadilha volta armada.
+
 ## Próxima sessão
 
 Em ordem de risco. O item 1 é o único que tem cliente esperando; o 2 conclui a
@@ -383,20 +432,11 @@ diante é dívida e produto.
      aparecia: o gráfico tem de bater com os StatCards;
    - editar o contato pelo detalhe, inclusive a troca de `whatsapp_phone` e o
      aviso âmbar.
-3. **Acertar o ledger de migrations e desarmar o `db push`.** O ledger remoto
-   lista `0001..0008` e o CLI está linkado à produção. Um `db push` distraído
-   para na `0011` (`policy already exists`) sem perder dado — mas quem destravar
-   essa parede chega na `0016`, que **reinscreve na fila de distribuição todo
-   membro que o administrador removeu**, em todas as organizações; a `0018`
-   então renumera a fila e zera o cursor. Silencioso, sem erro e sem linha em
-   `lead_distribution_log`. Caminho recomendado: `insert` das 12 linhas
-   faltantes em `supabase_migrations.schema_migrations` pelo painel — mesma
-   escrita do `migration repair`, sem trazer o CLI para perto da produção —
-   mantendo o link. Depois disso, `db push --dry-run` responde que está em dia e
-   a armadilha some. Acompanham: registrar o ledger a cada aplicação manual
-   daqui em diante; corrigir `README.md`, que anuncia `supabase db push` como
-   alternativa (é falso para este projeto); e trocar o replay de idempotência do
-   `test:db`, que hoje só reaplica a `0012` e por isso não pegou nada disso.
+3. **~~Acertar o ledger de migrations~~ — feito em 31/08/2026.** Ver a seção
+   "O ledger de migrations, reconciliado". O que sobrou dessa frente: trocar o
+   replay de idempotência do `test:db`, que reaplica `0012`, `0021`, `0022`,
+   `0023` e `0024` — a `0011` e a `0016` continuam de fora, e foi por isso que
+   passaram batidas.
 4. **A guarda que falta na `0016`** — em migration nova, já que migration
    aplicada é imutável. O cabeçalho dela declara "Idempotente: pode ser
    executada duas vezes sem efeito colateral", e isso é **falso**. Ou a guarda
@@ -531,11 +571,22 @@ cliente.
 
 - O CLI está **linkado ao projeto de produção** (`qzdcxyhvvikmtupouzlm`). Um
   `supabase db push` vai direto ao banco do cliente, sem confirmação extra.
-- O ledger remoto parou na `0008` porque as migrations são aplicadas à mão pelo
-  painel. Um `db push` tentaria reaplicar `0009`..`0020` sobre um schema que já
-  as tem, e várias não são idempotentes.
-- Enquanto o fluxo for manual, o link é uma armadilha carregada: desfazer
-  (`supabase unlink`) ou sincronizar (`supabase migration repair`).
+- **O ledger está em dia desde 31/08/2026** (`0001..0024`), e `db push
+  --dry-run` responde `Remote database is up to date`. A armadilha de reaplicar
+  `0009..0024` sobre um schema que já as tem foi desarmada.
+- **Isso só continua verdade se cada aplicação manual registrar a linha.** O
+  fluxo permanece manual — o cliente aplica pelo SQL Editor — então o passo
+  final de toda migration é:
+
+  ```sql
+  insert into supabase_migrations.schema_migrations (version, name)
+  values ('00NN', 'nome_do_arquivo_sem_o_prefixo')
+  on conflict (version) do nothing;
+  ```
+
+- Confirme com `npx supabase migration list --linked` e
+  `npx supabase db push --linked --dry-run` antes de qualquer operação de CLI
+  contra produção. Os dois são somente leitura.
 
 ### WhatsApp/UAZAPI
 
@@ -559,9 +610,11 @@ cliente.
 6. A ingestão externa não tem rate limit; priorizar quando mais de um cliente
    estiver usando o fluxo.
 7. A UI multi-instância do WhatsApp ainda não existe.
-8. O ledger remoto de migrations diverge do repositório e o CLI está linkado à
-   produção — ver o item 3 da próxima sessão. É o débito com maior potencial de
-   estrago silencioso.
+8. ~~O ledger remoto de migrations diverge do repositório.~~ **Resolvido em
+   31/08/2026**: `0001..0024` registradas e `db push --dry-run` em dia. O CLI
+   continua linkado à produção, o que é seguro enquanto o ledger for mantido —
+   e deixa de ser no instante em que alguém aplicar uma migration à mão sem
+   registrar a linha.
 9. O replay de idempotência do `test:db` reaplica a `0012` e a `0021`; a `0011`
    e a `0016` continuam de fora, e foi por isso que passaram batidas.
 10. Trocar o `whatsapp_phone` de um contato não reconcilia conversas: mensagens

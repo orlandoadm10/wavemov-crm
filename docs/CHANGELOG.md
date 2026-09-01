@@ -2,6 +2,58 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-08-31 — o ledger de migrations foi reconciliado
+
+Era o **débito 8**, e o de maior potencial de estrago silencioso. O ledger
+remoto (`supabase_migrations.schema_migrations`) listava `0001..0008` enquanto o
+repositório chegava à `0024`: **16 migrations de diferença**, todas aplicadas à
+mão pelo painel e nenhuma registrada.
+
+### O risco que isso representava
+
+Um `supabase db push` distraído — o CLI está linkado à produção — tentaria
+reaplicar `0009..0024`. Pararia na `0011` com `policy already exists`, sem
+perder dado. Mas quem destravasse essa parede chegaria à `0016`, que
+**reinscreve na fila de distribuição todo membro que o administrador removeu**,
+em todas as organizações; a `0018` então renumera a fila e zera o cursor.
+Silencioso, sem erro e sem linha em `lead_distribution_log`.
+
+### Como foi feito
+
+1. **Prova antes da escrita.** Registrar como aplicada uma migration que não
+   rodou é pior que a divergência — ela nunca mais rodaria. Cada uma das 16 foi
+   conferida pelo objeto que cria: a view `organization_deal_stats` da `0009`,
+   a função `deals_pipeline_stage_guard` da `0013`, a tabela `deal_tags` da
+   `0019`, o índice `contacts_org_whatsapp_key` da `0024`, entre outros. As 16
+   passaram.
+2. `insert` das 16 linhas pelo painel, com `on conflict (version) do nothing` —
+   a mesma escrita do `supabase migration repair`, sem trazer o CLI para perto
+   do banco.
+3. `statements` fica nulo nas 16, deliberadamente: o CLI preenche essa coluna
+   quando é ele quem aplica. Nulo diz a verdade.
+
+### Verificação
+
+`npx supabase migration list --linked` mostra `local` e `remote` alinhados nas
+24. `npx supabase db push --linked --dry-run` responde
+`{"upToDate": true, "migrations": [], "message": "Remote database is up to date."}`.
+
+### Documentação
+
+- `README.md` deixou de anunciar `supabase db push` como alternativa genérica.
+  Agora separa **projeto novo** (onde o `db push` é o caminho recomendado) deste
+  **projeto de produção**, que aplica à mão e mantém o ledger no mesmo ato — com
+  o `insert` pronto para copiar.
+- A lista de migrations do README foi de 20 para 24, e as notas de ordem da
+  `0021` e da `0024` entraram.
+- `HANDOFF.md` registra o procedimento e o que o mantém verdadeiro.
+
+### O que mantém isso verdadeiro
+
+O fluxo continua manual. **Toda migration aplicada à mão precisa registrar a
+linha no mesmo ato.** Se alguém aplicar sem registrar, a divergência recomeça e
+a armadilha volta armada.
+
 ## 2026-08-31 — busca e paginação de contatos no servidor
 
 A tela de contatos trazia `limit(1000)` sem paginação e filtrava em memória

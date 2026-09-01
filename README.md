@@ -93,6 +93,10 @@ No **SQL Editor** do Supabase, execute os arquivos na ordem:
 18. `supabase/migrations/0018_auditoria_da_distribuicao.sql` — auditoria e reparo da fila
 19. `supabase/migrations/0019_tags_de_negociacao.sql` — catálogo, vínculos e métricas de tags
 20. `supabase/migrations/0020_set_deal_tags_preserva_tag_inativa.sql` — salvar tags preserva o vínculo de tag desativada
+21. `supabase/migrations/0021_realtime_do_atendimento.sql` — publica `whatsapp_messages` e `whatsapp_conversations` no Realtime
+22. `supabase/migrations/0022_indice_da_ultima_entrada.sql` — índice da última mensagem recebida por organização
+23. `supabase/migrations/0023_indice_das_tarefas_do_responsavel.sql` — índice das tarefas pendentes por responsável
+24. `supabase/migrations/0024_contato_unico_por_whatsapp.sql` — reparo das duplicatas e índice único de contato por WhatsApp
 
 > A `0009` é obrigatória para `/funis`, `/empresas` e `/empresas/[id]`: elas leem
 > as views `organization_deal_stats` e `pipeline_stage_stats`. É aditiva — cria
@@ -104,7 +108,39 @@ No **SQL Editor** do Supabase, execute os arquivos na ordem:
 > leads que tenham tag inativa. Aplique-a ANTES de publicar o código — em
 > produção isso foi feito em 28/08/2026.
 
-> Alternativa com CLI: `supabase db push` (com o projeto linkado via `supabase link`).
+> A `0021` é obrigatória para o tempo real do atendimento: sem ela a tela assina
+> eventos que nunca chegam e a conversa só atualiza ao recarregar a página.
+
+> A `0024` é **obrigatória** e tem ordem: o código corrigido precisa estar em
+> produção **antes** dela. Sob o código antigo, o índice único faz o `insert` do
+> webhook devolver `23505` e a rota grava conversas e leads órfãos de contato —
+> pior que o problema que a migration resolve.
+
+#### Sobre o `supabase db push`
+
+**Projeto novo:** `supabase db push` (com `supabase link`) aplica tudo de uma
+vez e é o caminho recomendado.
+
+**O projeto de produção deste CRM não usa esse caminho.** As migrations são
+aplicadas à mão pelo SQL Editor, e o ledger
+(`supabase_migrations.schema_migrations`) é atualizado no mesmo ato. **Quem
+aplicar uma migration à mão precisa registrar a linha**, senão o ledger volta a
+divergir:
+
+```sql
+insert into supabase_migrations.schema_migrations (version, name)
+values ('00NN', 'nome_do_arquivo_sem_o_prefixo')
+on conflict (version) do nothing;
+```
+
+O ledger ficou parado na `0008` de 26/08 a 31/08/2026, enquanto o repositório
+chegava à `0024`. Nesse intervalo, um `db push` distraído parava na `0011` com
+`policy already exists` — mas quem destravasse essa parede chegaria à `0016`,
+que **reinscreve na fila de distribuição todo membro que o administrador
+removeu**, em todas as organizações, sem erro e sem registro em
+`lead_distribution_log`. Foi reconciliado em 31/08/2026; `db push --dry-run`
+responde `Remote database is up to date`. Confira com ele antes de qualquer
+operação de CLI contra produção.
 
 ### 2.3 Primeiro acesso + seeds demo
 1. Rode o app e acesse `/register` — crie sua conta e empresa. O funil padrão
