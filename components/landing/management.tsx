@@ -25,6 +25,9 @@ export function Management() {
             {MANAGEMENT.description}
           </p>
 
+          {/* Dois por linha no celular é o desenho da landing, já verificado:
+              são caixas curtas de métrica, e uma por linha esticaria a seção
+              sem acrescentar informação. */}
           <dl className="mt-10 grid grid-cols-2 gap-3">
             {MANAGEMENT.metrics.map((metric) => (
               <div

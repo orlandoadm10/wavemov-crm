@@ -212,7 +212,7 @@ export function InstanceSettings({
             subtitle={instanceId ? `ID informado pela API: ${instanceId}` : undefined}
             action={<Badge tone={st.tone} dot>{st.label}</Badge>}
           />
-          <div className="grid grid-cols-2 gap-2 p-5">
+          <div className="grid grid-cols-1 gap-2 p-5 sm:grid-cols-2">
             <Button variant="outline" onClick={testConnection} loading={busy === "status"}>
               <PlugZap className="h-4 w-4 text-primary-600" />
               Testar conexão

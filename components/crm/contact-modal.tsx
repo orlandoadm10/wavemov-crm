@@ -157,7 +157,11 @@ function ContactForm({
         <Field label="CPF/CNPJ">
           <Input {...register("document")} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        {/* Cidade + UF NÃO empilha: dar a linha inteira a um campo de dois
+            caracteres é pior que o aperto. Colunas assimétricas resolvem nas
+            duas pontas — a cidade fica com todo o espaço que sobra e a UF com o
+            que ela precisa. */}
+        <div className="grid grid-cols-[1fr_4.5rem] gap-3">
           <Field label="Cidade">
             <Input {...register("city")} />
           </Field>

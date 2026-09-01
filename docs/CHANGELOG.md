@@ -2,6 +2,43 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-01 — responsividade, lote 1: formulários no celular
+
+Primeiro lote do plano de responsividade (ver `HANDOFF.md`). Risco zero e
+independente da decisão de design que os demais lotes exigem.
+
+Eram onze `grid-cols-2` sem breakpoint, espremendo campos a ~160px em 375px.
+Cada um foi avaliado individualmente — **oito empilham, um virou assimétrico e
+dois ficaram como estavam**, com o motivo escrito no código para ninguém
+"corrigir" depois.
+
+### Empilham no celular (`grid-cols-1 sm:grid-cols-2`)
+
+`register`, `companies-client`, `people-client` (três pares), `forms-client`
+(funil + etapa), `instance-settings` (dois botões com ícone e rótulo longo) e
+`task-modal`.
+
+O `task-modal` é o único que **quebrava de verdade**: `datetime-local` tem
+largura intrínseca mínima — o navegador desenha data, hora e o seletor nativo —
+e transbordava a coluna. Os outros apertavam.
+
+### Assimétrico, não empilhado
+
+**Cidade + UF** (`contact-modal`) virou `grid-cols-[1fr_4.5rem]`. Dar a linha
+inteira a um campo de dois caracteres é pior que o aperto: a cidade fica com
+todo o espaço que sobra e a UF com o que precisa, em qualquer largura.
+
+### Mantidos em duas colunas, com o motivo no código
+
+- `forms-client:374` — botões curtos ("Link", "Editar") em `size="sm"`;
+  empilhar dois botões de largura total gastaria altura sem ganhar leitura.
+- `landing/management:28` — caixas de métrica da landing, desenho já verificado.
+
+### Gates
+
+`git diff --check` · `npx tsc --noEmit` · `npm run build` · `npm run test:unit`
+(139) — todos verdes.
+
 ## 2026-09-01 — carteira de leads: quem está esperando por nós
 
 O cliente pediu paginação na lista de últimos leads, ajuste de duplicatas, e uma
