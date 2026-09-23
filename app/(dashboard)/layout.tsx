@@ -1,5 +1,6 @@
+import { AppShell } from "@/components/layout/app-shell";
 import { AttentionProvider } from "@/components/layout/attention-provider";
-import { TopNav } from "@/components/layout/top-nav";
+import { SIDEBAR_COLLAPSED_COOKIE } from "@/components/layout/nav-links";
 import { seesAttention } from "@/lib/features/notifications/domain/attention";
 import {
   EMPTY_ATTENTION,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/features/notifications/infrastructure/attention-queries";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 
 export default async function DashboardLayout({
   children,
@@ -28,12 +30,14 @@ export default async function DashboardLayout({
   const scope = { profileId: session.profile.id, organizationId: session.organization.id };
   const attention = mostraAtencao ? await getAttention(supabase, scope) : EMPTY_ATTENTION;
 
+  // Lido no servidor para a primeira pintura já sair com a largura certa.
+  const sidebarCollapsed = (await cookies()).get(SIDEBAR_COLLAPSED_COOKIE)?.value === "1";
+
   return (
     <AttentionProvider initial={attention} scope={scope} enabled={mostraAtencao}>
-      <div className="min-h-screen">
-        <TopNav session={session} />
-        <main className="mx-auto max-w-[1600px] px-4 py-6">{children}</main>
-      </div>
+      <AppShell session={session} initialCollapsed={sidebarCollapsed}>
+        {children}
+      </AppShell>
     </AttentionProvider>
   );
 }

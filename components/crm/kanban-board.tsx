@@ -180,6 +180,10 @@ export function KanbanBoard({
         title: `Etapa alterada para "${newStage.name}"`,
       }),
     ]);
+    // A trigger da 0028 já gravou o evento; isto só faz as automações da
+    // etapa rodarem agora em vez de esperar o cron. Falha aqui não desfaz o
+    // movimento — o cron processa depois.
+    void fetch("/api/automations/dispatch", { method: "POST" }).catch(() => undefined);
     router.refresh();
   }
 

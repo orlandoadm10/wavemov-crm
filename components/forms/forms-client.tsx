@@ -371,6 +371,10 @@ export function FormsClient({
                   )}
                 </dl>
 
+                {/* Dois em cada linha mesmo no celular, de propósito: são
+                    botões curtos ("Link", "Editar") com `size="sm"`, e empilhar
+                    dois botões de largura total gastaria altura sem ganhar
+                    legibilidade. */}
                 <div className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-4">
                   <Button size="sm" onClick={() => copyLink(form)}>
                     {copied === form.id ? (
@@ -417,7 +421,7 @@ export function FormsClient({
                 onChange={(e) => setDescription(e.target.value)}
               />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Funil destino">
                 <Select value={pipelineId} onChange={(e) => setPipelineId(e.target.value)}>
                   {pipelines.map((p) => (

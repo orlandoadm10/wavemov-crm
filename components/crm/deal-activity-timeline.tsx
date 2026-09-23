@@ -26,7 +26,9 @@ export function DealActivityTimeline({ activities }: { activities: ActivityLog[]
                   ? "bg-rose-500 ring-rose-200"
                   : activity.type === "note"
                     ? "bg-amber-400 ring-amber-200"
-                    : "bg-primary-500 ring-primary-200"
+                    : activity.type.startsWith("ai_")
+                      ? "bg-violet-500 ring-violet-200"
+                      : "bg-primary-500 ring-primary-200"
             )}
           />
           <div className="min-w-0">

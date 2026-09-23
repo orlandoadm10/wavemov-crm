@@ -13,6 +13,12 @@ export type ConversationStatus = "open" | "pending" | "resolved" | "archived";
 export type InstanceStatus = "disconnected" | "connecting" | "qr" | "connected" | "error";
 export type MessageDirection = "inbound" | "outbound";
 export type MessageType = "text" | "image" | "audio" | "video" | "document" | "system";
+/** Quem escreveu a mensagem (migration 0027). */
+export type MessageSenderType = "contact" | "user" | "ai" | "automation" | "system";
+export type MessageDeliveryStatus = "pending" | "sent" | "delivered" | "read" | "failed";
+/** Quem conduz a conversa agora: o agente de IA ou a equipe (migration 0027). */
+export type HandlingMode = "ai" | "human";
+export type ChannelProvider = "uazapi" | "meta_cloud";
 export type DealTagTone =
   | "blue"
   | "green"
@@ -32,6 +38,13 @@ export interface Organization {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /**
+   * 0030. Opcionais porque o código sobe antes da migration: sem a coluna o
+   * `select *` simplesmente não os traz, e `undefined` vale como "já
+   * configurada" — ninguém fica preso no assistente por falta de migration.
+   */
+  onboarded_at?: string | null;
+  onboarding_steps?: Record<string, "done" | "skipped"> | null;
 }
 
 export interface Profile {
@@ -78,6 +91,8 @@ export interface PipelineStage {
   color: string;
   is_won_stage: boolean;
   is_lost_stage: boolean;
+  /** Etapa em que a IA nunca responde (migration 0027). */
+  requires_human?: boolean;
   created_at: string;
 }
 
@@ -123,6 +138,8 @@ export interface Deal {
   utm_term: string | null;
   temperature: Temperature;
   ai_status: AiStatus;
+  /** Dados extraídos pelo agente de IA (migration 0027). */
+  ai_qualification?: Record<string, unknown>;
   expected_close_date: string | null;
   won_at: string | null;
   lost_at: string | null;
@@ -255,6 +272,10 @@ export interface WhatsAppInstance {
   // Segredo do webhook desta instância (migration 0010). Server-only:
   // `toPublicInstance()` remove antes de qualquer prop de cliente.
   webhook_secret: string;
+  // API oficial da Meta (migration 0027).
+  phone_number_id?: string | null;
+  business_account_id?: string | null;
+  display_phone?: string | null;
   status: InstanceStatus;
   qr_code: string | null;
   last_connected_at: string | null;
@@ -275,6 +296,15 @@ export interface WhatsAppConversation {
   unread_count: number;
   last_message: string | null;
   last_message_at: string | null;
+  // Atendimento por IA e follow-up (migration 0027).
+  handling_mode?: HandlingMode;
+  ai_agent_id?: string | null;
+  handoff_reason?: string | null;
+  handoff_at?: string | null;
+  last_message_direction?: MessageDirection | null;
+  last_inbound_at?: string | null;
+  followup_count?: number;
+  last_followup_at?: string | null;
   created_at: string;
   updated_at: string;
   contact?: Contact | null;
@@ -295,6 +325,8 @@ export interface WhatsAppMessage {
   receiver_phone: string | null;
   raw_payload: Record<string, unknown>;
   sent_by: string | null;
+  sender_type?: MessageSenderType;
+  delivery_status?: MessageDeliveryStatus | null;
   created_at: string;
 }
 
@@ -312,7 +344,8 @@ export type ConversationThreadMessage = Pick<
   | "receiver_phone"
   | "sent_by"
   | "created_at"
->;
+> &
+  Partial<Pick<WhatsAppMessage, "sender_type" | "delivery_status">>;
 
 export interface QuickReply {
   id: string;
@@ -397,4 +430,137 @@ export interface SessionContext {
   organization: Organization;
   membership: OrganizationMember;
   organizations: Organization[];
+}
+
+// ============================================================
+// IA, automações e integrações (migrations 0026–0029)
+// ============================================================
+
+export interface QualificationField {
+  key: string;
+  label: string;
+  description?: string;
+}
+
+export interface AiAgent {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  is_default: boolean;
+  model: string;
+  temperature: number;
+  system_prompt: string;
+  enabled_tools: string[];
+  use_knowledge_base: boolean;
+  auto_reply_new_conversations: boolean;
+  reply_delay_seconds: number;
+  handoff_on_request: boolean;
+  handoff_on_legal: boolean;
+  handoff_on_uncertainty: boolean;
+  handoff_message: string | null;
+  qualification_fields: QualificationField[];
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type KnowledgeDocumentStatus = "pending" | "indexing" | "ready" | "error";
+
+export interface KnowledgeDocument {
+  id: string;
+  organization_id: string;
+  agent_id: string | null;
+  title: string;
+  source_type: "text" | "faq" | "url";
+  source_url: string | null;
+  content: string;
+  status: KnowledgeDocumentStatus;
+  error: string | null;
+  chunk_count: number;
+  indexed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AiRun {
+  id: string;
+  organization_id: string;
+  agent_id: string | null;
+  conversation_id: string | null;
+  deal_id: string | null;
+  trigger: "inbound" | "manual" | "automation" | "test";
+  status: "success" | "handoff" | "skipped" | "error";
+  input_text: string | null;
+  output_text: string | null;
+  tool_calls: { name: string; ok: boolean; summary?: string }[];
+  model: string | null;
+  prompt_tokens: number;
+  completion_tokens: number;
+  latency_ms: number | null;
+  error: string | null;
+  created_at: string;
+}
+
+export type AutomationTrigger =
+  | "deal.created"
+  | "deal.stage_changed"
+  | "deal.won"
+  | "deal.lost"
+  | "deal.assigned"
+  | "message.received"
+  | "conversation.no_reply";
+
+export interface AutomationCondition {
+  field: string;
+  op: "eq" | "neq" | "contains";
+  value: string;
+}
+
+export interface AutomationAction {
+  type: string;
+  config: Record<string, unknown>;
+}
+
+export interface AutomationRule {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  trigger_event: AutomationTrigger;
+  trigger_config: Record<string, unknown>;
+  conditions: AutomationCondition[];
+  actions: AutomationAction[];
+  run_count: number;
+  last_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AutomationRun {
+  id: string;
+  organization_id: string;
+  rule_id: string;
+  event_id: string | null;
+  deal_id: string | null;
+  conversation_id: string | null;
+  dedupe_key: string;
+  status: "success" | "partial" | "failed" | "skipped";
+  results: { type: string; status: string; error?: string }[];
+  error: string | null;
+  created_at: string;
+}
+
+export interface ApiToken {
+  id: string;
+  organization_id: string;
+  name: string;
+  token_prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
 }

@@ -10,7 +10,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/dashboard` | `app/(dashboard)/dashboard/page.tsx` | Métricas do funil: criadas/ganhas/perdidas, ticket, conversão, séries mensais, etapas, responsáveis, motivos de perda, UTMs |
 | `/negociacoes` | `app/(dashboard)/negociacoes/page.tsx` | Kanban com drag-and-drop, badges e filtro por tag, filtros de funil/status/responsável/ordem, busca |
 | `/negociacoes/[id]` | `app/(dashboard)/negociacoes/[id]/page.tsx` | Detalhe do lead: tags, stepper, tarefas, notas, **edição do contato vinculado** e histórico segmentado entre atividades e conversas |
-| `/tags` | `app/(dashboard)/tags/page.tsx` | **Catálogo de tags de negociação**, restrito a `org_admin`/admin global. Fora do menu superior: o acesso é pelo botão ao lado dos filtros de `/negociacoes` e pelo `/relatorios/tags` |
+| `/tags` | `app/(dashboard)/tags/page.tsx` | **Catálogo de tags de negociação**, restrito a `org_admin`/admin global. No menu lateral (Vendas → Tags) e pelo botão ao lado dos filtros de `/negociacoes` |
 | `/funis` | `app/(dashboard)/funis/page.tsx` | **Editor de etapas do funil** — fluxo com volume e retenção + CRUD de etapas |
 | `/relatorios` | `app/(dashboard)/relatorios/page.tsx` | **Relatório de entrada de leads** por período e formulário |
 | `/relatorios/ultimo-lead` | `app/(dashboard)/relatorios/ultimo-lead/page.tsx` | **Último lead recebido** com origem, respostas e timeline |
@@ -22,12 +22,16 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/empresas/[id]` | `app/(dashboard)/empresas/[id]/page.tsx` | **Resumo da empresa** — KPIs, saúde da conta, evolução de leads, últimos leads, pessoas |
 | `/contatos` | `app/(dashboard)/contatos/page.tsx` | CRUD de contatos com vínculo a negociações. O formulário é o `components/crm/contact-modal.tsx`, compartilhado com o detalhe do lead |
 | `/pessoas` | `app/(dashboard)/pessoas/page.tsx` | Equipe, papéis e criação de usuários (service role) |
-| `/distribuicao` | `app/(dashboard)/distribuicao/page.tsx` | **Distribuição automática de leads** — regras, participantes, pesos e auditoria (só `org_admin`). Fora do menu superior: o acesso é pelo botão ao lado dos filtros de `/negociacoes` e pelo `/relatorios/vendedores` |
+| `/distribuicao` | `app/(dashboard)/distribuicao/page.tsx` | **Distribuição automática de leads** — regras, participantes, pesos e auditoria (só `org_admin`). No menu lateral (Vendas → Distribuição) e pelo botão ao lado dos filtros de `/negociacoes` |
 | `/relatorios/vendedores` | `app/(dashboard)/relatorios/vendedores/page.tsx` | **Rendimento por vendedor** — distribuição, conversão, tarefas e notas |
 | `/relatorios/tags` | `app/(dashboard)/relatorios/tags/page.tsx` | **Métricas de tags** — totais, evolução e distribuição por responsável |
 | `/formularios` | `app/(dashboard)/formularios/page.tsx` | Construtor de formulários de captura + **painel de ingestão externa (n8n)**, restrito a `org_admin` |
 | `/perfil` | `app/(dashboard)/perfil/page.tsx` | Dados do usuário e completude do perfil |
 | `/admin` | `app/(dashboard)/admin/page.tsx` | Visão global (somente admin global) |
+| `/onboarding/{empresa,funil,equipe,whatsapp,ia,concluir}` | `app/onboarding/(etapas)/` | **Assistente de configuração inicial** (0030) — só `org_admin`/admin global. Ver "Configuração inicial" abaixo |
+| `/ia` | `app/(dashboard)/ia/page.tsx` | **Agentes de IA** (prompt, modelo, ferramentas do CRM, qualificação, regras de transferência), **base de conhecimento** (RAG) e **atividade** de cada turno. Só `org_admin`/admin global |
+| `/automacoes` | `app/(dashboard)/automacoes/page.tsx` | **Automações**: gatilho → condições → ações (WhatsApp, etapa, responsável, tag, tarefa, nota, temperatura, IA/humano, webhook) e **régua de follow-up**. Só `org_admin`/admin global |
+| `/integracoes` | `app/(dashboard)/integracoes/page.tsx` | **Tokens de API**, endpoints REST, configuração **MCP**, callback da Meta e relógio das automações. No menu lateral (Inteligência), só `org_admin`/admin global |
 
 ## Rotas públicas
 
@@ -36,10 +40,86 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/` | `app/page.tsx` | **Landing page pública** — hero com mock do Kanban, seis recursos, jornada do lead em quatro passos, dashboards e CTA final. Todo CTA aponta para `/login`. Visitante sem sessão fica aqui; o middleware manda quem já tem sessão para `/dashboard` |
 | `/login` | `app/(auth)/login/page.tsx` | Entrada no CRM |
 | `/register` | `app/(auth)/register/page.tsx` | Criação de conta |
-| `/onboarding` | `app/onboarding/page.tsx` | Primeiro acesso |
+| `/onboarding` | `app/onboarding/page.tsx` | Sem empresa: cria a primeira. Com empresa não configurada: leva ao primeiro passo pendente do assistente |
 | `/f/[slug]` | `app/f/[slug]/page.tsx` | Formulário público de captura |
 
+## APIs para integração (sem sessão; autenticação própria)
+
+| Rota | Autenticação | O que faz |
+|---|---|---|
+| `POST /api/webhooks/uazapi` | segredo da instância (0010) | Mensagens da UAZAPI → contato, conversa, lead, mensagem; depois IA e automações |
+| `GET/POST /api/webhooks/meta` | verify token = segredo da instância; `X-Hub-Signature-256` com `META_APP_SECRET` | API oficial da Meta: verificação, mensagens e status de entrega |
+| `/api/v1/contacts`, `/pipelines`, `/deals`, `/deals/:id`, `/messages`, `/tools/:nome` | `Authorization: Bearer jid_…` escopo `api` (0029) | REST para n8n e sistemas externos — mesmas ferramentas do MCP e da IA |
+| `POST /api/mcp` | `Bearer jid_…` escopo `mcp` | Servidor MCP (Streamable HTTP, sem estado): `initialize`, `tools/list`, `tools/call` |
+| `GET/POST /api/cron/automations` | `Bearer $CRON_SECRET` | Drena a fila de eventos de todas as empresas e roda a régua de follow-up |
+| `POST /api/automations/dispatch` | sessão (não é pública) | Drena a fila da empresa logada; chamada pelo Kanban após mover card |
+
+A organização sai SEMPRE da credencial (segredo, assinatura + `phone_number_id`,
+token) — nunca do corpo da requisição.
+
+## IA, automações e canais (0026–0029)
+
+**Turno do agente** (`lib/features/ai-agent/application/run-agent-turn.ts`):
+mensagem recebida → espera curta (o turno da mensagem mais nova vence) →
+gatilhos de transferência (pedido de humano, jurídico, etapa "Só humano") →
+modelo com ferramentas do CRM → gatilho de incerteza → resposta pelo canal →
+linha em `ai_runs`. Roda em `after()`, depois de o webhook responder.
+
+**Ferramentas do CRM** (`lib/features/crm-tools`): uma implementação por
+ferramenta, três portas (IA, MCP, API v1). No turno da IA o lead vem da
+conversa e vence o id do argumento.
+
+**Atendimento IA ↔ humano**: conversa nova começa com a IA quando há agente
+padrão ativo com "Assumir conversas novas". A equipe assume pelo botão do
+cabeçalho do chat, respondendo pela tela ou pelo celular (eco `fromMe` não
+reconhecido como envio nosso). Devolver à IA com o lead aguardando dispara um
+turno na hora.
+
+**Automações**: triggers Postgres gravam `crm_events` para TODO caminho de
+escrita (Kanban no navegador, detalhe, IA, API). O motor drena a fila no
+webhook, no Kanban (`/api/automations/dispatch`) e no cron. Idempotência por
+`automation_runs (rule_id, dedupe_key)`; antilaço de 60 s por regra/lead.
+
+**Follow-up**: gatilho `conversation.no_reply` com horas e passo. A régua
+avança em `whatsapp_conversations.followup_count` e recomeça quando o lead
+responde (trigger da 0027).
+
+**Canais**: `lib/features/channels/infrastructure/channel-gateway.ts` é a única
+porta de envio; escolhe UAZAPI ou Meta pelo `provider` da instância da
+conversa. Fora da janela de 24h a Meta só aceita template (ação "Enviar
+WhatsApp" aceita nome e idioma do template).
+
 ---
+
+## Navegação lateral e configuração inicial (23/09/2026)
+
+**Menu lateral** (`components/layout/app-shell.tsx`, `sidebar.tsx`,
+`nav-links.ts`) substitui o menu superior. Grupos: início (Dashboard,
+Tarefas), Vendas, Atendimento, Captação, Análise, Inteligência e Organização.
+Itens de administração (`/funis`, `/tags`, `/distribuicao`, WhatsApp, `/ia`,
+`/automacoes`, `/integracoes`, Configuração inicial) só aparecem para
+`org_admin`/admin global; `/admin` só para admin global. **A proteção continua
+nas rotas** — o menu apenas não leva ninguém a um beco. Os três badges de
+atenção foram mantidos com as mesmas regras.
+
+**Configuração inicial** (`/onboarding/*`, `lib/features/onboarding`):
+
+| Passo | O que grava | Observação |
+|---|---|---|
+| Empresa | `organizations.name`, `segment`, `logo_url` | Logo só `https://` |
+| Funil | `apply_onboarding_pipeline()` (0030) | 7 modelos por segmento, editáveis. Só troca o funil padrão **virgem** (sem negociação, formulário ou automação ligada a etapa); caso contrário manda para `/funis` |
+| Equipe | reutiliza `PeopleClient` / `createMemberAction` | |
+| WhatsApp | reutiliza `InstanceSettings` | |
+| IA | nada — leva a `/ia` | Mostra se há agente ativo e se a chave do provedor existe |
+| Concluir | `organizations.onboarded_at` | Resumo confere o que existe de fato, não só o que foi clicado |
+
+Cada passo grava `"done"` ou `"skipped"` em `organizations.onboarding_steps`.
+Quem cai no assistente: `org_admin` **membro** de empresa com
+`onboarded_at is null`, ao abrir `/dashboard` (destino do login). O gate não
+fica no layout para os atalhos do próprio assistente (`/ia`,
+`/atendimento/configuracoes`) não voltarem em círculo. Sem a `0030` aplicada,
+`onboarded_at` não existe e vale como "configurada": ninguém fica preso.
+Empresas existentes são marcadas como configuradas pela própria migration.
 
 ## Telas adicionadas nesta entrega
 
@@ -598,6 +678,10 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0002_forms_whatsapp.sql` | Formulários e WhatsApp |
 | `0003_rls.sql` | RLS completa por organização |
 | `0004_functions.sql` | Provisionamento e onboarding |
+| `0026_agentes_de_ia_e_base_de_conhecimento.sql` | `ai_agents`, `knowledge_documents`, `knowledge_chunks` (pgvector 1536 + HNSW), `ai_runs`, `match_knowledge_chunks` (só service_role) |
+| `0027_canais_e_atendimento_por_ia.sql` | Meta Cloud API em `whatsapp_instances`; modo IA/humano, handoff e follow-up em `whatsapp_conversations`; `sender_type`/`delivery_status` em mensagens; `pipeline_stages.requires_human`; `deals.ai_qualification`; trigger do estado da última mensagem |
+| `0028_eventos_e_automacoes.sql` | `crm_events` (fila), `automation_rules`, `automation_runs`, triggers de eventos em `deals` e `whatsapp_messages`, `claim_crm_events`/`requeue_stale_crm_events` (só service_role) |
+| `0029_tokens_de_api.sql` | `api_tokens` (SHA-256, escopos `api`/`mcp`, revogação sem delete) |
 | `0005_security.sql` | Endurecimento (tokens fora do alcance do cliente) |
 | `0006_api_grants.sql` | Grants da API |
 | `0007_reload_postgrest_schema.sql` | Recarrega o cache de schema do PostgREST |
@@ -671,7 +755,7 @@ Pré-requisito de `POST /api/ingest/leads`.
   244 bits), única, **revogada de `anon` e `authenticated`** e com RLS ligado
   sem policy nenhuma. Só `service_role` alcança. Não fica em `organizations`
   pelo mesmo motivo da `0010`: aquela tabela é lida com `select *` em
-  `getSessionContext()` e viaja inteira até `components/layout/top-nav.tsx`.
+  `getSessionContext()` e viaja inteira até `components/layout/app-shell.tsx`.
 - `form_submissions.external_event_id` + `source` — único parcial
   `(form_id, external_event_id)` e `check (source in ('public_form',
   'external_ingest'))`. A chave é o **par**, nunca o evento sozinho: fluxos
@@ -754,6 +838,13 @@ tornar padrão, excluir funil; criar, editar, reordenar e excluir etapas) é
 exclusiva de `org_admin` e do admin global.** `seller` e `agent` continuam
 usando o funil e movendo seus próprios leads entre etapas — inclusive pelo
 painel de atendimento —, mas não mudam a estrutura.
+
+Desde a `0026`–`0029`: **agentes de IA, base de conhecimento, automações e
+tokens de API são configurados só por `org_admin`/admin global.** `seller` e
+`agent` passam a conversa entre IA e equipe nas conversas que já acessam;
+`viewer` só acompanha. Trechos de conhecimento, turnos da IA, fila de eventos e
+execuções são escritos apenas pelo servidor (sem policy de escrita e com
+`revoke` para `authenticated`).
 
 ---
 

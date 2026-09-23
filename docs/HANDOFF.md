@@ -5,7 +5,7 @@ Leia este arquivo primeiro. As regras canônicas de trabalho estão em
 `docs/FUNCIONALIDADES.md` para contratos funcionais e `docs/CHANGELOG.md` para
 o histórico detalhado.
 
-**Atualizado em:** 31/08/2026
+**Atualizado em:** 22/09/2026
 
 **Versão:** `0.2.0`
 
@@ -21,10 +21,10 @@ o histórico detalhado.
 | `main` local | `d548975` — merge do PR #4, a saúde da entrada de leads |
 | `origin/main` | `d548975` |
 | Produção | `d548975` — deploy `https://wavemov-kmfkc2i2o-...`, `Ready` em 31/08/2026 |
-| Banco | migrations `0001` a `0024` aplicadas e registradas no ledger. **A `0025` está escrita e testada, aguardando aplicação** |
-| Diferença | `feat/carteira-de-leads` é o único código fora de `main`. Depende da `0025` |
+| Banco | migrations `0001` a `0025` aplicadas e registradas no ledger. `db push --dry-run` responde em dia |
+| Diferença | Nenhum código fora de `main`. Só o plano de responsividade, aguardando sinal do cliente |
 | WhatsApp | **Restaurado em 31/08.** URL nova colada no painel da UAZAPI; tráfego real dos dois lados confirmado no banco |
-| Ramo em uso | `feat/carteira-de-leads`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
+| Ramo em uso | `main`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
 
 O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
 deploy de produção automaticamente. O alias `https://wavemov-crm.vercel.app`
@@ -42,6 +42,82 @@ a `0020` ganhou prova em Postgres real, além do pglite.
 
 Isso importa: com o `.env.local` apontando para a nuvem, `npm run dev` escreve
 **nos dados reais do cliente**. Confira o arquivo antes de subir o app.
+
+## Menu lateral e configuração inicial — 23/09/2026
+
+Mesmo ramo (`feat/ia-automacoes-canais`), **não publicado e sem commit**.
+Detalhe em `docs/CHANGELOG.md` e `docs/FUNCIONALIDADES.md`; o que ainda
+aproveitar do DeskcommCRM está em `docs/ROADMAP_SUPERCRM.md`.
+
+- **A `0030` pode ser aplicada antes ou depois do deploy.** Sem ela o código
+  trata a empresa como configurada e o assistente não é oferecido (mas o menu
+  "Configuração inicial" leva a telas que avisam "migration 0030 pendente" ao
+  salvar). Aplicar na ordem 0026 → … → 0030 e registrar no ledger.
+- **Contratos:** o gate do assistente mora em `/dashboard`, não no layout (ver
+  FUNCIONALIDADES); `apply_onboarding_pipeline` só mexe em funil virgem; o
+  menu esconde, a rota protege.
+- **Não verificado em navegador:** o Supabase local estava desligado nesta
+  sessão. Fazer o passe de QA em 375/768/1440 no menu (aberto, recolhido,
+  gaveta) e percorrer o assistente com uma empresa nova antes de publicar.
+
+## IA, automações, API oficial da Meta, API v1 e MCP — 22/09/2026
+
+Ramo `feat/ia-automacoes-canais`, **não publicado**. Detalhe em
+`docs/CHANGELOG.md` e `docs/FUNCIONALIDADES.md`.
+
+### Ordem de publicação — não inverter
+
+1. **Aplicar 0026 → 0027 → 0028 → 0029 no painel**, uma por vez, registrando
+   cada uma no ledger no mesmo ato (ver README, "Sobre o `supabase db push`").
+   A 0026 cria a extensão `vector` no schema `extensions`. A 0027 faz um
+   `update` de backfill em `whatsapp_messages.sender_type` (não apaga nada).
+2. **Só então o deploy do código.** O código novo lê colunas da 0027
+   (`handling_mode`, `sender_type`) e insere em `crm_events`/`ai_runs`; sem as
+   migrations, o webhook da UAZAPI falharia ao gravar a conversa.
+3. Configurar as variáveis na Vercel (nomes em `.env.example`):
+   `AI_API_KEY` (+ `AI_BASE_URL`/`AI_DEFAULT_MODEL` se não for OpenAI),
+   `AI_EMBEDDING_*` se o provedor de chat não fizer embeddings,
+   `META_APP_SECRET` (só se usar a API oficial), `CRON_SECRET`.
+4. Agendar `/api/cron/automations` a cada 1–5 min no n8n (o `vercel.json`
+   agenda 1×/dia como rede de segurança, limite do plano Hobby).
+
+Sem `AI_API_KEY` nada quebra: agentes podem ser configurados, o turno fica
+registrado como "IA sem chave" e os gatilhos de transferência por regex
+continuam funcionando.
+
+### Contratos a preservar
+
+- **Toda escrita de servidor filtra `organization_id` de fonte confiável**
+  (segredo, assinatura + `phone_number_id`, token). Nenhuma rota nova aceita
+  organização do corpo.
+- **No turno da IA, o lead da conversa vence o id do argumento** da
+  ferramenta: o lead não pode convencer o modelo a mexer em outro cadastro.
+- **A mensagem enviada é gravada `pending` antes do provedor.** Tirar isso
+  faz o eco `fromMe` da UAZAPI tirar a conversa da IA a cada resposta dela.
+- **`getInstanceForOrg` ignora a instância `meta_cloud`**: ela alimenta a tela
+  da UAZAPI e o envio de conversas legadas. A instância da Meta é separada, não
+  uma conversão — trocar o provider da instância em uso mudaria o número de
+  saída de todas as conversas abertas.
+- **Trigger nunca faz HTTP.** `crm_events` é a fila; o servidor executa.
+- **`deals` continua fora do Realtime** (decisão de 31/08). O evento do
+  Kanban chega ao motor pela trigger + `/api/automations/dispatch`.
+
+### Riscos e débitos conhecidos
+
+- **Sem rate limit** nos turnos da IA e na API v1. Um lead (ou token) muito
+  ativo consome modelo sem teto. Próximo passo natural: limite por
+  conversa/token.
+- **Mídia da Meta** chega com o id no `raw_payload`, sem download para o
+  Storage: o atendente vê "[image]" sem a imagem.
+- **`crm_events` e `ai_runs` crescem sem retenção.** Mesmo débito já apontado
+  para `activity_logs`; decidir política antes da importação do Bubble.
+- **Templates da Meta**: a ação de automação envia template por nome/idioma,
+  sem parâmetros e sem sincronizar a lista aprovada da conta.
+- **LLM e embeddings não foram exercitados contra provedor real** nesta
+  sessão (sem chave no ambiente). O primeiro teste com chave deve olhar a aba
+  Atividade de `/ia`.
+- `app/api/webhooks/uazapi/route.ts` ainda carrega a resolução de organização
+  redundante com o segredo por instância (nota antiga no próprio arquivo).
 
 ## Entregas publicadas em 28/08/2026
 
@@ -469,16 +545,113 @@ aberto importado entra sem histórico e a carteira fica 100% vermelha no dia 1.
 Ou o import gera um marco de tratativa, ou a tela declara o corte. Registrar em
 `docs/MIGRACAO_BUBBLE_DOMINIO.md`.
 
+## Responsividade mobile — auditoria e plano, aguardando sinal
+
+Pedido do cliente em 01/09/2026: *"o app não está responsivo para celular"*.
+Auditei antes de mexer. **O trabalho é grande e não cabe numa sessão sem
+atropelo**, então aqui está o plano; nenhuma linha de código foi escrita ainda.
+
+### O que JÁ está correto — não refaça
+
+Metade do que parece quebrado é padrão deliberado e documentado:
+
+| Peça | Estado | Onde |
+|---|---|---|
+| `Modal` | bottom sheet no mobile, `max-h-[92dvh]`, `safe-area-inset` | `components/ui/modal.tsx:116,129` |
+| Gráficos | `ResponsiveContainer` em todos | `components/crm/dashboard-charts.tsx` |
+| Menu superior | hambúrguer abaixo de `lg` | `components/layout/top-nav.tsx` |
+| `/atendimento` | painéis alternados (`list`/`chat`/`info`) | `whatsapp-client.tsx:559-766` |
+| Kanban | colunas de 280px com scroll horizontal — **é o padrão certo** para kanban e está no guia (linha 439) | `kanban-board.tsx:357` |
+| `/funis` | fluxo horizontal com scroll, mesmo raciocínio | `pipeline-stages-client.tsx:763` |
+| `/relatorios/carteira` | cartões abaixo de `md` | feito em 01/09 |
+
+### O trabalho real, medido
+
+**1. Oito tabelas em scroll horizontal.** O `DataTable` tem `min-w-[640px]`; as
+duas tabelas cruas têm `min-w-[720px]` e `min-w-[760px]`. Em 375px, todas rolam.
+
+| Tela | Colunas | Prioridade |
+|---|---|---|
+| `seller-performance-table.tsx` | **10** | alta — o pior caso |
+| `companies-client.tsx` | 7 | alta |
+| `contacts-client.tsx` | 7 | alta — recém-paginada, é a mais usada |
+| `people-client.tsx` | 7 | média |
+| `distribution-audit-table.tsx` | 7 | média |
+| `leads-report-table.tsx` (`<table>` cru) | 7 | média |
+| `admin-client.tsx` | 6 | baixa — admin global |
+| `/relatorios/tags` (`<table>` cru) | 2 | nenhuma — já cabe |
+
+**2. Onze `grid-cols-2` sem breakpoint.** Campos de formulário lado a lado em
+375px ficam com ~160px cada. É o item mais barato do plano: uma linha por
+ocorrência (`grid-cols-1 sm:grid-cols-2`).
+
+`register`, `companies-client:273`, `contact-modal:160`, `people-client:157,168,176`,
+`task-modal:126`, `forms-client:374,420`, `instance-settings:215`,
+`landing/management:28`.
+
+### A decisão de design que precede o código
+
+**O `DESIGN_GUIDE` se contradiz e precisa de emenda antes de qualquer tabela
+ser tocada:**
+
+- linha 224: *"Container: scroll horizontal no mobile"*
+- linha 482: *"Listagens principais: tabelas responsivas ou cards em grid"*
+
+A carteira de leads criou o precedente (cartões abaixo de `md`) com um motivo
+específico: **a coluna que ordena é a primeira, e o scroll a esconde quando o
+dedo empurra**. Esse motivo não vale para toda tabela — numa lista sem
+ordenação por urgência, o scroll é honesto e muito mais barato.
+
+Critério proposto, a ser confirmado e escrito no guia:
+
+> Vira cartão quando a informação que **decide a ação** está na primeira coluna
+> ou depende de comparar duas colunas distantes. Continua tabela com scroll
+> quando é consulta e o usuário procura uma linha específica.
+
+Por esse critério: `seller-performance` (comparação entre colunas) e `contatos`
+(ação por linha) viram cartão; `admin` e `distribution-audit` continuam tabela.
+
+### Lotes sugeridos, em ordem
+
+1. **Os onze `grid-cols-2`** — uma sessão curta, risco zero, ganho imediato em
+   todo formulário do produto. Pode ir sozinho, sem depender da decisão acima.
+2. **Emenda ao `DESIGN_GUIDE`** com o critério, mais o débito de contraste
+   abaixo. Sem isso, cada tabela vira uma decisão nova e elas divergem.
+3. **Cartões nas tabelas de prioridade alta** (`seller-performance`,
+   `companies`, `contatos`), reaproveitando o padrão da carteira: duas
+   apresentações, **um** cálculo — `components/crm/lead-portfolio-table.tsx`
+   mostra a forma, com `avaliar()` compartilhado entre tabela e cartão.
+4. **Prioridade média**, se o uso justificar.
+5. **Passo de QA em 375 / 768 / 1440** nas 26 rotas. É o que fecha o pedido —
+   sem ele a entrega é "mexi nas telas que eu lembrei".
+
+### Débito de acessibilidade que aparece junto
+
+O `DESIGN_GUIDE` define o badge de não lidas do atendimento como `emerald-500`
+com texto branco: **~2,5:1, reprova AA** até para texto grande, e ali é 10px. O
+`CountBadge` do menu já usa `primary-600` (~5,2:1) por causa disso. Corrigir é
+emenda ao guia, não desvio silencioso — entra no lote 2.
+
+### Riscos
+
+- **Cartão que esconde coluna vira defeito de dado.** A tabela mostra 7 campos;
+  o cartão mostra 4. Os 3 que sobram precisam ser decisão explícita, não corte
+  por espaço — foi o cuidado que a carteira tomou.
+- **Duas apresentações, dois cálculos.** O risco real da duplicação não é a
+  marcação, é a lógica: tabela e cartão dizendo coisas diferentes sobre a mesma
+  linha na primeira mudança de regra.
+- **Sem CI (débito 1)**, nada disso tem gate automático. O QA de larguras é
+  manual e precisa estar no roteiro.
+
 ## Próxima sessão
 
 Em ordem de risco. O item 1 é o único que tem cliente esperando; o 2 conclui a
 validação da publicação; o 3 é o que mais reduz risco de acidente; do 4 em
 diante é dívida e produto.
 
-1. **Aplicar a `0025` e publicar `feat/carteira-de-leads`.** A migration é
-   aditiva (RPC + índice) e precisa entrar **antes** do deploy, senão a tela
-   chama uma função que não existe. Registre a linha no ledger no mesmo ato.
-   Publicado isso,
+1. **Responsividade mobile** — o plano está na seção acima e **aguarda sinal do
+   cliente**. O lote 1 (onze `grid-cols-2`) pode sair sozinho, sem depender da
+   decisão de design. Antes ou depois disso,
    o smoke que nunca houve das `0010/0011`: receber e responder pela mesma
    instância, transferir responsável, conferir isolamento de `seller`/`agent` e
    visão consolidada de `org_admin`.
@@ -634,9 +807,14 @@ cliente.
 - **O ledger está em dia desde 31/08/2026** (`0001..0024`), e `db push
   --dry-run` responde `Remote database is up to date`. A armadilha de reaplicar
   `0009..0024` sobre um schema que já as tem foi desarmada.
-- **Isso só continua verdade se cada aplicação manual registrar a linha.** O
-  fluxo permanece manual — o cliente aplica pelo SQL Editor — então o passo
-  final de toda migration é:
+- **Isso só continua verdade se cada aplicação manual registrar a linha** — e
+  **já falhou uma vez**: a `0025` foi aplicada em 01/09 sem a linha do ledger, na
+  PRIMEIRA migration depois da reconciliação. Foi corrigido no mesmo dia, mas a
+  fragilidade é real: enquanto aplicar e registrar forem dois atos separados,
+  vai voltar a acontecer. **Ideia para eliminar o passo humano:** colar o
+  `insert` do ledger no rodapé de cada arquivo de migration, para que copiar o
+  arquivo inteiro já registre. O fluxo permanece manual, então o passo final de
+  toda migration é:
 
   ```sql
   insert into supabase_migrations.schema_migrations (version, name)

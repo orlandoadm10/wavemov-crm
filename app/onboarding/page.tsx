@@ -1,46 +1,53 @@
-"use client";
+import { CreateOrganizationForm } from "@/components/onboarding/create-organization-form";
+import {
+  needsOnboarding,
+  nextPendingStep,
+  parseOnboardingProgress,
+} from "@/lib/features/onboarding/domain/steps";
+import { getSessionContext } from "@/lib/services/session";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
-import { createOrgAction } from "../(auth)/actions";
-import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/input";
-import { Waves } from "lucide-react";
-import { useActionState } from "react";
+export const dynamic = "force-dynamic";
 
-// Usuário autenticado mas sem organização: cria a primeira empresa.
-export default function OnboardingPage() {
-  const [state, formAction, pending] = useActionState(createOrgAction, null);
+/**
+ * Porta de entrada do onboarding. Duas situações:
+ *
+ * - sem empresa: cria a primeira (é para cá que `getSessionContext` manda). Não
+ *   pode chamar `getSessionContext` antes de saber disso — ela redirecionaria
+ *   de volta para esta mesma rota;
+ * - com empresa ainda não configurada: segue para o primeiro passo pendente.
+ */
+export default async function OnboardingIndexPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
-      <div className="animate-fade-up w-full max-w-md rounded-2xl border border-line bg-white p-8 shadow-(--shadow-card)">
-        <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-600 text-white">
-          <Waves className="h-6 w-6" />
-        </span>
-        <h1 className="text-xl font-bold text-ink">Bem-vindo(a)! 👋</h1>
-        <p className="mt-1 text-sm text-ink-faint">
-          Para começar, crie sua empresa. Um funil padrão com etapas será
-          configurado automaticamente.
-        </p>
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, is_global_admin")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (!profile) redirect("/login");
 
-        <form action={formAction} className="mt-6 space-y-4">
-          <Field label="Nome da empresa">
-            <Input name="organization_name" placeholder="Minha Corretora" required />
-          </Field>
-          <Field label="Segmento (opcional)">
-            <Input name="segment" placeholder="Ex.: Plano de Saúde" />
-          </Field>
+  const { count } = await supabase
+    .from("organization_members")
+    .select("id", { count: "exact", head: true })
+    .eq("profile_id", profile.id)
+    .eq("is_active", true);
 
-          {state?.error && (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              {state.error}
-            </p>
-          )}
+  if (!count && !profile.is_global_admin) return <CreateOrganizationForm />;
 
-          <Button type="submit" className="w-full" size="lg" loading={pending}>
-            Criar empresa e começar
-          </Button>
-        </form>
-      </div>
-    </div>
-  );
+  const session = await getSessionContext();
+  const pending = needsOnboarding({
+    onboardedAt: session.organization.onboarded_at,
+    isOrgAdminMember:
+      session.membership.role === "org_admin" || session.profile.is_global_admin,
+  });
+  if (!pending) redirect("/dashboard");
+
+  const next = nextPendingStep(parseOnboardingProgress(session.organization.onboarding_steps));
+  redirect(next ? `/onboarding/${next}` : "/onboarding/concluir");
 }

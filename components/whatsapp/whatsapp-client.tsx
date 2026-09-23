@@ -29,9 +29,11 @@ import type {
   WhatsAppMessage,
 } from "@/types";
 import { DealStagePicker } from "@/components/whatsapp/deal-stage-picker";
+import { HandlingModeControl, HandoffNotice } from "@/components/whatsapp/handling-mode-control";
 import { LeadInfoPanel } from "@/components/whatsapp/lead-info-panel";
 import { MessageThread } from "@/components/whatsapp/message-thread";
 import {
+  Bot,
   ArrowLeft,
   ArrowRightLeft,
   CheckCircle2,
@@ -630,8 +632,11 @@ export function WhatsAppClient({
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-xs text-ink-faint">
-                        {c.last_message ?? "Sem mensagens"}
+                      <p className="flex min-w-0 items-center gap-1 truncate text-xs text-ink-faint">
+                        {c.handling_mode === "ai" && (
+                          <Bot className="h-3.5 w-3.5 shrink-0 text-violet-600" aria-label="Atendida pela IA" />
+                        )}
+                        <span className="truncate">{c.last_message ?? "Sem mensagens"}</span>
                       </p>
                       {c.unread_count > 0 && (
                         <span className="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-white">
@@ -685,6 +690,11 @@ export function WhatsAppClient({
                 >
                   <Info className="h-4.5 w-4.5" />
                 </button>
+                <HandlingModeControl
+                  conversationId={selected.id}
+                  mode={selected.handling_mode ?? "human"}
+                  canManage={canManageDeal}
+                />
                 {canManageDeal && (
                   <Button
                     variant={selected.status === "resolved" ? "secondary" : "outline"}
@@ -705,6 +715,7 @@ export function WhatsAppClient({
 
               {/* Composer */}
               <div className="border-t border-line p-3">
+                <HandoffNotice mode={selected.handling_mode ?? "human"} reason={selected.handoff_reason} />
                 {sendError && (
                   <p className="mb-2 rounded-lg bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
                     {sendError}

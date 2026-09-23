@@ -329,17 +329,31 @@
 - Container do header: max-width 1600px, padding horizontal 16px
 - Main: max-width 1600px, padding horizontal 16px, padding vertical 24px
 
-### Navegação superior
+### Navegação lateral
 
-- Logo fallback: 32px x 32px, radius 12px, background #2563eb, ícone branco
-- Nome da organização: 14px, peso 700, #0f172a
-- Link desktop: radius 8px, padding 12px x 8px, texto 14px, peso 500
-- Link ativo: background #eff6ff, texto #1d4ed8, ícone #2563eb
-- Link inativo: texto #475569, ícone #94a3b8
-- Link hover: background #f8fafc, texto #0f172a
-- Badge de tarefas: altura 20px, min-width 20px, background #2563eb, texto 10px, peso 700, branco
-- Menu mobile: aparece abaixo do header, background branco, border-top #e6eaf2
-- Link mobile: padding 16px x 12px
+Desde 23/09/2026 a navegação principal é uma barra lateral
+(`components/layout/app-shell.tsx`, `sidebar.tsx`); o catálogo de itens,
+grupos e permissões fica em `components/layout/nav-links.ts`. O menu superior
+foi aposentado: comportava ~10 itens e obrigava a esconder telas atrás de
+botões.
+
+- Largura: 240px aberta, 64px recolhida (trilho só com ícones); `sticky`,
+  altura da tela, background #ffffff, border-right #e6eaf2
+- Preferência "recolhida" em cookie (`wavemov-sidebar-collapsed`), lida no
+  servidor para a primeira pintura não saltar
+- Topo da barra: 56px, logo da organização (ou fallback 32px, radius 12px,
+  #2563eb, ícone branco) + nome 14px peso 700
+- Grupo: rótulo 11px, peso 600, uppercase, #94a3b8, recolhível (preferência
+  por navegador em `localStorage`); o primeiro grupo não tem rótulo
+- Link: radius 8px, padding 12px x 8px, texto 14px, peso 500, ícone 16px
+- Link ativo: background #eff6ff, texto #1d4ed8, ícone #2563eb, `aria-current="page"`
+- Link inativo: texto #475569, ícone #94a3b8; hover background #f8fafc, texto #0f172a
+- Badges de atenção: `CountBadge` à direita do rótulo; no trilho, no canto do ícone
+- Rodapé: botão "Recolher menu"
+- Abaixo de `lg` (1024px): a barra some e vira gaveta à esquerda (288px,
+  overlay #0f172a a 40%, fecha com Esc, clique fora ou ao navegar)
+- Barra superior: 56px, só conta (menu do usuário com perfil, troca de
+  empresa e sair) e, no celular, o botão da gaveta e o nome da empresa
 
 ### Header de página
 

@@ -154,7 +154,7 @@ export function PeopleClient({
       >
         <form action={formAction} className="space-y-4">
           <input type="hidden" name="organization_id" value={organizationId} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Nome">
               <Input name="first_name" required />
             </Field>
@@ -165,7 +165,7 @@ export function PeopleClient({
           <Field label="E-mail">
             <Input name="email" type="email" required />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Telefone">
               <Input name="phone" />
             </Field>
@@ -173,7 +173,7 @@ export function PeopleClient({
               <Input name="job_title" placeholder="Ex.: Vendedor" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Papel / permissão">
               <Select name="role" defaultValue="seller">
                 <option value="org_admin">Admin da empresa</option>

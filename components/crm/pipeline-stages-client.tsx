@@ -418,6 +418,26 @@ export function PipelineStagesClient({
     router.refresh();
   }
 
+  // Etapa em que a IA nunca responde (migration 0027): o lead que chega nela
+  // passa para a equipe no próximo turno do agente.
+  async function toggleRequiresHuman(stage: PipelineStage) {
+    const next = !stage.requires_human;
+    setStages((prev) => prev.map((s) => (s.id === stage.id ? { ...s, requires_human: next } : s)));
+    const { data, error: err } = await supabase
+      .from("pipeline_stages")
+      .update({ requires_human: next })
+      .eq("id", stage.id)
+      .select("id")
+      .maybeSingle();
+    if (err || !data) {
+      setError("Não foi possível alterar o atendimento da etapa.");
+      setStages(serverStages);
+      return;
+    }
+    flash(stage.id);
+    router.refresh();
+  }
+
   async function copyId(id: string) {
     try {
       await navigator.clipboard.writeText(id);
@@ -913,6 +933,20 @@ export function PipelineStagesClient({
                       )}
                     >
                       Perdido
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleRequiresHuman(stage)}
+                      aria-pressed={Boolean(stage.requires_human)}
+                      title="Nesta etapa a IA não responde: a conversa passa para a equipe"
+                      className={cn(
+                        "rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset transition-colors",
+                        stage.requires_human
+                          ? "bg-violet-50 text-violet-700 ring-violet-100"
+                          : "bg-white text-ink-faint ring-line hover:text-violet-700"
+                      )}
+                    >
+                      Só humano
                     </button>
                   </>
                 ) : (

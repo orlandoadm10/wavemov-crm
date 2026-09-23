@@ -1,9 +1,12 @@
-import { resolveLeadResponsible } from "@/lib/features/lead-distribution/application/resolve-lead-responsible";
-import { recordDistribution } from "@/lib/features/lead-distribution/infrastructure/distribution-queries";
+import { scheduleInboundFollowUp } from "@/lib/features/whatsapp-inbound/application/after-inbound";
+import { ingestInboundMessage } from "@/lib/features/whatsapp-inbound/application/ingest-inbound-message";
 import { extractInstanceRefs, normalizeWebhookMessage } from "@/lib/services/uazapi";
 import { secretsMatch } from "@/lib/services/webhook-secret";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+
+// O turno da IA roda em `after()` na mesma invocação.
+export const maxDuration = 60;
 
 // ============================================================
 // POST /api/webhooks/uazapi?org=<organization_id>&secret=<segredo>
@@ -11,11 +14,9 @@ import { NextResponse } from "next/server";
 // Recebe mensagens da UAZAPI:
 // 1. Autentica pelo segredo da instância (whatsapp_instances.webhook_secret)
 // 2. Normaliza o payload (formatos variam entre versões)
-// 3. Cria/atualiza contato pelo telefone
-// 4. Cria conversa se não existir
-// 5. Salva a mensagem
-// 6. Cria lead automático na primeira etapa do funil (inbound novo)
-// 7. Registra atividade no histórico do lead
+// 3. Registra contato, conversa, lead, mensagem e histórico
+//    (lib/features/whatsapp-inbound — mesma regra do webhook da Meta)
+// 4. Depois da resposta: turno do agente de IA e fila de automações
 // ============================================================
 export async function POST(request: Request) {
   const url = new URL(request.url);
@@ -55,6 +56,8 @@ export async function POST(request: Request) {
     .from("whatsapp_instances")
     .select("id, organization_id, webhook_secret")
     .eq("webhook_secret", presentedSecret)
+    // O segredo de uma instância da Meta (0027) é verify token de outra rota.
+    .neq("provider", "meta_cloud")
     .maybeSingle();
 
   // Sem a 0010 aplicada a coluna não existe e a consulta falha: o webhook
@@ -207,307 +210,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, skipped: true });
   }
 
-  const phone = msg.fromMe ? (msg.toPhone ?? msg.fromPhone) : msg.fromPhone;
-
-  // ---------- Contato ----------
-  //
-  // AQUI NASCEU O PIOR DEFEITO DE DADOS QUE ESTE PROJETO TEVE: 246 contatos
-  // para 59 telefones, um deles com 118 cópias — uma por mensagem trocada.
-  //
-  // O laço: `maybeSingle()` **falha quando encontra mais de uma linha** (a lib
-  // devolve `data: null` com `PGRST116`). O erro era descartado na
-  // desestruturação, então duas linhas viravam `contact === null`, o `insert`
-  // criava a terceira, e a terceira garantia que a próxima mensagem também
-  // caísse no `insert`. Cada mensagem, nas duas direções, somava um contato.
-  //
-  // A porta de entrada foi a ausência de índice único em
-  // `(organization_id, whatsapp_phone)` — a `0024` fecha isso. A prova por
-  // contraste está nas duas tabelas irmãs logo abaixo: `whatsapp_conversations`
-  // e `whatsapp_messages` usam o MESMO `maybeSingle()` neste mesmo arquivo e
-  // nunca duplicaram, porque a `0002` e a `0011` lhes deram índice único.
-  //
-  // Por que `limit(1)` e não `maybeSingle()`, nem `upsert`:
-  // - `limit(1)` nunca erra por multiplicidade, então tolera as duplicatas que
-  //   ainda existirem quando este código subir — e ele PRECISA subir antes da
-  //   `0024`, senão o índice novo faz o `insert` devolver 23505 e a conversa
-  //   nasce sem contato (ver o cabeçalho da migration);
-  // - `order("created_at")` torna a escolha determinística. Sem ele o Postgres
-  //   pode devolver linhas diferentes a cada chamada e o mesmo lead migraria de
-  //   contato entre uma mensagem e outra;
-  // - `upsert` com `on conflict do update` sobrescreveria `name` a cada
-  //   mensagem, apagando com o nome de push do WhatsApp a correção que o
-  //   vendedor fez à mão. Trocaria duplicação por perda silenciosa de dado.
-  const { data: encontrados, error: contactLookupError } = await admin
-    .from("contacts")
-    .select("id, name")
-    .eq("organization_id", organizationId)
-    .eq("whatsapp_phone", phone)
-    .order("created_at", { ascending: true })
-    .limit(1);
-
-  if (contactLookupError) {
-    console.error("[uazapi-webhook] falha ao procurar o contato", contactLookupError);
-    return NextResponse.json({ error: "Falha ao registrar o contato." }, { status: 500 });
-  }
-
-  // Tipo explícito: sem ele o TypeScript infere o formato da primeira linha e
-  // passa a recusar `null` nas reatribuições abaixo.
-  type ContactRow = { id: string; name: string | null };
-  let contact: ContactRow | null = (encontrados?.[0] as ContactRow | undefined) ?? null;
-
-  if (!contact) {
-    const { data: created, error: createError } = await admin
-      .from("contacts")
-      .insert({
-        organization_id: organizationId,
-        name: msg.senderName ?? `WhatsApp +${phone}`,
-        whatsapp_phone: phone,
-        phone: `+${phone}`,
-      })
-      .select("id, name")
-      .single();
-
-    if (createError) {
-      // 23505 = a corrida que criou a primeira duplicata em 25/08. Com o índice
-      // da 0024 ela passa a ser recusada pelo banco em vez de gravada: quem
-      // perdeu a corrida reconsulta e usa a linha do vencedor.
-      if (createError.code === "23505") {
-        const { data: vencedor } = await admin
-          .from("contacts")
-          .select("id, name")
-          .eq("organization_id", organizationId)
-          .eq("whatsapp_phone", phone)
-          .order("created_at", { ascending: true })
-          .limit(1);
-        contact = (vencedor?.[0] as ContactRow | undefined) ?? null;
-      } else {
-        console.error("[uazapi-webhook] falha ao criar o contato", createError);
-      }
-    } else {
-      contact = created as ContactRow;
-    }
-  }
-
-  if (!contact) {
-    // Seguir sem contato gravaria conversa e lead órfãos — o estado que o
-    // reparo de dados NÃO consegue desfazer sozinho, porque não sobra telefone
-    // em lugar nenhum para reconciliar depois.
-    return NextResponse.json({ error: "Falha ao registrar o contato." }, { status: 500 });
-  }
-
-  // ---------- Conversa ----------
-  let { data: conversation } = await admin
-    .from("whatsapp_conversations")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .eq("instance_id", instanceId)
-    .eq("phone", phone)
-    .maybeSingle();
-
-  // Conversas anteriores à 0010 não guardavam a instância. Reaproveita a
-  // única linha legada e a vincula à instância autenticada; uma mensagem que
-  // chegar por outra instância criará outra conversa para o mesmo lead.
-  if (!conversation && instanceId) {
-    const { data: legacyConversation } = await admin
-      .from("whatsapp_conversations")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .is("instance_id", null)
-      .eq("phone", phone)
-      .maybeSingle();
-
-    if (legacyConversation) {
-      const { data: migratedConversation } = await admin
-        .from("whatsapp_conversations")
-        .update({ instance_id: instanceId })
-        .eq("id", legacyConversation.id)
-        .eq("organization_id", organizationId)
-        .select("*")
-        .single();
-      conversation = migratedConversation;
-    }
-  }
-
-  if (!conversation) {
-    // A instância vem do segredo que autenticou a requisição — não de um
-    // `.limit(1)` na organização. Uma empresa pode ter mais de um atendente
-    // conectado, e "a primeira instância da empresa" faria a resposta sair
-    // pelo número errado (ver `app/api/uazapi/send/route.ts`).
-    const { data: created } = await admin
-      .from("whatsapp_conversations")
-      .insert({
-        organization_id: organizationId,
-        instance_id: instanceId,
-        contact_id: contact?.id ?? null,
-        phone,
-        name: msg.senderName ?? contact?.name ?? `+${phone}`,
-        status: "open",
-      })
-      .select("*")
-      .single();
-    conversation = created;
-  }
-
-  if (!conversation) {
-    return NextResponse.json({ error: "Falha ao criar conversa." }, { status: 500 });
-  }
-
-  // ---------- Lead automático (só para mensagens recebidas) ----------
-  let dealId = conversation.deal_id as string | null;
-  if (!dealId && !msg.fromMe) {
-    const { data: openDeal } = await admin
-      .from("deals")
-      .select("id")
-      .eq("organization_id", organizationId)
-      .eq("contact_id", contact.id)
-      .eq("status", "open")
-      .limit(1)
-      .maybeSingle();
-
-    if (openDeal) {
-      dealId = openDeal.id;
-    } else {
-      // Funil padrão explícito (migration 0012). Antes era "o mais antigo por
-      // created_at", que mudava de significado assim que a empresa criava um
-      // segundo funil. A 0012 garante exatamente um padrão por organização.
-      const { data: pipeline } = await admin
-        .from("pipelines")
-        .select("id")
-        .eq("organization_id", organizationId)
-        .eq("is_default", true)
-        .maybeSingle();
-
-      if (!pipeline) {
-        console.error("[uazapi] Organização sem funil padrão", { organizationId });
-      }
-
-      if (pipeline) {
-        const { data: firstStage } = await admin
-          .from("pipeline_stages")
-          .select("id")
-          .eq("pipeline_id", pipeline.id)
-          .eq("is_won_stage", false)
-          .eq("is_lost_stage", false)
-          .order("order_index")
-          .limit(1)
-          .maybeSingle();
-
-        if (firstStage) {
-          // Quem atende este lead (migration 0016). Antes o insert nem passava
-          // `responsible_id`: o lead nascia órfão e, pela policy da 0011,
-          // ficava invisível para todo seller e agent — e o trigger da mesma
-          // migration copiava o nulo para `conversations.assigned_to`, de modo
-          // que a conversa sumia junto. Não havia caminho de recuperação além
-          // de o administrador abrir lead por lead.
-          const distribuicao = await resolveLeadResponsible({
-            admin,
-            organizationId,
-            lead: { origin: "whatsapp", formId: null },
-          });
-
-          const { data: deal, error: dealError } = await admin
-            .from("deals")
-            .insert({
-              organization_id: organizationId,
-              pipeline_id: pipeline.id,
-              stage_id: firstStage.id,
-              contact_id: contact?.id ?? null,
-              responsible_id: distribuicao.responsibleId,
-              title: contact?.name ?? `Lead WhatsApp +${phone}`,
-              source: "WhatsApp Direto",
-              temperature: "warm",
-              ai_status: "qualifying",
-            })
-            .select("id")
-            .single();
-
-          if (dealError) {
-            console.error("[uazapi] falha ao criar lead da conversa", dealError);
-          }
-          dealId = deal?.id ?? null;
-
-          if (dealId) {
-            await recordDistribution(admin, organizationId, dealId, distribuicao.audit);
-
-            // A mesma linha de histórico que as outras duas origens gravam.
-            // Sem ela, o vendedor que recebe um lead de WhatsApp vê o card
-            // aparecer na fila dele sem nenhuma explicação — e, pelas outras
-            // origens, vê.
-            if (distribuicao.responsibleId && distribuicao.audit.reason === "rule_matched") {
-              await admin.from("activity_logs").insert({
-                organization_id: organizationId,
-                deal_id: dealId,
-                type: "lead_assigned",
-                title: `Lead distribuído para ${distribuicao.audit.assignedToName ?? "responsável"}`,
-                description: distribuicao.audit.ruleName
-                  ? `Regra: ${distribuicao.audit.ruleName}`
-                  : null,
-              });
-            }
-          }
-        }
-      }
-    }
-
-    if (dealId && !conversation.deal_id) {
-      await admin
-        .from("whatsapp_conversations")
-        .update({ deal_id: dealId })
-        .eq("id", conversation.id)
-        .eq("organization_id", organizationId);
-    }
-  }
-
-  // ---------- Mensagem (idempotente por provider_message_id) ----------
-  const preview = msg.content ?? `[${msg.messageType}]`;
-
-  // Idempotência: ignora mensagens já processadas
-  if (msg.providerMessageId) {
-    const { data: existing } = await admin
-      .from("whatsapp_messages")
-      .select("id")
-      .eq("organization_id", organizationId)
-      .eq("conversation_id", conversation.id)
-      .eq("provider_message_id", msg.providerMessageId)
-      .maybeSingle();
-    if (existing) return NextResponse.json({ ok: true, duplicate: true });
-  }
-
-  await admin.from("whatsapp_messages").insert({
-    organization_id: organizationId,
-    conversation_id: conversation.id,
-    provider_message_id: msg.providerMessageId,
-    direction: msg.fromMe ? "outbound" : "inbound",
-    message_type: msg.messageType,
-    content: msg.content,
-    media_url: msg.mediaUrl,
-    sender_phone: msg.fromMe ? null : phone,
-    receiver_phone: msg.fromMe ? phone : null,
-    raw_payload: payload,
+  // Contato, conversa, lead, mensagem e histórico: regra única, compartilhada
+  // com o webhook da Meta (ver `ingestInboundMessage`).
+  const result = await ingestInboundMessage(admin, {
+    organizationId,
+    instanceId,
+    message: msg,
+    rawPayload: payload,
   });
-
-  await admin
-    .from("whatsapp_conversations")
-    .update({
-      last_message: preview.slice(0, 300),
-      last_message_at: new Date().toISOString(),
-      status: conversation.status === "resolved" ? "open" : conversation.status,
-      unread_count: msg.fromMe ? conversation.unread_count : (conversation.unread_count ?? 0) + 1,
-      name: conversation.name ?? msg.senderName ?? null,
-    })
-    .eq("id", conversation.id)
-    .eq("organization_id", organizationId);
-
-  if (dealId && !msg.fromMe) {
-    await admin.from("activity_logs").insert({
-      organization_id: organizationId,
-      deal_id: dealId,
-      contact_id: contact?.id ?? null,
-      type: "whatsapp_inbound",
-      title: "Mensagem WhatsApp recebida",
-      description: preview.slice(0, 200),
-    });
+  if (result.status === "error") {
+    return NextResponse.json({ error: result.error }, { status: result.httpStatus });
   }
 
-  return NextResponse.json({ ok: true });
+  // IA e automações rodam DEPOIS da resposta: a UAZAPI não espera o turno do
+  // agente, e um timeout aqui a faria reenviar a mensagem.
+  scheduleInboundFollowUp(organizationId, result);
+
+  return NextResponse.json({ ok: true, duplicate: result.status === "duplicate" || undefined });
 }

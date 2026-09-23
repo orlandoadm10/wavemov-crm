@@ -123,7 +123,11 @@ export function TaskModal({
         <Field label="Descrição">
           <Textarea placeholder="Detalhes da tarefa (opcional)" {...register("description")} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        {/* Empilha no celular: `datetime-local` tem largura intrínseca mínima
+            (o navegador desenha data + hora + o seletor nativo) e transborda a
+            coluna de ~160px que sobra em 375px. É o único par deste formulário
+            que quebra de verdade, não só aperta. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Data e hora">
             <Input type="datetime-local" {...register("due_at")} />
           </Field>

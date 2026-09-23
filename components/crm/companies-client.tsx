@@ -270,7 +270,7 @@ export function CompaniesClient({
           <Field label="Nome" error={errors.name?.message}>
             <Input placeholder="Nome da empresa" {...register("name")} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Segmento">
               <Input placeholder="Ex.: Plano de Saúde" {...register("segment")} />
             </Field>
