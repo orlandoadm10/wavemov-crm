@@ -7,7 +7,7 @@ import { DealTagsSelector } from "@/components/crm/deal-tags-selector";
 import { DealHistoryPanel } from "@/components/crm/deal-history-panel";
 import { TaskModal } from "@/components/crm/task-modal";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge, DealStatusBadge, PriorityBadge, TemperatureBadge } from "@/components/ui/badge";
+import { DealStatusBadge, PriorityBadge, TemperatureBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LeadInfoCard } from "@/components/crm/lead-info-card";
 import { Card, CardHeader } from "@/components/ui/card";
