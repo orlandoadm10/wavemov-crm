@@ -110,7 +110,7 @@ test("regressão: a submissão do formulário público NÃO pode cair no /login"
 });
 
 test("páginas públicas e privadas", () => {
-  for (const publico of ["/", "/login", "/register", "/f/meu-form"]) {
+  for (const publico of ["/", "/login", "/register", "/f/meu-form", "/esqueci-senha", "/auth/confirmar"]) {
     assert.equal(isPublicPath(publico), true, `${publico} deveria ser público`);
   }
   for (const privado of [
@@ -122,6 +122,8 @@ test("páginas públicas e privadas", () => {
     "/funis",
     "/admin",
     "/perfil",
+    // Exige a sessão criada pelo link do e-mail; sem ela, vai para o login.
+    "/redefinir-senha",
   ]) {
     assert.equal(isPublicPath(privado), false, `${privado} deveria exigir sessão`);
   }
@@ -137,6 +139,8 @@ test("o casamento é por segmento — prefixo parecido não vira público", () =
     "/loginhack",
     "/registered",
     "/faturamento",
+    "/authx",
+    "/esqueci-senhas",
   ]) {
     assert.equal(isPublicPath(impostor), false, `${impostor} não deveria ser público`);
   }

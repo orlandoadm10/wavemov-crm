@@ -35,6 +35,11 @@ export default function LoginPage() {
             required
           />
         </Field>
+        <div className="-mt-2 text-right">
+          <Link href="/esqueci-senha" className="text-xs font-medium text-primary-600 hover:underline">
+            Esqueci minha senha
+          </Link>
+        </div>
 
         {state?.error && (
           <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">

@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { ResetMemberPasswordModal } from "@/components/crm/reset-member-password-modal";
 import { Switch } from "@/components/ui/switch";
 import { DataTable, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
 import { fullName } from "@/lib/utils";
 import type { OrganizationMember, Role } from "@/types";
-import { Plus, Search, Users } from "lucide-react";
+import { KeyRound, Plus, Search, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useMemo, useState } from "react";
 
@@ -32,6 +33,7 @@ export function PeopleClient({
   const supabase = createClient();
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [passwordFor, setPasswordFor] = useState<{ profileId: string; name: string } | null>(null);
   const [state, formAction, pending] = useActionState(createMemberAction, null);
 
   const filtered = useMemo(() => {
@@ -96,6 +98,7 @@ export function PeopleClient({
             <Th>Papel</Th>
             <Th>Leads</Th>
             <Th>Status</Th>
+            {canManage && <Th><span className="sr-only">Senha</span></Th>}
           </THead>
           <TBody>
             {filtered.map((m) => (
@@ -139,11 +142,30 @@ export function PeopleClient({
                     disabled={!canManage}
                   />
                 </Td>
+                {canManage && (
+                  <Td>
+                    <button
+                      type="button"
+                      onClick={() => setPasswordFor({ profileId: m.profile_id, name: fullName(m.profile) })}
+                      className="rounded-lg p-2 text-ink-faint transition-colors hover:bg-primary-50 hover:text-primary-600"
+                      aria-label={`Redefinir senha de ${fullName(m.profile)}`}
+                      title="Redefinir senha"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </button>
+                  </Td>
+                )}
               </Tr>
             ))}
           </TBody>
         </DataTable>
       )}
+
+      <ResetMemberPasswordModal
+        key={passwordFor?.profileId ?? "fechado"}
+        member={passwordFor}
+        onClose={() => setPasswordFor(null)}
+      />
 
       <Modal
         open={modalOpen}

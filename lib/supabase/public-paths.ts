@@ -36,6 +36,10 @@
 export const PUBLIC_PATHS = [
   "/login",
   "/register",
+  // Pedir o link de redefinição e recebê-lo: quem esqueceu a senha não tem
+  // sessão. `/redefinir-senha` NÃO entra — ela exige a sessão que o link cria.
+  "/esqueci-senha",
+  "/auth",
   "/f",
   "/api/webhooks",
   "/api/forms",
