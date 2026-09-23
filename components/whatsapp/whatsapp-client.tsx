@@ -19,7 +19,6 @@ import {
   normalizePhone,
 } from "@/lib/utils";
 import type {
-  Contact,
   Deal,
   DealTag,
   Pipeline,
