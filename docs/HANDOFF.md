@@ -5,7 +5,7 @@ Leia este arquivo primeiro. As regras canônicas de trabalho estão em
 `docs/FUNCIONALIDADES.md` para contratos funcionais e `docs/CHANGELOG.md` para
 o histórico detalhado.
 
-**Atualizado em:** 22/09/2026
+**Atualizado em:** 23/09/2026 (fim do dia)
 
 **Versão:** `0.2.0`
 
@@ -18,13 +18,13 @@ o histórico detalhado.
 
 | Item | Estado |
 |---|---|
-| `main` local | `d548975` — merge do PR #4, a saúde da entrada de leads |
-| `origin/main` | `d548975` |
-| Produção | `d548975` — deploy `https://wavemov-kmfkc2i2o-...`, `Ready` em 31/08/2026 |
-| Banco | migrations `0001` a `0025` aplicadas e registradas no ledger. `db push --dry-run` responde em dia |
-| Diferença | Nenhum código fora de `main`. Só o plano de responsividade, aguardando sinal do cliente |
+| `main` / produção | `6279451` (PR #18, senha) — deploy `Ready` em 23/09/2026. Este PR de documentação + correção de Integrações entra por cima |
+| Banco | migrations `0001` a `0031` aplicadas e **registradas no ledger** (0026–0031 registradas por Claude em 23/09, depois de conferidos os objetos) |
+| Variáveis (Vercel, Production) | `AI_API_KEY`, `AI_BASE_URL`, `AI_DEFAULT_MODEL`, `CRON_SECRET` criadas em 23/09. Não estão em Preview |
+| Supabase Auth (produção) | **Pendente, no painel:** Redirect URL `https://wavemov-crm.vercel.app/**` e SMTP próprio — ver "Senha" abaixo |
+| Diferença | Nenhum código fora de `main` além deste PR |
 | WhatsApp | **Restaurado em 31/08.** URL nova colada no painel da UAZAPI; tráfego real dos dois lados confirmado no banco |
-| Ramo em uso | `main`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
+| Ramo em uso | `main`. Ramos já mergeados e apagáveis: `fix/isolamento-webhook-uazapi`, `fix/mobile-lote-1-grids`, `feat/ia-automacoes-canais`, `feat/filtros-negociacoes`, `fix/nome-do-lead-whatsapp`, `chore/imports-nao-usados`, `feat/senha`, `docs/handoff-publicacao-0030` |
 
 O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
 deploy de produção automaticamente. O alias `https://wavemov-crm.vercel.app`
@@ -43,26 +43,107 @@ a `0020` ganhou prova em Postgres real, além do pglite.
 Isso importa: com o `.env.local` apontando para a nuvem, `npm run dev` escreve
 **nos dados reais do cliente**. Confira o arquivo antes de subir o app.
 
-## Menu lateral e configuração inicial — 23/09/2026
+## Tarde de 23/09/2026 — filtros, celular, nomes, senha e API
 
-Mesmo ramo (`feat/ia-automacoes-canais`), **não publicado e sem commit**.
-Detalhe em `docs/CHANGELOG.md` e `docs/FUNCIONALIDADES.md`; o que ainda
-aproveitar do DeskcommCRM está em `docs/ROADMAP_SUPERCRM.md`.
+Tudo publicado (PRs #15, #16, #17, #18); detalhe em `docs/CHANGELOG.md` e
+`docs/FUNCIONALIDADES.md`.
 
-- **A `0030` pode ser aplicada antes ou depois do deploy.** Sem ela o código
-  trata a empresa como configurada e o assistente não é oferecido (mas o menu
-  "Configuração inicial" leva a telas que avisam "migration 0030 pendente" ao
-  salvar). Aplicar na ordem 0026 → … → 0030 e registrar no ledger.
+### Kanban: ordenação e filtros de data (PR #15, migration 0031)
+Seleção e ordem saem da RPC `negociacoes_do_kanban` — o board tem teto de 500
+e filtrar no navegador esconderia a 501ª. Fuso de São Paulo em
+`lib/utils/period.ts`. **Contratos:** "último contato" = tratativa da 0025
+(mensagem do lead não conta); "fechamento" = `expected_close_date`; filtro
+sobre data nula exclui o lead.
+
+### Usabilidade no celular (PR #15)
+Kanban com ferramentas recolhidas atrás de "Filtros"; Tarefas reorganizada;
+Atendimento cortado era a grade sem `minmax(0,1fr)`; configuração do WhatsApp
+só no computador (`components/ui/desktop-only.tsx`); `<main>` com
+`overflow-x-clip` como rede de segurança.
+
+### O lead nascia com o nome do dono do número (PR #16 + reparo de dados)
+Quando a primeira mensagem da conversa saía do celular da equipe (`fromMe`), o
+`senderName` — o dono do número — virava o nome do contato. **Não eram
+duplicatas**: 37 contatos "Orlando Lima" com telefones diferentes, 9 sem nome.
+Corrigido em `lib/features/whatsapp-inbound/domain/lead-name.ts`.
+**Reparo feito em produção em 23/09** (aprovado pelo cliente): 47 contatos, 47
+conversas e 34 negociações abertas; 31 com o nome real recuperado do payload
+das mensagens do lead, 16 como "WhatsApp +55…" (ganham o nome na próxima
+mensagem). 2 duplicatas sem conversa arquivadas. **Backup do estado anterior**:
+`CRM_JID_MIDIA/docs/reparo-nomes-2026-09-23-backup.json`, fora do git (tem ids
+da base). Ficaram com título antigo 10 negociações fechadas — decisão do
+cliente pendente.
+
+### Senha (PR #18)
+Não existia nenhum fluxo. Agora: Meu perfil (com a senha atual), "Esqueci
+minha senha" por e-mail (`/esqueci-senha` → `/auth/confirmar` →
+`/redefinir-senha`) e redefinição pelo admin em Pessoas. **O admin não
+redefine quem também pertence a outra empresa** — seria tomar a conta dela
+lá. **Pendências no painel do Supabase de produção**, sem as quais o e-mail não
+funciona: Redirect URL `https://wavemov-crm.vercel.app/**` e SMTP próprio (o
+padrão só entrega para membros da equipe do projeto Supabase). Até lá, o
+caminho para clientes é o admin em Pessoas.
+
+### API v1 no n8n dava 404 (este PR)
+A tela de Integrações mostrava `/api/v1` na URL base **e** nos caminhos; quem
+juntava os dois chamava `/api/v1/api/v1/pipelines` → 404. A API sempre esteve
+de pé (`/api/v1/pipelines` sem token = 401). Caminhos agora relativos à base,
+com um "teste rápido no n8n". Provado local com token: 200 em `/pipelines`,
+`/deals`, `/contacts`. O token de produção `jid_b2873855…` (escopos api+mcp)
+estava válido e nunca tinha sido usado.
+
+### Lint
+O script `lint` (`next lint`) existe, mas não há configuração nem ESLint
+instalado — rodá-lo abre o assistente. **Não instalar sem autorização do
+cliente.** Validação: build, `tsc --noEmit` (e `--noUnusedLocals
+--noUnusedParameters` pela linha de comando), `test:unit`, `test:db`.
+
+### Dados de QA no Supabase LOCAL
+Empresa "QA Filtros" e usuários `qa.filtros@`, `qa.vendedor@`,
+`qa.duasempresas@local.test`. Só no Docker local; podem ser removidos.
+
+## Publicação de 23/09/2026 — IA, automações, menu lateral e configuração inicial
+
+**Publicado** pelo PR #13 (`279e188`). Detalhe em `docs/CHANGELOG.md` e
+`docs/FUNCIONALIDADES.md`; o que ainda aproveitar do DeskcommCRM está em
+`docs/ROADMAP_SUPERCRM.md`.
+
+- **Banco:** 0026–0030 foram aplicadas à mão pelo cliente **sem** a linha do
+  ledger — segunda vez que isso acontece (a primeira foi a 0025). Os objetos
+  de cada uma foram conferidos antes do registro. A ideia de colar o `insert`
+  do ledger no rodapé de cada migration continua valendo; a 0030 já traz o
+  comando comentado.
+- **Empresas existentes:** nenhuma ficou com `onboarded_at` nulo — o backfill
+  da 0030 funcionou; ninguém cai no assistente sem querer.
 - **Contratos:** o gate do assistente mora em `/dashboard`, não no layout (ver
   FUNCIONALIDADES); `apply_onboarding_pipeline` só mexe em funil virgem; o
   menu esconde, a rota protege.
-- **Não verificado em navegador:** o Supabase local estava desligado nesta
-  sessão. Fazer o passe de QA em 375/768/1440 no menu (aberto, recolhido,
-  gaveta) e percorrer o assistente com uma empresa nova antes de publicar.
+- **Verificado:** build da Vercel, `/` e `/login` com HTTP 200. **Não
+  verificado logado:** menu em 375/768/1440 (aberto, recolhido, gaveta) e o
+  assistente com uma empresa nova.
+
+### O agente "voltou inativo" — não voltou: nasceu inativo
+
+Primeiro agente de produção (empresa JID, 23/09 13:01 BRT): `is_active =
+false`, `is_default = true`, e `updated_at` **igual** a `created_at` — ou
+seja, nenhuma edição chegou ao banco depois da criação (o trigger
+`ai_agents_updated_at` teria mudado a data). O formulário de agente novo
+começa com "Agente ativo" **desligado** de propósito (`emptyForm` em
+`components/ai/agent-form-modal.tsx`, e o default da coluna na 0026 é
+`false`): um prompt recém-escrito não deve responder cliente real antes de
+ser revisado. O defeito é de comunicação — nada na tela diz que o agente
+nasce desligado. Para ligar: editar o agente, ativar "Agente ativo", salvar.
+
+### Pendências operacionais
+
+1. Agendar `/api/cron/automations` no n8n a cada 1–5 min com
+   `Authorization: Bearer <CRON_SECRET>` (o `vercel.json` roda 1×/dia).
+2. Primeiro turno real da IA: conferir a aba Atividade de `/ia`.
+3. Para testar IA em preview, marcar as variáveis `AI_*` também em Preview.
 
 ## IA, automações, API oficial da Meta, API v1 e MCP — 22/09/2026
 
-Ramo `feat/ia-automacoes-canais`, **não publicado**. Detalhe em
+Ramo `feat/ia-automacoes-canais`, **publicado em 23/09 pelo PR #13**. Detalhe em
 `docs/CHANGELOG.md` e `docs/FUNCIONALIDADES.md`.
 
 ### Ordem de publicação — não inverter

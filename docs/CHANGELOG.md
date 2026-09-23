@@ -2,6 +2,12 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-23 — API v1: 404 no n8n era a tela de Integrações
+
+A URL base exibida já terminava em `/api/v1` e a lista de endpoints também
+começava com `/api/v1`; montar base + caminho gerava `/api/v1/api/v1/...` (404).
+Caminhos agora relativos, com exemplo completo para o nó HTTP Request.
+
 ## 2026-09-23 — troca e redefinição de senha
 
 Nenhum usuário conseguia trocar ou redefinir a senha: o CRM não tinha nenhum
