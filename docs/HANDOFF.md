@@ -5,7 +5,7 @@ Leia este arquivo primeiro. As regras canônicas de trabalho estão em
 `docs/FUNCIONALIDADES.md` para contratos funcionais e `docs/CHANGELOG.md` para
 o histórico detalhado.
 
-**Atualizado em:** 22/09/2026
+**Atualizado em:** 23/09/2026
 
 **Versão:** `0.2.0`
 
@@ -18,13 +18,14 @@ o histórico detalhado.
 
 | Item | Estado |
 |---|---|
-| `main` local | `d548975` — merge do PR #4, a saúde da entrada de leads |
-| `origin/main` | `d548975` |
-| Produção | `d548975` — deploy `https://wavemov-kmfkc2i2o-...`, `Ready` em 31/08/2026 |
-| Banco | migrations `0001` a `0025` aplicadas e registradas no ledger. `db push --dry-run` responde em dia |
-| Diferença | Nenhum código fora de `main`. Só o plano de responsividade, aguardando sinal do cliente |
+| `main` local | `279e188` — merge do PR #13 (IA, automações, canais, API v1/MCP, menu lateral, configuração inicial) |
+| `origin/main` | `279e188` |
+| Produção | `279e188` — deploy `https://wavemov-4qv4uhawx-...`, `Ready` em 23/09/2026 12:41 BRT, alias `wavemov-crm.vercel.app` |
+| Banco | migrations `0001` a `0030` aplicadas e registradas no ledger (0026–0030 registradas em 23/09, depois de conferidos os objetos) |
+| Variáveis (Vercel, Production) | `AI_API_KEY`, `AI_BASE_URL`, `AI_DEFAULT_MODEL`, `CRON_SECRET` criadas em 23/09, **antes** do deploy atual. Não estão em Preview |
+| Diferença | Nenhum código fora de `main` |
 | WhatsApp | **Restaurado em 31/08.** URL nova colada no painel da UAZAPI; tráfego real dos dois lados confirmado no banco |
-| Ramo em uso | `main`. `fix/isolamento-webhook-uazapi` é resíduo do PR #1 e pode ser apagado |
+| Ramo em uso | `main`. `fix/isolamento-webhook-uazapi`, `fix/mobile-lote-1-grids` e `feat/ia-automacoes-canais` já estão na `main` e podem ser apagados |
 
 O push `2d23f73..316a2b6` em `main` foi concluído em 28/08/2026 e disparou o
 deploy de produção automaticamente. O alias `https://wavemov-crm.vercel.app`
@@ -43,26 +44,48 @@ a `0020` ganhou prova em Postgres real, além do pglite.
 Isso importa: com o `.env.local` apontando para a nuvem, `npm run dev` escreve
 **nos dados reais do cliente**. Confira o arquivo antes de subir o app.
 
-## Menu lateral e configuração inicial — 23/09/2026
+## Publicação de 23/09/2026 — IA, automações, menu lateral e configuração inicial
 
-Mesmo ramo (`feat/ia-automacoes-canais`), **não publicado e sem commit**.
-Detalhe em `docs/CHANGELOG.md` e `docs/FUNCIONALIDADES.md`; o que ainda
-aproveitar do DeskcommCRM está em `docs/ROADMAP_SUPERCRM.md`.
+**Publicado** pelo PR #13 (`279e188`). Detalhe em `docs/CHANGELOG.md` e
+`docs/FUNCIONALIDADES.md`; o que ainda aproveitar do DeskcommCRM está em
+`docs/ROADMAP_SUPERCRM.md`.
 
-- **A `0030` pode ser aplicada antes ou depois do deploy.** Sem ela o código
-  trata a empresa como configurada e o assistente não é oferecido (mas o menu
-  "Configuração inicial" leva a telas que avisam "migration 0030 pendente" ao
-  salvar). Aplicar na ordem 0026 → … → 0030 e registrar no ledger.
+- **Banco:** 0026–0030 foram aplicadas à mão pelo cliente **sem** a linha do
+  ledger — segunda vez que isso acontece (a primeira foi a 0025). Os objetos
+  de cada uma foram conferidos antes do registro. A ideia de colar o `insert`
+  do ledger no rodapé de cada migration continua valendo; a 0030 já traz o
+  comando comentado.
+- **Empresas existentes:** nenhuma ficou com `onboarded_at` nulo — o backfill
+  da 0030 funcionou; ninguém cai no assistente sem querer.
 - **Contratos:** o gate do assistente mora em `/dashboard`, não no layout (ver
   FUNCIONALIDADES); `apply_onboarding_pipeline` só mexe em funil virgem; o
   menu esconde, a rota protege.
-- **Não verificado em navegador:** o Supabase local estava desligado nesta
-  sessão. Fazer o passe de QA em 375/768/1440 no menu (aberto, recolhido,
-  gaveta) e percorrer o assistente com uma empresa nova antes de publicar.
+- **Verificado:** build da Vercel, `/` e `/login` com HTTP 200. **Não
+  verificado logado:** menu em 375/768/1440 (aberto, recolhido, gaveta) e o
+  assistente com uma empresa nova.
+
+### O agente "voltou inativo" — não voltou: nasceu inativo
+
+Primeiro agente de produção (empresa JID, 23/09 13:01 BRT): `is_active =
+false`, `is_default = true`, e `updated_at` **igual** a `created_at` — ou
+seja, nenhuma edição chegou ao banco depois da criação (o trigger
+`ai_agents_updated_at` teria mudado a data). O formulário de agente novo
+começa com "Agente ativo" **desligado** de propósito (`emptyForm` em
+`components/ai/agent-form-modal.tsx`, e o default da coluna na 0026 é
+`false`): um prompt recém-escrito não deve responder cliente real antes de
+ser revisado. O defeito é de comunicação — nada na tela diz que o agente
+nasce desligado. Para ligar: editar o agente, ativar "Agente ativo", salvar.
+
+### Pendências operacionais
+
+1. Agendar `/api/cron/automations` no n8n a cada 1–5 min com
+   `Authorization: Bearer <CRON_SECRET>` (o `vercel.json` roda 1×/dia).
+2. Primeiro turno real da IA: conferir a aba Atividade de `/ia`.
+3. Para testar IA em preview, marcar as variáveis `AI_*` também em Preview.
 
 ## IA, automações, API oficial da Meta, API v1 e MCP — 22/09/2026
 
-Ramo `feat/ia-automacoes-canais`, **não publicado**. Detalhe em
+Ramo `feat/ia-automacoes-canais`, **publicado em 23/09 pelo PR #13**. Detalhe em
 `docs/CHANGELOG.md` e `docs/FUNCIONALIDADES.md`.
 
 ### Ordem de publicação — não inverter
