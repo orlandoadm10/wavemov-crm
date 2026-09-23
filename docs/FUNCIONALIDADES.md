@@ -91,6 +91,32 @@ WhatsApp" aceita nome e idioma do template).
 
 ---
 
+## Senha — `/perfil`, `/esqueci-senha`, `/redefinir-senha`, `/pessoas`
+
+Até 23/09/2026 não existia nenhum caminho de troca de senha.
+
+| Caminho | Quem | Como prova quem é |
+|---|---|---|
+| Meu perfil → Senha | a própria pessoa | senha atual, conferida num cliente isolado (não mexe na sessão) |
+| Login → Esqueci minha senha → e-mail → `/auth/confirmar` → `/redefinir-senha` | quem esqueceu | o link do e-mail (`?code=` PKCE ou `?token_hash=`) |
+| Pessoas → ícone de chave | `org_admin` / admin global | papel conferido por `is_org_admin` na sessão |
+
+- Toda gravação usa `auth.admin.updateUserById` depois da prova — independe
+  do "Secure password change" do Supabase. Regra única em
+  `lib/features/account-security/domain/password-policy.ts` (8 a 72 bytes,
+  sem espaço nas pontas, confirmação igual).
+- **O admin só redefine quem pertence SOMENTE à empresa dele** e nunca um
+  admin global; quem também é membro de outra empresa recebe a orientação de
+  usar "Esqueci minha senha". Trocar a senha dessa pessoa seria tomar a conta
+  dela na outra empresa.
+- "Esqueci minha senha" responde igual exista ou não a conta (sem descobrir
+  e-mails cadastrados). `next` do link só aceita caminho interno.
+- **Dependências de configuração em produção:** `https://wavemov-crm.vercel.app/**`
+  em Authentication → URL Configuration → Redirect URLs; e SMTP próprio para
+  o e-mail chegar a clientes (o SMTP padrão do Supabase só entrega para
+  membros da equipe do projeto e tem limite baixo por hora). Sem SMTP, o
+  caminho que funciona é o do administrador em Pessoas.
+
 ## Ordenação e filtros de data do Kanban — `/negociacoes` (0031)
 
 Seleção e ordem saem do banco (RPC `negociacoes_do_kanban`), nunca do

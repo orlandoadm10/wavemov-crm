@@ -1,5 +1,7 @@
 "use server";
 
+import { resetMemberPassword } from "@/lib/features/account-security/application/password-changes";
+import { getSessionContext } from "@/lib/services/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { memberSchema } from "@/lib/validations";
@@ -86,4 +88,23 @@ export async function createMemberAction(
 
   revalidatePath("/pessoas");
   return { success: `${data.first_name} adicionado(a) com sucesso.` };
+}
+
+export async function resetMemberPasswordAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const session = await getSessionContext();
+  // A empresa é a da sessão, nunca a do formulário.
+  const result = await resetMemberPassword(await createClient(), {
+    organizationId: session.organization.id,
+    memberProfileId: String(formData.get("profile_id") ?? ""),
+    callerProfileId: session.profile.id,
+    callerIsGlobalAdmin: session.profile.is_global_admin,
+    newPassword: String(formData.get("new_password") ?? ""),
+    confirmation: String(formData.get("confirmation") ?? ""),
+  });
+  return result.ok
+    ? { success: "Senha redefinida. Passe a nova senha para a pessoa por um canal seguro." }
+    : { error: result.error };
 }

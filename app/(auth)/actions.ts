@@ -1,5 +1,6 @@
 "use server";
 
+import { setPasswordFromRecovery } from "@/lib/features/account-security/application/password-changes";
 import { loginSchema, registerSchema } from "@/lib/validations";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -107,4 +108,43 @@ export async function createOrgAction(
   if (error) return { error: error.message };
 
   redirect("/onboarding");
+}
+
+// ------------------------------------------------------------
+// Esqueci minha senha
+// ------------------------------------------------------------
+export type PasswordResetState = { error?: string; sent?: boolean } | null;
+
+export async function requestPasswordResetAction(
+  _prev: PasswordResetState,
+  formData: FormData
+): Promise<PasswordResetState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Informe um e-mail válido." };
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${appUrl}/auth/confirmar?next=/redefinir-senha`,
+  });
+  // Mesma resposta exista ou não a conta: a tela não pode servir para
+  // descobrir quais e-mails têm acesso ao CRM. Só o limite de envio aparece,
+  // porque sem ele a pessoa esperaria um e-mail que não vai chegar.
+  if (error && error.status === 429) {
+    return { error: "Muitos pedidos seguidos. Aguarde alguns minutos e tente de novo." };
+  }
+  if (error) console.error("[senha] falha ao pedir redefinição", error.message);
+  return { sent: true };
+}
+
+export async function setNewPasswordAction(
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const result = await setPasswordFromRecovery(await createClient(), {
+    newPassword: String(formData.get("new_password") ?? ""),
+    confirmation: String(formData.get("confirmation") ?? ""),
+  });
+  if (!result.ok) return { error: result.error };
+  redirect("/dashboard?senha=alterada");
 }

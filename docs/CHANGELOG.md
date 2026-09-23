@@ -2,6 +2,23 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-23 — troca e redefinição de senha
+
+Nenhum usuário conseguia trocar ou redefinir a senha: o CRM não tinha nenhum
+fluxo para isso. Entram três (detalhe em `docs/FUNCIONALIDADES.md`, "Senha"):
+troca no perfil com a senha atual, "Esqueci minha senha" por e-mail
+(`/esqueci-senha`, `/auth/confirmar`, `/redefinir-senha`) e redefinição pelo
+administrador em Pessoas, recusada para quem tem acesso a outra empresa.
+
+- `lib/features/account-security`: regra da senha (+3 testes) e casos de uso.
+- `PUBLIC_PATHS` ganha `/esqueci-senha` e `/auth`; `/redefinir-senha` exige a
+  sessão do link (teste de caminhos atualizado).
+- `supabase/config.toml`: redirect URLs com `/**`.
+- QA no Supabase local: 18 cenários dos casos de uso (senha errada,
+  confirmação, admin de outra empresa, vendedor, membro de duas empresas,
+  link sem sessão…) e a rota do link por HTTP (link válido, reutilizado,
+  `next` externo).
+
 ## 2026-09-23 — o lead nascia com o nome do dono do número
 
 Levantamento das "negociações duplicadas" da JID: as 27 "Orlando Lima" abertas
