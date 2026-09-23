@@ -2,6 +2,24 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-23 — o lead nascia com o nome do dono do número
+
+Levantamento das "negociações duplicadas" da JID: as 27 "Orlando Lima" abertas
+eram **leads diferentes** (26 telefones, conversas reais de até 262
+mensagens). O defeito era o nome: quando a primeira mensagem da conversa saía
+do celular da equipe (`fromMe`), o `senderName` do payload — o dono do número
+— virava o nome do contato, e o lead herdava. Nome vazio (`""` passa pelo `??`)
+gerava título vazio. 37 contatos "Orlando Lima" e 9 sem nome no total.
+
+- `lib/features/whatsapp-inbound/domain/lead-name.ts` (+5 testes): `fromMe`
+  nunca dá nome; vazio é ausência; nome real só substitui placeholder.
+- `ingest-inbound-message.ts`: o contato sem nome ganha o nome do lead na
+  primeira mensagem dele, junto com a conversa e o título das negociações
+  abertas que ainda estavam vazios ou com o nome antigo. Nome digitado pela
+  equipe nunca é trocado.
+- Os registros antigos não se corrigem sozinhos ("Orlando Lima" não é
+  placeholder): reparo de dados à parte, com aprovação do cliente.
+
 ## 2026-09-23 — usabilidade no celular (prints do cliente)
 
 - **Kanban:** no celular a barra mostra só busca, "Filtros" (com o número de

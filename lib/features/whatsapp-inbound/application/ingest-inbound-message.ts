@@ -19,6 +19,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveLeadResponsible } from "@/lib/features/lead-distribution/application/resolve-lead-responsible";
 import { recordDistribution } from "@/lib/features/lead-distribution/infrastructure/distribution-queries";
+import { isPlaceholderName, leadNameFromMessage } from "@/lib/features/whatsapp-inbound/domain/lead-name";
 import type { NormalizedInboundMessage } from "@/lib/services/uazapi";
 import type { HandlingMode } from "@/types";
 
@@ -65,7 +66,11 @@ export async function ingestInboundMessage(
   const { organizationId, instanceId, message: msg } = input;
   const phone = msg.fromMe ? (msg.toPhone ?? msg.fromPhone) : msg.fromPhone;
 
-  const contact = await findOrCreateContact(admin, organizationId, phone, msg.senderName);
+  // Nunca o `senderName` cru: numa mensagem `fromMe` ele é o nome do DONO do
+  // número, e o lead nascia com ele (ver `domain/lead-name.ts`).
+  const leadName = leadNameFromMessage(msg);
+
+  const contact = await findOrCreateContact(admin, organizationId, phone, leadName);
   if (!contact) {
     // Seguir sem contato gravaria conversa e lead órfãos — o estado que o
     // reparo de dados NÃO consegue desfazer, porque não sobra telefone para
@@ -78,10 +83,16 @@ export async function ingestInboundMessage(
     instanceId,
     phone,
     contact,
-    senderName: msg.senderName,
+    senderName: leadName,
   });
   if (!conversation) {
     return { status: "error", httpStatus: 500, error: "Falha ao criar conversa." };
+  }
+
+  // Contato que nasceu sem nome (ou com placeholder) ganha o nome do lead na
+  // primeira mensagem dele. Nome digitado pela equipe nunca é substituído.
+  if (leadName && isPlaceholderName(contact.name)) {
+    await adoptLeadName(admin, organizationId, contact, conversation, leadName);
   }
 
   const dealId = msg.fromMe
@@ -138,7 +149,7 @@ export async function ingestInboundMessage(
     last_message_at: new Date().toISOString(),
     status: conversation.status === "resolved" ? "open" : conversation.status,
     unread_count: msg.fromMe ? conversation.unread_count : (conversation.unread_count ?? 0) + 1,
-    name: conversation.name ?? msg.senderName ?? null,
+    name: conversation.name ?? leadName ?? null,
   };
   // Retomada humana: a equipe respondeu pelo celular numa conversa da IA.
   // A IA sai de cena; quem quiser devolve pela tela do atendimento.
@@ -297,6 +308,52 @@ async function findOrCreateConversation(
     .select(CONVERSATION_COLUMNS)
     .single<ConversationRow>();
   return created ?? null;
+}
+
+// ------------------------------------------------------------
+// Nome do lead que chegou depois do contato
+//
+// Troca SÓ o que é placeholder: o contato (já filtrado por quem chama), o
+// nome da conversa e o título das negociações abertas desse contato que
+// ainda estejam vazios ou com o nome antigo. Muta `contact`/`conversation`
+// para o resto do fluxo (criação do lead) já usar o nome certo.
+// ------------------------------------------------------------
+async function adoptLeadName(
+  admin: SupabaseClient,
+  organizationId: string,
+  contact: ContactRow,
+  conversation: ConversationRow,
+  leadName: string
+) {
+  const previous = contact.name?.trim() ?? "";
+  const { error } = await admin
+    .from("contacts")
+    .update({ name: leadName })
+    .eq("id", contact.id)
+    .eq("organization_id", organizationId);
+  if (error) {
+    console.error("[whatsapp-inbound] falha ao dar nome ao contato", error);
+    return;
+  }
+  contact.name = leadName;
+
+  if (isPlaceholderName(conversation.name)) {
+    await admin
+      .from("whatsapp_conversations")
+      .update({ name: leadName })
+      .eq("id", conversation.id)
+      .eq("organization_id", organizationId);
+    conversation.name = leadName;
+  }
+
+  const titles = previous ? ["", previous] : [""];
+  await admin
+    .from("deals")
+    .update({ title: leadName })
+    .eq("organization_id", organizationId)
+    .eq("contact_id", contact.id)
+    .eq("status", "open")
+    .in("title", titles);
 }
 
 // ------------------------------------------------------------
