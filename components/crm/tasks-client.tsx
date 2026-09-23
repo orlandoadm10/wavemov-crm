@@ -103,69 +103,82 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
 
   return (
     <div className="space-y-4">
-      {/* Busca e filtros */}
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card)">
-        <div className="relative min-w-0 flex-1">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-          <Input
-            className="pl-9"
-            placeholder="Pesquisar tarefa…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      {/* Busca e filtros. Celular: busca + botão numa linha, os três filtros
+          em grade logo abaixo — antes eles disputavam a mesma linha e a busca
+          ficava com 40px. */}
+      <div className="space-y-2 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card) lg:flex lg:items-center lg:gap-2 lg:space-y-0">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+            <Input
+              className="pl-9"
+              placeholder="Pesquisar tarefa…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Button className="shrink-0 lg:hidden" onClick={() => setModalOpen(true)} aria-label="Criar tarefa">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Criar Tarefa</span>
+          </Button>
         </div>
-        <Select
-          className="w-auto min-w-32"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="pending">Pendentes</option>
-          <option value="overdue">Em atraso</option>
-          <option value="done">Concluídas</option>
-          <option value="">Todas</option>
-        </Select>
-        <Select
-          className="w-auto min-w-32"
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-        >
-          <option value="">Prioridade</option>
-          <option value="high">Alta</option>
-          <option value="medium">Média</option>
-          <option value="low">Baixa</option>
-        </Select>
-        <Select
-          className="w-auto min-w-36"
-          value={assigneeFilter}
-          onChange={(e) => setAssigneeFilter(e.target.value)}
-        >
-          <option value="">Responsável</option>
-          {members.map((m) => (
-            <option key={m.id} value={m.id}>
-              {fullName(m)}
-            </option>
-          ))}
-        </Select>
-        <Button onClick={() => setModalOpen(true)}>
+        <div className="grid grid-cols-3 gap-2 lg:flex lg:w-auto">
+          <Select
+            aria-label="Situação"
+            className="min-w-0 lg:w-auto lg:min-w-32"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="pending">Pendentes</option>
+            <option value="overdue">Em atraso</option>
+            <option value="done">Concluídas</option>
+            <option value="">Todas</option>
+          </Select>
+          <Select
+            aria-label="Prioridade"
+            className="min-w-0 lg:w-auto lg:min-w-32"
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+          >
+            <option value="">Prioridade</option>
+            <option value="high">Alta</option>
+            <option value="medium">Média</option>
+            <option value="low">Baixa</option>
+          </Select>
+          <Select
+            aria-label="Responsável"
+            className="min-w-0 lg:w-auto lg:min-w-36"
+            value={assigneeFilter}
+            onChange={(e) => setAssigneeFilter(e.target.value)}
+          >
+            <option value="">Responsável</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {fullName(m)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <Button className="hidden shrink-0 lg:inline-flex" onClick={() => setModalOpen(true)}>
           <Plus className="h-4 w-4" />
           Criar Tarefa
         </Button>
       </div>
 
       {/* Banner próxima tarefa */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary-700 px-5 py-4 text-white shadow-(--shadow-card)">
-        <div className="flex items-center gap-3">
-          <CheckCircle2 className="h-5 w-5 text-primary-200" />
-          <span className="text-sm font-semibold">Próxima tarefa:</span>
+      <div className="flex items-center justify-between gap-3 rounded-2xl bg-primary-700 px-4 py-3 text-white shadow-(--shadow-card) sm:px-5 sm:py-4">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-primary-200" />
+          <span className="shrink-0 text-sm font-semibold">Próxima tarefa:</span>
           {nextTask ? (
-            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+            <span className="max-w-full truncate rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
               {nextTask.title} · {formatDateTime(nextTask.due_at)}
             </span>
           ) : (
             <span className="text-sm text-primary-200">Nenhuma tarefa agendada 🎉</span>
           )}
         </div>
-        <span className="rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-primary-700">
+        <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-primary-700">
           Tarefas: {filtered.length}
         </span>
       </div>
@@ -226,7 +239,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="order-last flex w-full flex-wrap items-center gap-1.5 pl-8 sm:order-none sm:w-auto sm:gap-2 sm:pl-0">
                   {task.deal_id && (
                     <Link href={`/negociacoes/${task.deal_id}`}>
                       <Badge tone="green" className="hover:bg-emerald-100">🔗 Lead</Badge>
@@ -242,7 +255,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
                   {dueBadge(task)}
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1">
                   <button
                     onClick={() => setEditing(task)}
                     className="rounded-lg p-2 text-ink-faint transition-colors hover:bg-primary-50 hover:text-primary-600"

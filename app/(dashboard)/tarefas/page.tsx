@@ -27,7 +27,7 @@ export default async function TarefasPage() {
         .eq("is_active", true),
       supabase
         .from("deals")
-        .select("id, title, organization_id, pipeline_id, stage_id, status, value, temperature, ai_status, created_at, updated_at")
+        .select("id, title, organization_id, pipeline_id, stage_id, status, value, temperature, ai_status, created_at, updated_at, contact:contacts(name, phone, whatsapp_phone)")
         .eq("organization_id", orgId)
         .eq("status", "open")
         .order("created_at", { ascending: false })

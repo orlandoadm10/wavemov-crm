@@ -2,6 +2,28 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-23 — usabilidade no celular (prints do cliente)
+
+- **Kanban:** no celular a barra mostra só busca, "Filtros" (com o número de
+  filtros fora do padrão) e "+". Funil, situação, responsável, tag, ordenação,
+  filtros de data e atalhos abrem ao tocar em "Filtros". Altura em `dvh`.
+- **Tarefas:** busca + botão numa linha, três filtros em grade; faixa "Próxima
+  tarefa" trunca em vez de estourar; no item, as etiquetas vão para a linha de
+  baixo e editar/excluir ficam ao lado do título.
+- **Tarefa → negociação vinculada:** o select mostra título, telefone e data de
+  entrada. Não havia item repetido no código: a base da JID tem 27
+  negociações abertas chamadas "Orlando Lima" (26 contatos) e 9 sem título —
+  dado a sanear à parte.
+- **Atendimento:** a grade de três colunas não tinha `minmax(0, 1fr)`; no
+  celular a coluna crescia até a largura do cabeçalho do chat e a página
+  inteira andava de lado ("conversa cortada"). Cabeçalho compacto, "Resolver"
+  só com ícone abaixo de `sm`, quebra de palavras longas nos balões.
+- **Configuração do WhatsApp só no computador:** `components/ui/desktop-only.tsx`
+  mostra um aviso abaixo de `lg` em `/atendimento/configuracoes` e no passo
+  WhatsApp do onboarding; o item some da gaveta do menu no celular.
+- **Rede de segurança:** `<main>` com `overflow-x-clip` — um elemento largo
+  demais não arrasta mais a página inteira para o lado.
+
 ## 2026-09-23 — ordenação e filtros de data do Kanban
 
 Pedido com prints de referência: ordenação (A-Z, Z-A, contato mais recente,

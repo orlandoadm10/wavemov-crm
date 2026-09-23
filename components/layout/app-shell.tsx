@@ -114,7 +114,13 @@ export function AppShell({
             <UserMenu session={session} />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">{children}</main>
+        {/* `overflow-x-clip`, não `hidden`: corta o que passar da largura sem
+            virar contêiner de rolagem (que quebraria o `sticky` do topo). É a
+            rede de segurança — o que rola de lado de propósito (Kanban) tem a
+            própria caixa com `overflow-x-auto`. */}
+        <main className="mx-auto w-full max-w-[1600px] flex-1 overflow-x-clip px-4 py-4 sm:py-6">
+          {children}
+        </main>
       </div>
     </div>
   );

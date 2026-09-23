@@ -10,8 +10,10 @@ import { Input, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
+  countDealDateFilters,
   DEAL_DATE_FILTERS,
   DEAL_SORTS,
+  DEFAULT_DEAL_SORT,
   type DealDateFilters,
   type DealSort,
 } from "@/lib/features/deal-filters/domain/deal-filters";
@@ -95,6 +97,17 @@ export function KanbanBoard({
 
   const [deals, setDeals] = useState(initialDeals);
   const [search, setSearch] = useState(appliedSearch);
+  // Celular: ferramentas recolhidas até a pessoa pedir.
+  const [toolsOpen, setToolsOpen] = useState(false);
+  // O que está mudando o quadro além do padrão — o número no botão "Filtros"
+  // do celular, para ninguém esquecer um filtro escondido.
+  const activeToolCount =
+    [
+      (params.get("status") ?? "open") !== "open",
+      Boolean(params.get("responsavel")),
+      tags.some((tag) => tag.id === params.get("tag")),
+      sort !== DEFAULT_DEAL_SORT,
+    ].filter(Boolean).length + countDealDateFilters(dateFilters);
   const debouncedSearch = useDebounce(search.trim(), 400);
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -239,10 +252,43 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex h-[calc(100vh-8.5rem)] flex-col">
+    <div className="flex h-[calc(100dvh-8.5rem)] flex-col">
       {/* Barra de filtros */}
-      <div className="mb-4 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card)">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-3 rounded-2xl border border-line bg-white p-2 shadow-(--shadow-card) md:mb-4 md:p-3">
+        {/* Celular: só busca, o botão que abre os filtros e o "+". O resto
+            empurrava o quadro para fora da tela — a pessoa rolava 700px de
+            selects antes de ver o primeiro card. */}
+        <div className="flex items-center gap-2 md:hidden">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+            <Input
+              className="pl-9"
+              placeholder="Buscar lead…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Button
+            variant={toolsOpen || activeToolCount > 0 ? "secondary" : "outline"}
+            onClick={() => setToolsOpen((v) => !v)}
+            aria-expanded={toolsOpen}
+            aria-controls="kanban-ferramentas"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {activeToolCount > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-bold text-white tabular-nums">
+                {activeToolCount}
+              </span>
+            )}
+          </Button>
+          <Button size="icon" className="h-10 w-10" onClick={() => setModalOpen(true)} aria-label="Nova negociação">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div id="kanban-ferramentas" className={cn("md:block", toolsOpen ? "mt-2 block" : "hidden")}>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <Select
             value={params.get("funil") ?? activePipeline?.id ?? ""}
             onChange={(e) => setParam("funil", e.target.value)}
@@ -296,7 +342,7 @@ export function KanbanBoard({
           </Select>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-0 flex-1">
+          <div className="relative hidden min-w-0 flex-1 md:block">
             <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
             <Input
               className="pl-9"
@@ -310,7 +356,7 @@ export function KanbanBoard({
             onApply={applyDateFilters}
             onClear={clearDateFilters}
           />
-          <Button onClick={() => setModalOpen(true)}>
+          <Button className="hidden md:inline-flex" onClick={() => setModalOpen(true)}>
             <Plus className="h-4 w-4" />
             Negociação
           </Button>
@@ -353,6 +399,7 @@ export function KanbanBoard({
           <div className="ml-auto">
             <UnreadConversationsPill />
           </div>
+        </div>
         </div>
         {moveError && (
           <p

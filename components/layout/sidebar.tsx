@@ -35,10 +35,14 @@ export function SidebarContent({
   onToggleCollapsed?: () => void;
 }) {
   const pathname = usePathname();
-  const groups = visibleNavGroups({
-    isOrgAdmin: session.membership.role === "org_admin",
-    isGlobalAdmin: session.profile.is_global_admin,
-  });
+  // Sem `onToggleCollapsed` é a gaveta do celular: telas de computador saem.
+  const groups = visibleNavGroups(
+    {
+      isOrgAdmin: session.membership.role === "org_admin",
+      isGlobalAdmin: session.profile.is_global_admin,
+    },
+    { inDrawer: !onToggleCollapsed }
+  );
 
   // Grupo fechado é preferência do navegador. Começa vazio (tudo aberto) no
   // servidor e na primeira pintura, e só depois do mount lê o que foi salvo —

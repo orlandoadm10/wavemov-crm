@@ -2,6 +2,7 @@ import { IngestionHealthPanel } from "@/components/crm/ingestion-health-panel";
 import { InstanceSettings } from "@/components/whatsapp/instance-settings";
 import { MetaCloudSettings } from "@/components/whatsapp/meta-cloud-settings";
 import { PageHeader } from "@/components/layout/page-header";
+import { DesktopOnly } from "@/components/ui/desktop-only";
 import { getIngestionHealth } from "@/lib/features/lead-ingestion/infrastructure/ingestion-health-query";
 import { getInstanceForOrg, getMetaInstanceForOrg, toPublicInstance } from "@/lib/services/whatsapp";
 import { getSessionContext } from "@/lib/services/session";
@@ -68,6 +69,7 @@ export default async function ConfiguracoesWhatsAppPage() {
           </Link>
         }
       />
+      <DesktopOnly description="A conexão do WhatsApp (credenciais, QR Code e webhook) é configurada pelo computador. No celular, use o Atendimento para conversar.">
       {/* Antes do formulário de propósito: quem chega nesta tela porque
           "parou de chegar mensagem" precisa ver o estado antes de mexer na
           configuração. */}
@@ -99,6 +101,7 @@ export default async function ConfiguracoesWhatsAppPage() {
             : null
         }
       />
+      </DesktopOnly>
     </div>
   );
 }

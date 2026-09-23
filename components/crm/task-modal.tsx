@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
-import { describeWriteError, fullName } from "@/lib/utils";
+import { describeWriteError, formatDate, fullName } from "@/lib/utils";
 import { taskSchema } from "@/lib/validations";
 import type { Contact, Deal, Profile, Task } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -155,7 +155,7 @@ export function TaskModal({
               <option value="">Nenhuma</option>
               {deals.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.title}
+                  {dealOptionLabel(d)}
                 </option>
               ))}
             </Select>
@@ -189,4 +189,18 @@ export function TaskModal({
       </form>
     </Modal>
   );
+}
+
+/**
+ * Rótulo da negociação no select. Só o título não basta: a base tem dezenas
+ * de leads com o mesmo nome (e alguns sem título), e a lista parecia repetir
+ * o mesmo item. Telefone e data de entrada distinguem um do outro.
+ */
+function dealOptionLabel(deal: Deal): string {
+  const title = deal.title?.trim() || deal.contact?.name?.trim() || "Sem título";
+  const phone = deal.contact?.whatsapp_phone || deal.contact?.phone;
+  const details = [phone ? `+${phone.replace(/^\+/, "")}` : null, formatDate(deal.created_at)]
+    .filter(Boolean)
+    .join(" · ");
+  return details ? `${title} — ${details}` : title;
 }
