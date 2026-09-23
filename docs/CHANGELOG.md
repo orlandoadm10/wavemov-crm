@@ -2,6 +2,26 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-23 — ordenação e filtros de data do Kanban
+
+Pedido com prints de referência: ordenação (A-Z, Z-A, contato mais recente,
+contato mais antigo, data modificação) e painel com quatro filtros de data
+(criação, último contato, próxima tarefa, fechamento), com Aplicar/Limpar e
+Personalizado.
+
+- `0031_filtros_do_kanban.sql`: RPC `negociacoes_do_kanban` (security
+  definer, recorte da 0011 reimplementado como na 0025) e índice parcial
+  `tasks_deal_pendentes_idx`. 20 asserções novas no `test:db`.
+- `lib/utils/period.ts`: presets, intervalo personalizado e
+  `resolveDateRange` no fuso de São Paulo; `date-range.test.mts` (11 testes,
+  incluindo virada de mês e de ano).
+- `lib/features/deal-filters`: vocabulário (domínio) e a consulta que chama a
+  RPC e busca as linhas em lotes de 100 ids mantendo a ordem.
+- `components/crm/deal-filters-panel.tsx`: painel com rascunho × aplicado.
+- `kanban-board.tsx`: ordenação nova e busca enviada ao servidor com espera de
+  400 ms (antes filtrava só os 500 carregados).
+- **Deploy:** aplicar a 0031 ANTES do código — sem a RPC o Kanban mostra erro.
+
 ## 2026-09-23 — menu lateral e assistente de configuração inicial
 
 Pedido: o menu superior ocupava espaço e não comportava itens; faltava o

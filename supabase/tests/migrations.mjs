@@ -2935,6 +2935,152 @@ console.log("\n== 0030. Configuração inicial ==");
   else ok("0030: sem DROP TABLE/TRUNCATE/DROP SCHEMA");
 }
 
+console.log("\n== 0031. Filtros e ordenação do Kanban ==");
+{
+  const ORG_E = "31313131-3131-4131-8131-313131313131";
+  await db.query(`insert into public.organizations (id, name) values ($1, 'Empresa E')`, [ORG_E]);
+  await db.query(
+    `insert into public.organization_members (organization_id, profile_id, role) values ($1, $2, 'org_admin'), ($1, $3, 'seller')`,
+    [ORG_E, pAdminB, pSellerA]
+  );
+  await db.query(`select public.provision_organization_defaults($1)`, [ORG_E]);
+  const etapa = await umaLinha(
+    `select p.id as pipeline_id, s.id as stage_id from public.pipelines p
+       join public.pipeline_stages s on s.pipeline_id = p.id
+      where p.organization_id = $1 and p.is_default and not s.is_won_stage and not s.is_lost_stage
+      order by s.order_index limit 1`,
+    [ORG_E]
+  );
+  const contato = async (nome) =>
+    (await umaLinha(`insert into public.contacts (organization_id, name) values ($1, $2) returning id`, [ORG_E, nome])).id;
+  const negocio = async (titulo, contactId, criado, fechamento = null, responsavel = null) =>
+    (
+      await umaLinha(
+        `insert into public.deals (organization_id, pipeline_id, stage_id, contact_id, title, created_at, expected_close_date, responsible_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
+        [ORG_E, etapa.pipeline_id, etapa.stage_id, contactId, titulo, criado, fechamento, responsavel]
+      )
+    ).id;
+
+  // d1: "Álvaro" (acento no início), nota em 20/09, tarefa em 25/09, fecha 30/09.
+  const d1 = await negocio("N1", await contato("Álvaro"), "2026-09-10T15:00:00Z", "2026-09-30");
+  await db.query(
+    `insert into public.activity_logs (organization_id, deal_id, type, title, created_at) values
+       ($1, $2, 'note', 'nota', '2026-09-20T15:00:00Z'),
+       ($1, $2, 'whatsapp_inbound', 'lead falou', '2026-09-23T15:00:00Z')`,
+    [ORG_E, d1]
+  );
+  await db.query(
+    `insert into public.tasks (organization_id, deal_id, title, due_at, status) values
+       ($1, $2, 'ligar', '2026-09-25T15:00:00Z', 'pending'),
+       ($1, $2, 'feita', '2026-09-01T15:00:00Z', 'done')`,
+    [ORG_E, d1]
+  );
+  // d2: "bruna" (minúscula), resposta pelo WhatsApp em 22/09, do vendedor.
+  const d2 = await negocio("N2", await contato("bruna"), "2026-09-01T15:00:00Z", null, pSellerA);
+  const conversa = await umaLinha(
+    `insert into public.whatsapp_conversations (organization_id, deal_id, phone, status) values ($1, $2, '5584000031', 'open') returning id`,
+    [ORG_E, d2]
+  );
+  await db.query(
+    `insert into public.whatsapp_messages (organization_id, conversation_id, direction, message_type, content, created_at)
+     values ($1, $2, 'outbound', 'text', 'oi', '2026-09-22T15:00:00Z')`,
+    [ORG_E, conversa.id]
+  );
+  // d3: sem contato (ordena pelo título), sem nenhuma data opcional.
+  const d3 = await negocio("Zeca negócio", null, "2026-08-15T15:00:00Z");
+  // d4: 10/09 às 02:30 UTC = 09/09 23:30 em Brasília — a borda do fuso.
+  const d4 = await negocio("N4", await contato("Carla"), "2026-09-10T02:30:00Z");
+
+  const kanban = (args, quem = adminB) =>
+    comoUsuario(quem, () =>
+      db.query(
+        `select deal_id, total from public.negociacoes_do_kanban(
+           org_id => $1, ordem => $2, busca => $3,
+           criado_de => $4, criado_ate => $5, contato_de => $6, contato_ate => $7,
+           tarefa_de => $8, tarefa_ate => $9, fechamento_de => $10, fechamento_ate => $11, limite => $12)`,
+        [
+          ORG_E, args.ordem ?? null, args.busca ?? null,
+          args.criado?.[0] ?? null, args.criado?.[1] ?? null,
+          args.contato?.[0] ?? null, args.contato?.[1] ?? null,
+          args.tarefa?.[0] ?? null, args.tarefa?.[1] ?? null,
+          args.fechamento?.[0] ?? null, args.fechamento?.[1] ?? null,
+          args.limite ?? 500,
+        ]
+      )
+    );
+  const nomes = { [d1]: "d1", [d2]: "d2", [d3]: "d3", [d4]: "d4" };
+  const ordemDe = (r) => r.rows.map((x) => nomes[x.deal_id]).join(",");
+  const confere = async (rotulo, args, esperado, quem) => {
+    const obtido = ordemDe(await kanban(args, quem));
+    if (obtido === esperado) ok(`0031: ${rotulo}`);
+    else fail(`0031: ${rotulo}`, `esperado ${esperado}, obtido ${obtido}`);
+  };
+  // Um dia civil de Brasília em UTC.
+  const diaBR = (d) => [`${d}T03:00:00Z`, new Date(new Date(`${d}T03:00:00Z`).getTime() + 86_399_999).toISOString()];
+
+  await confere("A-Z ignora acento e caixa; sem contato usa o título", { ordem: "az" }, "d1,d2,d4,d3");
+  await confere("Z-A é o inverso", { ordem: "za" }, "d3,d4,d2,d1");
+  await confere(
+    "contato mais recente: WhatsApp enviado conta, mensagem do lead não; nulos no fim",
+    { ordem: "contato_recente" },
+    "d2,d1,d4,d3"
+  );
+  await confere("contato mais antigo: nulos continuam no fim", { ordem: "contato_antigo" }, "d1,d2,d4,d3");
+  await confere("criação em 10/09 (BRT) exclui o lead das 23:30 de 09/09", { ordem: "az", criado: diaBR("2026-09-10") }, "d1");
+  await confere("criação em 09/09 (BRT) pega o lead das 02:30 UTC de 10/09", { ordem: "az", criado: diaBR("2026-09-09") }, "d4");
+  await confere("último contato filtrado exclui quem não tem contato", { ordem: "az", contato: ["2026-09-01T03:00:00Z", "2026-10-01T02:59:59.999Z"] }, "d1,d2");
+  await confere("próxima tarefa ignora tarefa concluída", { ordem: "az", tarefa: diaBR("2026-09-25") }, "d1");
+  await confere("próxima tarefa em 01/09 não acha a tarefa já feita", { ordem: "az", tarefa: diaBR("2026-09-01") }, "");
+  await confere("fechamento usa expected_close_date", { ordem: "az", fechamento: ["2026-09-01", "2026-09-30"] }, "d1");
+  await confere(
+    "quatro filtros juntos são E, não OU",
+    {
+      ordem: "az",
+      criado: ["2026-09-01T03:00:00Z", "2026-10-01T02:59:59.999Z"],
+      contato: ["2026-09-01T03:00:00Z", "2026-10-01T02:59:59.999Z"],
+      tarefa: ["2026-09-01T03:00:00Z", "2026-10-01T02:59:59.999Z"],
+      fechamento: ["2026-09-01", "2026-09-30"],
+    },
+    "d1"
+  );
+  await confere(
+    "dois filtros juntos + ordenação",
+    { ordem: "contato_antigo", criado: ["2026-09-01T03:00:00Z", "2026-10-01T02:59:59.999Z"], contato: ["2026-09-01T03:00:00Z", "2026-10-01T02:59:59.999Z"] },
+    "d1,d2"
+  );
+  await confere("busca + filtro + ordenação", { ordem: "za", busca: "a", criado: ["2026-09-01T03:00:00Z", "2026-10-01T02:59:59.999Z"] }, "d4,d2,d1");
+  await confere("busca trata % como texto", { busca: "%" }, "");
+
+  const cortado = await kanban({ ordem: "az", limite: 1 });
+  if (cortado.rows.length === 1 && Number(cortado.rows[0].total) === 4)
+    ok("0031: total é contado antes do limite (a tela sabe que cortou)");
+  else fail("0031: total/limite", JSON.stringify(cortado.rows));
+
+  await confere("vendedor vê só os leads dele", { ordem: "az" }, "d2", sellerA);
+  await esperaErro(
+    "0031: admin de outra empresa é recusado",
+    () => kanban({ ordem: "az" }, adminA),
+    /Sem acesso/
+  );
+
+  await db.query(`update public.deals set title = 'Zeca negócio!' where id = $1`, [d3]);
+  const mod = ordemDe(await kanban({ ordem: "modificacao" }));
+  if (mod.startsWith("d3")) ok("0031: data de modificação põe o lead recém-editado primeiro");
+  else fail("0031: data de modificação", mod);
+
+  try {
+    await db.exec(readFileSync(path.join(MIG, "0031_filtros_do_kanban.sql"), "utf8"));
+    ok("0031 roda duas vezes sem erro");
+  } catch (e) {
+    fail("0031 não é idempotente", e.message.split("\n")[0]);
+  }
+  const sql31 = readFileSync(path.join(MIG, "0031_filtros_do_kanban.sql"), "utf8");
+  if (/create\s+temp(orary)?\s+table/i.test(sql31) || /^\s*(begin|commit)\s*;/im.test(sql31))
+    fail("0031: usa tabela temporária ou begin/commit");
+  else ok("0031: sem tabela temporária e sem begin/commit");
+}
+
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);
 await db.close();
 process.exit(falhas === 0 ? 0 : 1);
