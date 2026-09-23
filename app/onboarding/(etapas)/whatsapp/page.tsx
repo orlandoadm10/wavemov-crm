@@ -1,4 +1,5 @@
 import { StepActions, StepHeading } from "@/components/onboarding/step-actions";
+import { DesktopOnly } from "@/components/ui/desktop-only";
 import { InstanceSettings } from "@/components/whatsapp/instance-settings";
 import { getInstanceForOrg, toPublicInstance } from "@/lib/services/whatsapp";
 import { getSessionContext } from "@/lib/services/session";
@@ -23,12 +24,14 @@ export default async function OnboardingWhatsAppPage() {
         title="Conecte o WhatsApp"
         description="Com o número conectado, toda mensagem recebida vira conversa no Atendimento e lead no funil — e a equipe responde pelo CRM."
       />
-      <InstanceSettings
-        organizationId={organization.id}
-        instance={toPublicInstance(instance)}
-        webhookUrl={webhookUrl}
-        canManageWebhook
-      />
+      <DesktopOnly description="Conecte o WhatsApp pelo computador. Você pode pular este passo agora e fazer depois em Atendimento → WhatsApp.">
+        <InstanceSettings
+          organizationId={organization.id}
+          instance={toPublicInstance(instance)}
+          webhookUrl={webhookUrl}
+          canManageWebhook
+        />
+      </DesktopOnly>
       <p className="text-xs text-ink-faint">
         Usa a API oficial da Meta? Configure em{" "}
         <Link href="/atendimento/configuracoes" className="font-medium text-primary-600 hover:text-primary-700">

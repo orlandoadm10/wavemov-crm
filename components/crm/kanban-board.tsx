@@ -1,5 +1,6 @@
 "use client";
 
+import { DealFiltersPanel } from "@/components/crm/deal-filters-panel";
 import { DealModal } from "@/components/crm/deal-modal";
 import { Badge, TemperatureBadge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -7,7 +8,17 @@ import { UnreadConversationsPill } from "@/components/crm/unread-conversations-p
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useDebounce } from "@/hooks/use-debounce";
+import {
+  countDealDateFilters,
+  DEAL_DATE_FILTERS,
+  DEAL_SORTS,
+  DEFAULT_DEAL_SORT,
+  type DealDateFilters,
+  type DealSort,
+} from "@/lib/features/deal-filters/domain/deal-filters";
 import { createClient } from "@/lib/supabase/client";
+import { encodeDateRange } from "@/lib/utils/period";
 import { cn, formatCurrency, formatDateTime, fullName } from "@/lib/utils";
 import type { Contact, Deal, DealTag, Pipeline, PipelineStage, Profile } from "@/types";
 import {
@@ -44,6 +55,14 @@ interface Props {
   pipelines: Pipeline[];
   activePipeline: Pipeline | null;
   deals: Deal[];
+  /** Quantas negociações atendem aos filtros no banco (antes do teto). */
+  totalDeals: number;
+  dealsLimit: number;
+  /** Ordenação e filtros de data JÁ aplicados — validados pelo servidor. */
+  sort: DealSort;
+  dateFilters: DealDateFilters;
+  /** Busca aplicada no servidor (`?q=`). */
+  search: string;
   members: Profile[];
   contacts: Contact[];
   tags: DealTag[];
@@ -59,6 +78,11 @@ export function KanbanBoard({
   pipelines,
   activePipeline,
   deals: initialDeals,
+  totalDeals,
+  dealsLimit,
+  sort,
+  dateFilters,
+  search: appliedSearch,
   members,
   contacts,
   tags,
@@ -72,7 +96,19 @@ export function KanbanBoard({
   const supabase = createClient();
 
   const [deals, setDeals] = useState(initialDeals);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(appliedSearch);
+  // Celular: ferramentas recolhidas até a pessoa pedir.
+  const [toolsOpen, setToolsOpen] = useState(false);
+  // O que está mudando o quadro além do padrão — o número no botão "Filtros"
+  // do celular, para ninguém esquecer um filtro escondido.
+  const activeToolCount =
+    [
+      (params.get("status") ?? "open") !== "open",
+      Boolean(params.get("responsavel")),
+      tags.some((tag) => tag.id === params.get("tag")),
+      sort !== DEFAULT_DEAL_SORT,
+    ].filter(Boolean).length + countDealDateFilters(dateFilters);
+  const debouncedSearch = useDebounce(search.trim(), 400);
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
@@ -106,11 +142,39 @@ export function KanbanBoard({
     );
   }, [deals, search]);
 
-  function setParam(key: string, value: string) {
+  function setParams(updates: Record<string, string | null>) {
     const next = new URLSearchParams(params.toString());
-    if (value) next.set(key, value);
-    else next.delete(key);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
     router.replace(`${pathname}?${next.toString()}`);
+  }
+
+  function setParam(key: string, value: string) {
+    setParams({ [key]: value });
+  }
+
+  // A busca vai ao servidor (o board carrega no máximo `dealsLimit`): filtrar
+  // só o que já chegou esconderia o lead 501. O filtro local acima dá a
+  // resposta imediata enquanto o servidor não responde.
+  useEffect(() => {
+    if (debouncedSearch === (params.get("q") ?? "")) return;
+    setParam("q", debouncedSearch);
+  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function applyDateFilters(filters: DealDateFilters) {
+    const updates: Record<string, string | null> = {};
+    for (const { key, param } of DEAL_DATE_FILTERS) {
+      const value = filters[key];
+      updates[param] = value ? encodeDateRange(value) : null;
+    }
+    setParams(updates);
+  }
+
+  function clearDateFilters() {
+    // Só os filtros de data: ordenação, funil, busca e demais continuam.
+    setParams(Object.fromEntries(DEAL_DATE_FILTERS.map(({ param }) => [param, null])));
   }
 
   function onDragStart(event: DragStartEvent) {
@@ -188,10 +252,43 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex h-[calc(100vh-8.5rem)] flex-col">
+    <div className="flex h-[calc(100dvh-8.5rem)] flex-col">
       {/* Barra de filtros */}
-      <div className="mb-4 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card)">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-3 rounded-2xl border border-line bg-white p-2 shadow-(--shadow-card) md:mb-4 md:p-3">
+        {/* Celular: só busca, o botão que abre os filtros e o "+". O resto
+            empurrava o quadro para fora da tela — a pessoa rolava 700px de
+            selects antes de ver o primeiro card. */}
+        <div className="flex items-center gap-2 md:hidden">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+            <Input
+              className="pl-9"
+              placeholder="Buscar lead…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Button
+            variant={toolsOpen || activeToolCount > 0 ? "secondary" : "outline"}
+            onClick={() => setToolsOpen((v) => !v)}
+            aria-expanded={toolsOpen}
+            aria-controls="kanban-ferramentas"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {activeToolCount > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-bold text-white tabular-nums">
+                {activeToolCount}
+              </span>
+            )}
+          </Button>
+          <Button size="icon" className="h-10 w-10" onClick={() => setModalOpen(true)} aria-label="Nova negociação">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div id="kanban-ferramentas" className={cn("md:block", toolsOpen ? "mt-2 block" : "hidden")}>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <Select
             value={params.get("funil") ?? activePipeline?.id ?? ""}
             onChange={(e) => setParam("funil", e.target.value)}
@@ -233,16 +330,19 @@ export function KanbanBoard({
             ))}
           </Select>
           <Select
-            value={params.get("ordem") ?? "recentes"}
+            aria-label="Ordenação"
+            value={sort}
             onChange={(e) => setParam("ordem", e.target.value)}
           >
-            <option value="recentes">Mais recentes</option>
-            <option value="antigas">Mais antigas</option>
-            <option value="valor">Maior valor</option>
+            {DEAL_SORTS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </Select>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-0 flex-1">
+          <div className="relative hidden min-w-0 flex-1 md:block">
             <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
             <Input
               className="pl-9"
@@ -251,7 +351,12 @@ export function KanbanBoard({
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button onClick={() => setModalOpen(true)}>
+          <DealFiltersPanel
+            applied={dateFilters}
+            onApply={applyDateFilters}
+            onClear={clearDateFilters}
+          />
+          <Button className="hidden md:inline-flex" onClick={() => setModalOpen(true)}>
             <Plus className="h-4 w-4" />
             Negociação
           </Button>
@@ -295,6 +400,7 @@ export function KanbanBoard({
             <UnreadConversationsPill />
           </div>
         </div>
+        </div>
         {moveError && (
           <p
             role="alert"
@@ -306,6 +412,12 @@ export function KanbanBoard({
         {tagsError && (
           <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {tagsError}
+          </p>
+        )}
+        {totalDeals > initialDeals.length && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            Mostrando {initialDeals.length} de {totalDeals} negociações (limite de {dealsLimit}).
+            Refine com os filtros ou a busca para ver as demais.
           </p>
         )}
         {dealsError && (

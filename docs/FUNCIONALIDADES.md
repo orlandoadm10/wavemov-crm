@@ -8,7 +8,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | Rota | Arquivo | O que faz |
 |---|---|---|
 | `/dashboard` | `app/(dashboard)/dashboard/page.tsx` | Métricas do funil: criadas/ganhas/perdidas, ticket, conversão, séries mensais, etapas, responsáveis, motivos de perda, UTMs |
-| `/negociacoes` | `app/(dashboard)/negociacoes/page.tsx` | Kanban com drag-and-drop, badges e filtro por tag, filtros de funil/status/responsável/ordem, busca |
+| `/negociacoes` | `app/(dashboard)/negociacoes/page.tsx` | Kanban com drag-and-drop, badges e filtro por tag, filtros de funil/status/responsável, **ordenação e filtros de data** (0031), busca no servidor |
 | `/negociacoes/[id]` | `app/(dashboard)/negociacoes/[id]/page.tsx` | Detalhe do lead: tags, stepper, tarefas, notas, **edição do contato vinculado** e histórico segmentado entre atividades e conversas |
 | `/tags` | `app/(dashboard)/tags/page.tsx` | **Catálogo de tags de negociação**, restrito a `org_admin`/admin global. No menu lateral (Vendas → Tags) e pelo botão ao lado dos filtros de `/negociacoes` |
 | `/funis` | `app/(dashboard)/funis/page.tsx` | **Editor de etapas do funil** — fluxo com volume e retenção + CRUD de etapas |
@@ -90,6 +90,38 @@ conversa. Fora da janela de 24h a Meta só aceita template (ação "Enviar
 WhatsApp" aceita nome e idioma do template).
 
 ---
+
+## Ordenação e filtros de data do Kanban — `/negociacoes` (0031)
+
+Seleção e ordem saem do banco (RPC `negociacoes_do_kanban`), nunca do
+navegador: o board carrega no máximo 500 negociações e filtrar o que já
+chegou esconderia a 501ª. Ordem lógica: organização → visibilidade do papel
+(0011) → funil/status/responsável/tag → busca → filtros de data → ordenação →
+teto de 500. Acima do teto a tela avisa "Mostrando 500 de N".
+
+| Na tela | Campo real |
+|---|---|
+| Nome (A-Z / Z-A) | `contacts.name`; sem contato, `deals.title`. Sem acento e sem caixa |
+| Data de criação | `deals.created_at` |
+| Último contato (filtro e "Contato mais recente/antigo") | a **tratativa** da 0025: mais recente entre `activity_logs` da equipe e `whatsapp_messages` outbound. Mensagem do lead não conta |
+| Próxima tarefa | `min(tasks.due_at)` das pendentes (atrasada conta como próxima) |
+| Data de fechamento | `deals.expected_close_date` (o campo "Fechamento" do lead) |
+| Data modificação | `deals.updated_at` |
+
+- **Períodos:** Ontem, Hoje, Esta semana (segunda a domingo), Este mês, Mês
+  anterior, Últimos 7/15/30 dias (incluem hoje) e Personalizado (dia inicial
+  e final inteiros). Tudo em `America/Sao_Paulo`, em `lib/utils/period.ts`
+  (`resolveDateRange`), com o processo em UTC nos testes.
+- **URL:** `?ordem=az|za|contato_recente|contato_antigo|modificacao`,
+  `?criacao=`, `?contato=`, `?tarefa=`, `?fechamento=` (`hoje`, `7d`,
+  `2026-09-10_2026-09-15`…), `?q=` para a busca. Valor inválido é
+  descartado no servidor e não conta como filtro aplicado.
+- **Painel:** o que se escolhe é rascunho; só "Aplicar" consulta o banco.
+  "Limpar" remove os quatro filtros e mantém ordenação, funil e busca.
+- Filtro sobre data vazia exclui o lead; sem filtro naquela data, ele fica.
+  Na ordenação, datas vazias vão para o fim.
+- Padrão da ordenação: **Contato mais recente** (antes: criação mais recente).
+  As opções "Mais antigas" e "Maior valor" saíram, conforme o modelo pedido.
 
 ## Navegação lateral e configuração inicial (23/09/2026)
 

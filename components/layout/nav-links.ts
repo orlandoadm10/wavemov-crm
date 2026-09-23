@@ -49,6 +49,8 @@ export interface NavItem {
   badge?: NavBadge;
   /** Casamento exato: `/relatorios` não pode acender em `/relatorios/carteira`. */
   exact?: boolean;
+  /** Tela de computador: fica fora da gaveta do celular. */
+  desktopOnly?: boolean;
 }
 
 export interface NavGroup {
@@ -94,6 +96,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "WhatsApp",
         icon: Smartphone,
         access: "orgAdmin",
+        desktopOnly: true,
       },
     ],
   },
@@ -142,10 +145,15 @@ export function canSeeNavItem(
 }
 
 /** Grupos com os itens que este papel vê; grupo vazio some. */
-export function visibleNavGroups(viewer: { isOrgAdmin: boolean; isGlobalAdmin: boolean }) {
+export function visibleNavGroups(
+  viewer: { isOrgAdmin: boolean; isGlobalAdmin: boolean },
+  options: { inDrawer?: boolean } = {}
+) {
   return NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => canSeeNavItem(item, viewer)),
+    items: group.items.filter(
+      (item) => canSeeNavItem(item, viewer) && !(options.inDrawer && item.desktopOnly)
+    ),
   })).filter((group) => group.items.length > 0);
 }
 

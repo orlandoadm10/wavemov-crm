@@ -1,21 +1,22 @@
 import { KanbanBoard } from "@/components/crm/kanban-board";
+import { parseDealSort } from "@/lib/features/deal-filters/domain/deal-filters";
+import {
+  KANBAN_LIMIT,
+  loadKanbanDeals,
+  readDealDateFilters,
+} from "@/lib/features/deal-filters/infrastructure/kanban-deals-query";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
-import type { Contact, Deal, DealTag, Pipeline, Profile } from "@/types";
+import type { Contact, DealTag, Pipeline, Profile } from "@/types";
 
 export const metadata = { title: "Negociações" };
 export const dynamic = "force-dynamic";
 
-type Search = Promise<{
-  funil?: string;
-  status?: string;
-  responsavel?: string;
-  ordem?: string;
-  tag?: string;
-}>;
+type Search = Promise<Record<string, string | undefined>>;
 
 export default async function NegociacoesPage({ searchParams }: { searchParams: Search }) {
-  const { funil, status, responsavel, ordem, tag } = await searchParams;
+  const params = await searchParams;
+  const { funil, status, responsavel, ordem, tag, q } = params;
   const session = await getSessionContext();
   const supabase = await createClient();
   const orgId = session.organization.id;
@@ -42,29 +43,25 @@ export default async function NegociacoesPage({ searchParams }: { searchParams: 
   // Só aceita ids do catálogo ativo desta organização. Um UUID arbitrário ou
   // de outra empresa não chega ao filtro UUID do PostgREST nem esvazia o board.
   const tagFilter = tag && tags.some((item) => item.id === tag) ? tag : null;
-  const tagRelations = [
-    "tag_assignments:deal_tag_assignments(deal_id,tag_id,organization_id,assigned_by,assigned_at,tag:deal_tags(*))",
-    tagFilter ? "tag_filter:deal_tag_assignments!inner(tag_id)" : null,
-  ].filter(Boolean).join(", ");
-  let dealsQuery = supabase
-    .from("deals")
-    .select(`*, contact:contacts(*), responsible:profiles!deals_responsible_id_fkey(*), ${tagRelations}`)
-    .eq("organization_id", orgId);
-
-  if (activePipeline) dealsQuery = dealsQuery.eq("pipeline_id", activePipeline.id);
-
   // "todas" é o único valor que remove o filtro; ausência de parâmetro = "open"
   const statusFilter = status ?? "open";
-  if (statusFilter !== "todas") dealsQuery = dealsQuery.eq("status", statusFilter);
-  if (responsavel) dealsQuery = dealsQuery.eq("responsible_id", responsavel);
-  if (tagFilter) dealsQuery = dealsQuery.eq("tag_filter.tag_id", tagFilter);
+  const sort = parseDealSort(ordem);
+  const dateFilters = readDealDateFilters((param) => params[param]);
+  const search = q?.trim().slice(0, 100) || null;
+  // Só um UUID de membro chega à RPC; lixo na URL vira "todos".
+  const responsibleFilter = responsavel && /^[0-9a-f-]{36}$/i.test(responsavel) ? responsavel : null;
 
-  if (ordem === "antigas") dealsQuery = dealsQuery.order("created_at", { ascending: true });
-  else if (ordem === "valor") dealsQuery = dealsQuery.order("value", { ascending: false });
-  else dealsQuery = dealsQuery.order("created_at", { ascending: false });
-
-  const [{ data: dealsRaw, error: dealsError }, { data: membersRaw }, { data: contactsRaw }] = await Promise.all([
-    dealsQuery.limit(500),
+  const [kanban, { data: membersRaw }, { data: contactsRaw }] = await Promise.all([
+    loadKanbanDeals(supabase, {
+      organizationId: orgId,
+      pipelineId: activePipeline?.id ?? null,
+      status: statusFilter,
+      responsibleId: responsibleFilter,
+      tagId: tagFilter,
+      search,
+      sort,
+      dateFilters,
+    }),
     supabase
       .from("organization_members")
       .select("profile:profiles(*)")
@@ -78,7 +75,6 @@ export default async function NegociacoesPage({ searchParams }: { searchParams: 
       .limit(500),
   ]);
 
-  const deals = (dealsRaw ?? []) as unknown as Deal[];
   const members = ((membersRaw ?? []) as unknown as { profile: Profile }[]).map((m) => m.profile);
   const contacts = (contactsRaw ?? []) as Contact[];
 
@@ -89,12 +85,17 @@ export default async function NegociacoesPage({ searchParams }: { searchParams: 
         profileId={session.profile.id}
         pipelines={pipelines}
         activePipeline={activePipeline}
-        deals={deals}
+        deals={kanban.deals}
+        totalDeals={kanban.total}
+        dealsLimit={KANBAN_LIMIT}
+        sort={sort}
+        dateFilters={dateFilters}
+        search={search ?? ""}
         members={members}
         contacts={contacts}
         tags={tags}
         tagsError={tagsError ? "Não foi possível carregar as tags e o filtro." : null}
-        dealsError={dealsError ? "Não foi possível carregar as negociações." : null}
+        dealsError={kanban.error}
         canManageOrg={
           session.membership.role === "org_admin" || session.profile.is_global_admin
         }

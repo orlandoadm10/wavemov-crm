@@ -42,7 +42,7 @@ export function MessageThread({
       >
         <div
           className={cn(
-            "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm shadow-sm sm:max-w-[75%]",
+            "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm [overflow-wrap:anywhere] shadow-sm sm:max-w-[75%]",
             message.direction === "outbound"
               ? "rounded-br-md bg-primary-600 text-white"
               : "rounded-bl-md border border-line bg-white text-ink"

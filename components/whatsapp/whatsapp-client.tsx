@@ -519,7 +519,7 @@ export function WhatsAppClient({
     : null;
 
   return (
-    <div className="flex h-[calc(100vh-7.5rem)] flex-col">
+    <div className="flex h-[calc(100dvh-7.5rem)] flex-col">
       {/* Topo: status da conexão */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 shadow-(--shadow-card)">
         <div className="flex items-center gap-2.5">
@@ -531,9 +531,10 @@ export function WhatsAppClient({
             {st.label}
           </Badge>
         </div>
+        {/* A configuração é tela de computador (ver /atendimento/configuracoes). */}
         <Link
           href="/atendimento/configuracoes"
-          className={buttonClasses({ variant: "outline", size: "sm" })}
+          className={buttonClasses({ variant: "outline", size: "sm", className: "hidden lg:inline-flex" })}
         >
           <Settings className="h-3.5 w-3.5" />
           Conexão e configurações
@@ -558,11 +559,11 @@ export function WhatsAppClient({
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[320px_1fr_300px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[320px_minmax(0,1fr)_300px]">
         {/* ---------------- Lista de conversas ---------------- */}
         <div
           className={cn(
-            "flex min-h-0 flex-col rounded-2xl border border-line bg-white shadow-(--shadow-card)",
+            "flex min-h-0 min-w-0 flex-col rounded-2xl border border-line bg-white shadow-(--shadow-card)",
             mobilePane !== "list" && "hidden lg:flex"
           )}
         >
@@ -654,7 +655,7 @@ export function WhatsAppClient({
         {/* ---------------- Chat ---------------- */}
         <div
           className={cn(
-            "flex min-h-0 flex-col rounded-2xl border border-line bg-white shadow-(--shadow-card)",
+            "flex min-h-0 min-w-0 flex-col rounded-2xl border border-line bg-white shadow-(--shadow-card)",
             mobilePane !== "chat" && "hidden lg:flex"
           )}
         >
@@ -670,7 +671,7 @@ export function WhatsAppClient({
           ) : (
             <>
               {/* Cabeçalho do chat */}
-              <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+              <div className="flex items-center gap-2 border-b border-line px-3 py-3 sm:gap-3 sm:px-4">
                 <button
                   className="rounded-lg p-1.5 text-ink-faint hover:bg-slate-100 lg:hidden"
                   onClick={() => setMobilePane("list")}
@@ -682,7 +683,7 @@ export function WhatsAppClient({
                   <p className="truncate text-sm font-semibold text-ink">
                     {selected.name ?? `+${selected.phone}`}
                   </p>
-                  <p className="text-xs text-ink-faint">+{selected.phone}</p>
+                  <p className="truncate text-xs text-ink-faint">+{selected.phone}</p>
                 </div>
                 <button
                   className="rounded-lg p-1.5 text-ink-faint hover:bg-slate-100 lg:hidden"
@@ -699,16 +700,20 @@ export function WhatsAppClient({
                   <Button
                     variant={selected.status === "resolved" ? "secondary" : "outline"}
                     size="sm"
+                    className="shrink-0"
                     onClick={resolve}
+                    aria-label={selected.status === "resolved" ? "Reabrir" : "Resolver"}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    {selected.status === "resolved" ? "Reabrir" : "Resolver"}
+                    <span className="hidden sm:inline">
+                      {selected.status === "resolved" ? "Reabrir" : "Resolver"}
+                    </span>
                   </Button>
                 )}
               </div>
 
               {/* Mensagens */}
-              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50/60 p-4">
+              <div className="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto bg-slate-50/60 p-3 sm:p-4">
                 <MessageThread messages={messages} loading={loadingMessages} />
                 <div ref={bottomRef} />
               </div>
@@ -773,7 +778,7 @@ export function WhatsAppClient({
         {/* ---------------- Painel do contato/lead ---------------- */}
         <div
           className={cn(
-            "flex min-h-0 flex-col gap-3 overflow-y-auto",
+            "flex min-h-0 min-w-0 flex-col gap-3 overflow-y-auto",
             mobilePane !== "info" && "hidden lg:flex"
           )}
         >
