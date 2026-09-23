@@ -1,6 +1,7 @@
 "use client";
 
 import { DealModal } from "@/components/crm/deal-modal";
+import { DealAiCard } from "@/components/crm/deal-ai-card";
 import { DealContactCard } from "@/components/crm/deal-contact-card";
 import { DealTagsSelector } from "@/components/crm/deal-tags-selector";
 import { DealHistoryPanel } from "@/components/crm/deal-history-panel";
@@ -418,6 +419,8 @@ export function DealDetail({
             hasSubmission={hasSubmission}
             canEdit={canEditLeadInfo}
           />
+
+          <DealAiCard aiStatus={deal.ai_status} qualification={deal.ai_qualification} />
 
           <Card>
             <CardHeader

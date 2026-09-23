@@ -2,6 +2,101 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-23 — menu lateral e assistente de configuração inicial
+
+Pedido: o menu superior ocupava espaço e não comportava itens; faltava o
+onboarding de configuração inicial que o DeskcommCRM tem. Desenho portado do
+DeskcommCRM (`components/shell/Sidebar.tsx`, `app/onboarding/*`) e reescrito
+sobre o `DESIGN_GUIDE`, a sessão e o schema deste projeto.
+
+### Navegação
+
+- `components/layout/top-nav.tsx` removido. Entram `app-shell.tsx` (barra
+  lateral `sticky`, gaveta abaixo de `lg`, barra superior só com a conta),
+  `sidebar.tsx` e `user-menu.tsx`. `nav-links.ts` virou catálogo agrupado com
+  `access` por item e `visibleNavGroups()`.
+- Telas que estavam fora do menu por falta de espaço voltam a ter endereço:
+  Tags, Distribuição, WhatsApp, Integrações, Carteira, Por vendedor.
+- Recolher o menu é preferência em cookie, lida no servidor.
+
+### Configuração inicial
+
+- `0030_configuracao_inicial.sql`: `organizations.onboarded_at` (backfill só
+  no ato em que a coluna nasce), `organizations.onboarding_steps`, e a RPC
+  `apply_onboarding_pipeline()` (security definer, `is_org_admin`, recusa
+  funil com negociação/formulário/automação ligada a etapa). Idempotente; 12
+  asserções novas no `test:db`.
+- `lib/features/onboarding/domain`: passos, progresso, modelos de funil por
+  segmento e validação (9 testes em `onboarding.test.mts`).
+- `/onboarding/(etapas)`: empresa → funil → equipe → WhatsApp → IA → resumo.
+- `createOrgAction` passa a levar a `/onboarding`.
+
+### Documentos
+
+- `docs/ROADMAP_SUPERCRM.md`: o que ainda aproveitar do DeskcommCRM, por
+  prioridade.
+- `DESIGN_GUIDE.md`: "Navegação superior" virou "Navegação lateral".
+
+## 2026-09-22 — IA, automações, API oficial da Meta, API v1 e MCP
+
+Ramo `feat/ia-automacoes-canais`. Funcionalidades e arquitetura trazidas do
+DeskcommCRM (agentes, RAG, handoff, event log + motor de regras, adapter de
+canais, MCP) e reescritas sobre o schema, a tenancy (`organization_id` +
+helpers da 0003/0011) e o design do CRM JID Mídia. Nenhum sistema de tenancy
+paralelo, nenhuma tabela existente recriada: contatos, negociações, funis,
+conversas e mensagens são as mesmas.
+
+### Banco (0026–0029, aditivas e idempotentes)
+
+- `0026`: `ai_agents`, `knowledge_documents`, `knowledge_chunks` (pgvector
+  1536, HNSW), `ai_runs`, `match_knowledge_chunks` executável só por
+  service_role.
+- `0027`: Meta Cloud API em `whatsapp_instances` (`phone_number_id` único);
+  `handling_mode`/handoff/follow-up em `whatsapp_conversations`;
+  `sender_type`/`delivery_status` em `whatsapp_messages` (backfill
+  conservador); `pipeline_stages.requires_human`; `deals.ai_qualification`;
+  trigger que mantém direção da última mensagem e zera a régua no inbound.
+- `0028`: `crm_events` + triggers em `deals` e `whatsapp_messages`;
+  `automation_rules`, `automation_runs`; reserva atômica
+  (`for update skip locked`) só para service_role.
+- `0029`: `api_tokens` (SHA-256, escopos, revogação sem delete).
+- `test:db`: +36 asserções (isolamento A/B, papéis, busca semântica por
+  empresa, eventos do Kanban na sessão do seller, fila, idempotência e ausência
+  de DROP/TRUNCATE/tabela temporária). PGlite carrega pgvector.
+
+### Aplicação
+
+- `lib/features/whatsapp-inbound`: o pipeline do webhook UAZAPI (contato →
+  conversa → lead → mensagem → histórico) virou caso de uso compartilhado com o
+  webhook da Meta, preservando as lições da 0024 (sem `maybeSingle` em coluna
+  sem unicidade, 23505 como corrida perdida).
+- `lib/features/channels`: porta única de envio por provider; envio grava a
+  mensagem como `pending` antes de chamar o provedor, para o eco `fromMe` da
+  UAZAPI não ser confundido com "equipe respondeu pelo celular".
+- `lib/features/ai-agent`: turno do agente com tool calling (API compatível com
+  OpenAI; OpenRouter para Claude/Gemini), RAG, gatilhos de handoff testados.
+- `lib/features/crm-tools`: 14 ferramentas, uma implementação, três portas
+  (IA, MCP, API v1).
+- `lib/features/automations`: motor com condições puras e testadas, atraso por
+  regra, antilaço e régua de follow-up.
+- Telas `/ia`, `/automacoes`, `/integracoes`; botão IA/humano e aviso de
+  transferência no atendimento; rótulo IA/Automação nas mensagens; card de
+  qualificação da IA no detalhe do lead; "Só humano" nas etapas de `/funis`;
+  cadastro da API oficial em Atendimento → Configurações.
+
+### Validação executada
+
+`npx tsc --noEmit`, `npm run build`, `npm run test:unit` (158/158),
+`npm run test:db` (todas), `git diff --check`. Ponta a ponta no Supabase LOCAL
+(Docker) com 0021–0029 aplicadas: MCP (`initialize`, `tools/list`), API v1
+(criar lead, mover etapa por nome, 400/401/404), cron com e sem segredo e
+idempotente, webhook UAZAPI (conversa nasce com a IA, duplicata ignorada,
+automação `deal.created` executada na hora, retomada humana por `fromMe`),
+webhook Meta (verificação 200/403, sem assinatura 401, assinado 200 pela
+instância certa) e handoff por pedido de humano. Sem chave de modelo no
+ambiente: a resposta gerada pelo LLM e a indexação com embeddings NÃO foram
+exercitadas contra um provedor real.
+
 ## 2026-09-01 — responsividade, lote 1: formulários no celular
 
 Primeiro lote do plano de responsividade (ver `HANDOFF.md`). Risco zero e

@@ -5,7 +5,7 @@ Leia este arquivo primeiro. As regras canônicas de trabalho estão em
 `docs/FUNCIONALIDADES.md` para contratos funcionais e `docs/CHANGELOG.md` para
 o histórico detalhado.
 
-**Atualizado em:** 31/08/2026
+**Atualizado em:** 22/09/2026
 
 **Versão:** `0.2.0`
 
@@ -42,6 +42,82 @@ a `0020` ganhou prova em Postgres real, além do pglite.
 
 Isso importa: com o `.env.local` apontando para a nuvem, `npm run dev` escreve
 **nos dados reais do cliente**. Confira o arquivo antes de subir o app.
+
+## Menu lateral e configuração inicial — 23/09/2026
+
+Mesmo ramo (`feat/ia-automacoes-canais`), **não publicado e sem commit**.
+Detalhe em `docs/CHANGELOG.md` e `docs/FUNCIONALIDADES.md`; o que ainda
+aproveitar do DeskcommCRM está em `docs/ROADMAP_SUPERCRM.md`.
+
+- **A `0030` pode ser aplicada antes ou depois do deploy.** Sem ela o código
+  trata a empresa como configurada e o assistente não é oferecido (mas o menu
+  "Configuração inicial" leva a telas que avisam "migration 0030 pendente" ao
+  salvar). Aplicar na ordem 0026 → … → 0030 e registrar no ledger.
+- **Contratos:** o gate do assistente mora em `/dashboard`, não no layout (ver
+  FUNCIONALIDADES); `apply_onboarding_pipeline` só mexe em funil virgem; o
+  menu esconde, a rota protege.
+- **Não verificado em navegador:** o Supabase local estava desligado nesta
+  sessão. Fazer o passe de QA em 375/768/1440 no menu (aberto, recolhido,
+  gaveta) e percorrer o assistente com uma empresa nova antes de publicar.
+
+## IA, automações, API oficial da Meta, API v1 e MCP — 22/09/2026
+
+Ramo `feat/ia-automacoes-canais`, **não publicado**. Detalhe em
+`docs/CHANGELOG.md` e `docs/FUNCIONALIDADES.md`.
+
+### Ordem de publicação — não inverter
+
+1. **Aplicar 0026 → 0027 → 0028 → 0029 no painel**, uma por vez, registrando
+   cada uma no ledger no mesmo ato (ver README, "Sobre o `supabase db push`").
+   A 0026 cria a extensão `vector` no schema `extensions`. A 0027 faz um
+   `update` de backfill em `whatsapp_messages.sender_type` (não apaga nada).
+2. **Só então o deploy do código.** O código novo lê colunas da 0027
+   (`handling_mode`, `sender_type`) e insere em `crm_events`/`ai_runs`; sem as
+   migrations, o webhook da UAZAPI falharia ao gravar a conversa.
+3. Configurar as variáveis na Vercel (nomes em `.env.example`):
+   `AI_API_KEY` (+ `AI_BASE_URL`/`AI_DEFAULT_MODEL` se não for OpenAI),
+   `AI_EMBEDDING_*` se o provedor de chat não fizer embeddings,
+   `META_APP_SECRET` (só se usar a API oficial), `CRON_SECRET`.
+4. Agendar `/api/cron/automations` a cada 1–5 min no n8n (o `vercel.json`
+   agenda 1×/dia como rede de segurança, limite do plano Hobby).
+
+Sem `AI_API_KEY` nada quebra: agentes podem ser configurados, o turno fica
+registrado como "IA sem chave" e os gatilhos de transferência por regex
+continuam funcionando.
+
+### Contratos a preservar
+
+- **Toda escrita de servidor filtra `organization_id` de fonte confiável**
+  (segredo, assinatura + `phone_number_id`, token). Nenhuma rota nova aceita
+  organização do corpo.
+- **No turno da IA, o lead da conversa vence o id do argumento** da
+  ferramenta: o lead não pode convencer o modelo a mexer em outro cadastro.
+- **A mensagem enviada é gravada `pending` antes do provedor.** Tirar isso
+  faz o eco `fromMe` da UAZAPI tirar a conversa da IA a cada resposta dela.
+- **`getInstanceForOrg` ignora a instância `meta_cloud`**: ela alimenta a tela
+  da UAZAPI e o envio de conversas legadas. A instância da Meta é separada, não
+  uma conversão — trocar o provider da instância em uso mudaria o número de
+  saída de todas as conversas abertas.
+- **Trigger nunca faz HTTP.** `crm_events` é a fila; o servidor executa.
+- **`deals` continua fora do Realtime** (decisão de 31/08). O evento do
+  Kanban chega ao motor pela trigger + `/api/automations/dispatch`.
+
+### Riscos e débitos conhecidos
+
+- **Sem rate limit** nos turnos da IA e na API v1. Um lead (ou token) muito
+  ativo consome modelo sem teto. Próximo passo natural: limite por
+  conversa/token.
+- **Mídia da Meta** chega com o id no `raw_payload`, sem download para o
+  Storage: o atendente vê "[image]" sem a imagem.
+- **`crm_events` e `ai_runs` crescem sem retenção.** Mesmo débito já apontado
+  para `activity_logs`; decidir política antes da importação do Bubble.
+- **Templates da Meta**: a ação de automação envia template por nome/idioma,
+  sem parâmetros e sem sincronizar a lista aprovada da conta.
+- **LLM e embeddings não foram exercitados contra provedor real** nesta
+  sessão (sem chave no ambiente). O primeiro teste com chave deve olhar a aba
+  Atividade de `/ia`.
+- `app/api/webhooks/uazapi/route.ts` ainda carrega a resolução de organização
+  redundante com o segredo por instância (nota antiga no próprio arquivo).
 
 ## Entregas publicadas em 28/08/2026
 

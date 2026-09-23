@@ -228,7 +228,7 @@ app/
   f/[slug]/       página pública de formulário
 components/
   ui/             design system (Button, Modal, Badge, DataTable…)
-  layout/         TopNav, PageHeader, navegação mobile
+  layout/         AppShell (menu lateral), Sidebar, UserMenu, PageHeader
   crm/            Kanban, detalhe do lead, tarefas, dashboard…
   landing/        seções da landing page pública
   forms/          construtor de formulários

@@ -1,8 +1,9 @@
 import { IngestionHealthPanel } from "@/components/crm/ingestion-health-panel";
 import { InstanceSettings } from "@/components/whatsapp/instance-settings";
+import { MetaCloudSettings } from "@/components/whatsapp/meta-cloud-settings";
 import { PageHeader } from "@/components/layout/page-header";
 import { getIngestionHealth } from "@/lib/features/lead-ingestion/infrastructure/ingestion-health-query";
-import { getInstanceForOrg, toPublicInstance } from "@/lib/services/whatsapp";
+import { getInstanceForOrg, getMetaInstanceForOrg, toPublicInstance } from "@/lib/services/whatsapp";
 import { getSessionContext } from "@/lib/services/session";
 import { buildWebhookUrl } from "@/lib/services/webhook-secret";
 import { createClient } from "@/lib/supabase/server";
@@ -44,6 +45,10 @@ export default async function ConfiguracoesWhatsAppPage() {
     session.membership.role === "viewer" ||
     session.profile.is_global_admin;
 
+  // Instância da API oficial da Meta: só para quem administra. O token nunca
+  // sai do servidor; o verify token (segredo da instância) só para org_admin.
+  const metaInstance = canManageWebhook ? await getMetaInstanceForOrg(session.organization.id) : null;
+
   const supabase = await createClient();
   const health = canSeeHealth
     ? await getIngestionHealth(supabase, session.organization.id)
@@ -53,7 +58,7 @@ export default async function ConfiguracoesWhatsAppPage() {
     <div className="animate-fade-up">
       <PageHeader
         title="Conexão WhatsApp"
-        subtitle="Configure sua instância UAZAPI e o webhook de mensagens"
+        subtitle="Configure a UAZAPI, a API oficial da Meta e o webhook de mensagens"
         actions={
           <Link
             href="/atendimento"
@@ -76,6 +81,23 @@ export default async function ConfiguracoesWhatsAppPage() {
         instance={toPublicInstance(instance)}
         webhookUrl={webhookUrl}
         canManageWebhook={canManageWebhook}
+      />
+      <MetaCloudSettings
+        canManage={canManageWebhook}
+        callbackUrl={`${appUrl.replace(/\/$/, "")}/api/webhooks/meta`}
+        verifyToken={metaInstance?.webhook_secret ?? null}
+        instance={
+          metaInstance
+            ? {
+                name: metaInstance.name,
+                phone_number_id: metaInstance.phone_number_id ?? null,
+                business_account_id: metaInstance.business_account_id ?? null,
+                display_phone: metaInstance.display_phone ?? null,
+                has_token: Boolean(metaInstance.token_encrypted),
+                status: metaInstance.status,
+              }
+            : null
+        }
       />
     </div>
   );

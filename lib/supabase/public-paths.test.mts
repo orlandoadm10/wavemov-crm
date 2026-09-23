@@ -42,6 +42,20 @@ const DECISAO_POR_ROTA: Record<string, boolean> = {
   "/api/ingest/leads": true,
   // Segredo por instância WhatsApp (0010).
   "/api/webhooks/uazapi": true,
+  // Assinatura X-Hub-Signature-256 do app da Meta + phone_number_id (0027).
+  "/api/webhooks/meta": true,
+  // Bearer CRON_SECRET, comparado em tempo constante; recusa sem a variável.
+  "/api/cron/automations": true,
+  // Token de API por organização (0029); a organização sai do token.
+  "/api/mcp": true,
+  "/api/v1/contacts": true,
+  "/api/v1/deals": true,
+  "/api/v1/deals/[id]": true,
+  "/api/v1/messages": true,
+  "/api/v1/pipelines": true,
+  "/api/v1/tools/[name]": true,
+  // Drena a fila da empresa de quem está logado (após mover card no Kanban).
+  "/api/automations/dispatch": false,
   // Operam sobre a sessão de quem está logado.
   "/api/session/logout": false,
   "/api/session/org": false,

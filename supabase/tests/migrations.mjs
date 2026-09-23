@@ -22,6 +22,7 @@
  * confirma que o SQL não tem erro de sintaxe não paga o que custa.
  */
 import { PGlite } from "@electric-sql/pglite";
+import { vector } from "@electric-sql/pglite/vector";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,7 +36,8 @@ const fail = (m, extra = "") => {
   console.log(`  FAIL  ${m}${extra ? `\n        ${extra}` : ""}`);
 };
 
-const db = await PGlite.create();
+// pgvector (0026): a base de conhecimento guarda embeddings.
+const db = await PGlite.create({ extensions: { vector } });
 
 // ------------------------------------------------------------
 // Stub do ambiente Supabase (schema auth, auth.uid(), roles)
@@ -2528,6 +2530,409 @@ console.log("\n== 0025: carteira sem tratativa ==");
   }
 
   await db.query(`select set_config('test.uid', '', false)`);
+}
+
+console.log("\n== 0026-0029: IA, canais, automações e tokens ==");
+{
+  // Na Supabase `authenticated` tem USAGE em `extensions`; sem isto o stub
+  // recusaria pelo motivo errado e o teste provaria menos do que diz.
+  await db.exec(`grant usage on schema extensions to authenticated, service_role`);
+  // A Empresa B é excluída num teste anterior: este bloco usa a C, própria.
+  await db.exec(`insert into auth.users (email, raw_user_meta_data) values ('admin.c@teste.com', '{"first_name":"Clara"}')`);
+  const adminC = await uid("admin.c@teste.com");
+  const pAdminC = await perfil(adminC);
+  const ORG_C = "33333333-3333-3333-3333-333333333333";
+  await db.query(`insert into public.organizations (id, name) values ($1, 'Empresa C')`, [ORG_C]);
+  await db.query(`insert into public.organization_members (organization_id, profile_id, role) values ($1, $2, 'org_admin')`, [ORG_C, pAdminC]);
+  // --- Agentes: só org_admin configura, e só na própria empresa ---
+  await comoUsuario(adminA, () =>
+    db.query(
+      `insert into public.ai_agents (organization_id, name, is_active, is_default) values ($1, 'SDR', true, true)`,
+      [ORG_A]
+    )
+  );
+  ok("0026: org_admin cria agente na própria empresa");
+
+  await esperaErro(
+    "0026: seller não cria agente",
+    () => comoUsuario(sellerA, () =>
+      db.query(`insert into public.ai_agents (organization_id, name) values ($1, 'X')`, [ORG_A])
+    ),
+    /row-level security/
+  );
+  await esperaErro(
+    "0026: org_admin de B não cria agente na empresa A",
+    () => comoUsuario(adminC, () =>
+      db.query(`insert into public.ai_agents (organization_id, name) values ($1, 'X')`, [ORG_A])
+    ),
+    /row-level security/
+  );
+  await esperaErro(
+    "0026: segundo agente padrão na mesma empresa é recusado",
+    () => db.query(
+      `insert into public.ai_agents (organization_id, name, is_default) values ($1, 'Outro', true)`,
+      [ORG_A]
+    ),
+    /duplicate key/
+  );
+
+  const vistosPorB = await comoUsuario(adminC, () =>
+    db.query(`select id from public.ai_agents where organization_id = $1`, [ORG_A])
+  );
+  if (vistosPorB.rows.length === 0) ok("0026: empresa B não enxerga agentes da A");
+  else fail("0026: VAZOU agente entre empresas");
+
+  // --- RAG: trechos só pelo servidor; busca filtra a organização ---
+  const doc = await umaLinha(
+    `insert into public.knowledge_documents (organization_id, title, content, status)
+     values ($1, 'Preços', 'Plano básico custa 100', 'ready') returning id`,
+    [ORG_A]
+  );
+  const docB = await umaLinha(
+    `insert into public.knowledge_documents (organization_id, title, content, status)
+     values ($1, 'Segredo B', 'dado da B', 'ready') returning id`,
+    [ORG_C]
+  );
+  const vetor = `[${Array.from({ length: 1536 }, (_, i) => (i === 0 ? 1 : 0)).join(",")}]`;
+  await db.query(
+    `insert into public.knowledge_chunks (organization_id, document_id, chunk_index, content, embedding)
+     values ($1, $2, 0, 'Plano básico custa 100', $3::extensions.vector),
+            ($4, $5, 0, 'dado da B', $3::extensions.vector)`,
+    [ORG_A, doc.id, vetor, ORG_C, docB.id]
+  );
+  const achados = await db.query(
+    `select * from public.match_knowledge_chunks($1, $2::extensions.vector, 5, null)`,
+    [ORG_A, vetor]
+  );
+  if (achados.rows.length === 1 && achados.rows[0].title === "Preços")
+    ok("0026: busca semântica devolve só o material da própria empresa");
+  else fail("0026: busca semântica misturou empresas", JSON.stringify(achados.rows.map((r) => r.title)));
+
+  await esperaErro(
+    "0026: authenticated não executa a busca semântica",
+    () => comoUsuario(adminA, () =>
+      db.query(`select * from public.match_knowledge_chunks($1, $2::extensions.vector, 5, null)`, [ORG_A, vetor])
+    ),
+    /permission denied/
+  );
+  await esperaErro(
+    "0026: authenticated não grava trechos",
+    () => comoUsuario(adminA, () =>
+      db.query(
+        `insert into public.knowledge_chunks (organization_id, document_id, chunk_index, content, embedding)
+         values ($1, $2, 1, 'x', $3::extensions.vector)`,
+        [ORG_A, doc.id, vetor]
+      )
+    ),
+    /permission denied|row-level security/
+  );
+
+  // --- 0027/0028: conversa, mensagem e eventos ---
+  const stage = await umaLinha(
+    `select s.id, s.pipeline_id from public.pipeline_stages s
+       join public.pipelines p on p.id = s.pipeline_id
+      where p.organization_id = $1 and p.is_default and not s.is_won_stage and not s.is_lost_stage
+      order by s.order_index limit 1`,
+    [ORG_A]
+  );
+  const contato = await umaLinha(
+    `insert into public.contacts (organization_id, name, whatsapp_phone) values ($1, 'Lead IA', '5511900000001') returning id`,
+    [ORG_A]
+  );
+  const deal = await umaLinha(
+    `insert into public.deals (organization_id, pipeline_id, stage_id, contact_id, title, responsible_id)
+     values ($1, $2, $3, $4, 'Lead IA', $5) returning id`,
+    [ORG_A, stage.pipeline_id, stage.id, contato.id, pSellerA]
+  );
+  const criado = await umaLinha(
+    `select count(*)::int as n from public.crm_events where deal_id = $1 and event_type = 'deal.created'`,
+    [deal.id]
+  );
+  if (criado.n === 1) ok("0028: criar negociação emite deal.created");
+  else fail("0028: deal.created não emitido", String(criado.n));
+
+  const outraEtapa = await umaLinha(
+    `select id from public.pipeline_stages where pipeline_id = $1 and id <> $2 and not is_won_stage and not is_lost_stage limit 1`,
+    [stage.pipeline_id, stage.id]
+  );
+  if (outraEtapa) {
+    await comoUsuario(sellerA, () =>
+      db.query(`update public.deals set stage_id = $1 where id = $2`, [outraEtapa.id, deal.id])
+    );
+    const mudou = await umaLinha(
+      `select payload from public.crm_events where deal_id = $1 and event_type = 'deal.stage_changed'`,
+      [deal.id]
+    );
+    if (mudou?.payload?.from_stage_id === stage.id && mudou.payload.stage_id === outraEtapa.id)
+      ok("0028: mover no Kanban (sessão do seller) emite deal.stage_changed com origem e destino");
+    else fail("0028: deal.stage_changed ausente ou incompleto", JSON.stringify(mudou));
+  }
+
+  const conversa = await umaLinha(
+    `insert into public.whatsapp_conversations (organization_id, contact_id, deal_id, phone)
+     values ($1, $2, $3, '5511900000001') returning id, handling_mode, followup_count`,
+    [ORG_A, contato.id, deal.id]
+  );
+  if (conversa.handling_mode === "human") ok("0027: conversa nasce em modo humano por padrão");
+  else fail("0027: modo padrão da conversa", conversa.handling_mode);
+
+  await db.query(`update public.whatsapp_conversations set followup_count = 2 where id = $1`, [conversa.id]);
+  await db.query(
+    `insert into public.whatsapp_messages (organization_id, conversation_id, direction, content)
+     values ($1, $2, 'outbound', 'Oi!')`,
+    [ORG_A, conversa.id]
+  );
+  let estado = await umaLinha(
+    `select last_message_direction, followup_count from public.whatsapp_conversations where id = $1`,
+    [conversa.id]
+  );
+  if (estado.last_message_direction === "outbound" && estado.followup_count === 2)
+    ok("0027: saída marca a direção e não zera a régua de follow-up");
+  else fail("0027: estado após saída", JSON.stringify(estado));
+
+  await db.query(
+    `insert into public.whatsapp_messages (organization_id, conversation_id, direction, content)
+     values ($1, $2, 'inbound', 'quero saber o preço')`,
+    [ORG_A, conversa.id]
+  );
+  estado = await umaLinha(
+    `select last_message_direction, followup_count, last_inbound_at from public.whatsapp_conversations where id = $1`,
+    [conversa.id]
+  );
+  if (estado.last_message_direction === "inbound" && estado.followup_count === 0 && estado.last_inbound_at)
+    ok("0027: resposta do lead zera o follow-up e registra o último inbound");
+  else fail("0027: estado após entrada", JSON.stringify(estado));
+
+  const recebido = await umaLinha(
+    `select deal_id, payload from public.crm_events where event_type = 'message.received' and conversation_id = $1`,
+    [conversa.id]
+  );
+  if (recebido?.deal_id === deal.id && recebido.payload.content === "quero saber o preço")
+    ok("0028: mensagem recebida emite message.received com lead e conteúdo");
+  else fail("0028: message.received", JSON.stringify(recebido));
+
+  const msgTipo = await umaLinha(
+    `select sender_type from public.whatsapp_messages where conversation_id = $1 and direction = 'inbound'`,
+    [conversa.id]
+  );
+  if (msgTipo.sender_type === "contact") ok("0027: mensagem recebida nasce com sender_type = contact");
+  else fail("0027: sender_type padrão", msgTipo.sender_type);
+
+  // --- Fila: reserva atômica e restrita ao servidor ---
+  const reservados = await db.query(`select id, organization_id from public.claim_crm_events(100, $1)`, [ORG_A]);
+  if (reservados.rows.length > 0 && reservados.rows.every((r) => r.organization_id === ORG_A))
+    ok("0028: claim_crm_events reserva apenas eventos da organização pedida");
+  else fail("0028: claim_crm_events", JSON.stringify(reservados.rows));
+
+  const deNovo = await db.query(`select id from public.claim_crm_events(100, $1)`, [ORG_A]);
+  if (deNovo.rows.length === 0) ok("0028: evento reservado não é entregue duas vezes");
+  else fail("0028: evento reservado foi entregue de novo");
+
+  await esperaErro(
+    "0028: authenticated não reserva eventos",
+    () => comoUsuario(adminA, () => db.query(`select * from public.claim_crm_events(10, null)`)),
+    /permission denied/
+  );
+  await esperaErro(
+    "0028: authenticated não forja eventos",
+    () => comoUsuario(adminA, () =>
+      db.query(`insert into public.crm_events (organization_id, event_type) values ($1, 'deal.won')`, [ORG_A])
+    ),
+    /permission denied|row-level security/
+  );
+
+  const eventosVistosPorB = await comoUsuario(adminC, () =>
+    db.query(`select id from public.crm_events where organization_id = $1`, [ORG_A])
+  );
+  if (eventosVistosPorB.rows.length === 0) ok("0028: empresa B não lê a fila da A");
+  else fail("0028: VAZOU evento entre empresas");
+
+  // --- Regras: seller lê, não escreve ---
+  await esperaErro(
+    "0028: seller não cria automação",
+    () => comoUsuario(sellerA, () =>
+      db.query(
+        `insert into public.automation_rules (organization_id, name, trigger_event) values ($1, 'x', 'deal.created')`,
+        [ORG_A]
+      )
+    ),
+    /row-level security/
+  );
+  await esperaErro(
+    "0028: gatilho desconhecido é recusado",
+    () => db.query(
+      `insert into public.automation_rules (organization_id, name, trigger_event) values ($1, 'x', 'deal.qualquer')`,
+      [ORG_A]
+    ),
+    /check constraint/
+  );
+
+  // --- 0029: tokens ---
+  await comoUsuario(adminA, () =>
+    db.query(
+      `insert into public.api_tokens (organization_id, name, token_hash, token_prefix) values ($1, 'n8n', 'hash-a', 'jid_abc')`,
+      [ORG_A]
+    )
+  );
+  const tokensVistosPorSeller = await comoUsuario(sellerA, () =>
+    db.query(`select id from public.api_tokens where organization_id = $1`, [ORG_A])
+  );
+  if (tokensVistosPorSeller.rows.length === 0) ok("0029: seller não enxerga tokens de API");
+  else fail("0029: token visível para seller");
+  await esperaErro(
+    "0029: org_admin não apaga token (revogação preserva a trilha)",
+    () => comoUsuario(adminA, () => db.query(`delete from public.api_tokens where organization_id = $1`, [ORG_A])),
+    /permission denied/
+  );
+
+  // --- Idempotência e formato das quatro ---
+  const novas = [
+    "0026_agentes_de_ia_e_base_de_conhecimento.sql",
+    "0027_canais_e_atendimento_por_ia.sql",
+    "0028_eventos_e_automacoes.sql",
+    "0029_tokens_de_api.sql",
+  ];
+  for (const f of novas) {
+    try {
+      await db.exec(readFileSync(path.join(MIG, f), "utf8"));
+      ok(`${f.slice(0, 4)} roda duas vezes sem erro`);
+    } catch (e) {
+      fail(`${f.slice(0, 4)} não é idempotente`, e.message.split("\n")[0]);
+    }
+    const sql = readFileSync(path.join(MIG, f), "utf8");
+    if (/create\s+temp(orary)?\s+table/i.test(sql) || /^\s*(begin|commit)\s*;/im.test(sql))
+      fail(`${f.slice(0, 4)}: usa tabela temporária ou begin/commit (o painel não preserva a sessão)`);
+    else ok(`${f.slice(0, 4)}: sem tabela temporária e sem begin/commit`);
+    if (/\b(drop\s+table|truncate|drop\s+schema)\b/i.test(sql))
+      fail(`${f.slice(0, 4)}: contém instrução destrutiva`);
+    else ok(`${f.slice(0, 4)}: sem DROP TABLE/TRUNCATE/DROP SCHEMA`);
+  }
+}
+
+console.log("\n== 0030. Configuração inicial ==");
+{
+  // As empresas que existiam quando a coluna nasceu são dadas como
+  // configuradas: nenhuma cai no assistente no próximo login. Aqui as empresas
+  // A e B foram criadas DEPOIS das migrations, então a coluna é recriada para
+  // reproduzir a produção, onde elas já existiam.
+  await db.exec(`alter table public.organizations drop column onboarded_at;`);
+  await db.exec(readFileSync(path.join(MIG, "0030_configuracao_inicial.sql"), "utf8"));
+  const pendentes = await umaLinha(
+    `select count(*)::int as n from public.organizations where onboarded_at is null`
+  );
+  if (pendentes.n === 0) ok("0030: empresas existentes nascem configuradas (backfill)");
+  else fail("0030: backfill deixou empresa existente sem onboarded_at", `${pendentes.n}`);
+
+  const ORG_C = "30303030-3030-4030-8030-303030303030";
+  await db.query(`insert into public.organizations (id, name) values ($1, 'Empresa C')`, [ORG_C]);
+  await db.query(
+    `insert into public.organization_members (organization_id, profile_id, role) values ($1, $2, 'org_admin')`,
+    [ORG_C, pAdminB]
+  );
+  await db.query(`select public.provision_organization_defaults($1)`, [ORG_C]);
+
+  const nova = await umaLinha(`select onboarded_at, onboarding_steps from public.organizations where id = $1`, [ORG_C]);
+  if (nova.onboarded_at === null) ok("0030: empresa nova nasce sem onboarded_at");
+  else fail("0030: empresa nova já nasce configurada");
+
+  // Reaplicar a migration NÃO pode marcar a empresa criada no intervalo.
+  await db.exec(readFileSync(path.join(MIG, "0030_configuracao_inicial.sql"), "utf8"));
+  const depois = await umaLinha(`select onboarded_at from public.organizations where id = $1`, [ORG_C]);
+  if (depois.onboarded_at === null) ok("0030: reaplicar não refaz o backfill");
+  else fail("0030: reaplicar marcou a empresa nova como configurada");
+
+  const funil = [
+    { name: "Novo", kind: "open" },
+    { name: "Visita", kind: "open" },
+    { name: "Fechou", kind: "won" },
+    { name: "Perdeu", kind: "lost" },
+  ];
+
+  await esperaErro(
+    "0030: admin de OUTRA empresa não troca o funil",
+    () =>
+      comoUsuario(adminA, () =>
+        db.query(`select public.apply_onboarding_pipeline($1, 'X', $2::jsonb)`, [ORG_C, JSON.stringify(funil)])
+      ),
+    /Somente administradores/
+  );
+  await esperaErro(
+    "0030: dois ganhos são recusados",
+    () =>
+      comoUsuario(adminB, () =>
+        db.query(`select public.apply_onboarding_pipeline($1, 'Funil', $2::jsonb)`, [
+          ORG_C,
+          JSON.stringify([...funil, { name: "Outro", kind: "won" }]),
+        ])
+      ),
+    /uma etapa de ganho/
+  );
+
+  await comoUsuario(adminB, () =>
+    db.query(`select public.apply_onboarding_pipeline($1, 'Funil de Imóveis', $2::jsonb)`, [
+      ORG_C,
+      JSON.stringify(funil),
+    ])
+  );
+  const etapas = await db.query(
+    `select s.name, s.is_won_stage, s.is_lost_stage, p.name as funil
+       from public.pipeline_stages s join public.pipelines p on p.id = s.pipeline_id
+      where p.organization_id = $1 and p.is_default
+      order by s.order_index`,
+    [ORG_C]
+  );
+  const nomes = etapas.rows.map((r) => r.name).join(",");
+  if (nomes === "Novo,Visita,Fechou,Perdeu" && etapas.rows[2].is_won_stage && etapas.rows[3].is_lost_stage)
+    ok("0030: funil virgem recebe as etapas do modelo, na ordem");
+  else fail("0030: etapas gravadas não batem", nomes);
+  if (etapas.rows[0]?.funil === "Funil de Imóveis") ok("0030: funil padrão renomeado");
+  else fail("0030: funil não foi renomeado");
+
+  // Com uma negociação, a troca é recusada: a etapa dela não pode sumir.
+  const primeira = await umaLinha(
+    `select s.id as stage_id, p.id as pipeline_id
+       from public.pipeline_stages s join public.pipelines p on p.id = s.pipeline_id
+      where p.organization_id = $1 and p.is_default order by s.order_index limit 1`,
+    [ORG_C]
+  );
+  await db.query(
+    `insert into public.deals (organization_id, pipeline_id, stage_id, title) values ($1, $2, $3, 'Lead C')`,
+    [ORG_C, primeira.pipeline_id, primeira.stage_id]
+  );
+  await esperaErro(
+    "0030: funil com negociação não é trocado",
+    () =>
+      comoUsuario(adminB, () =>
+        db.query(`select public.apply_onboarding_pipeline($1, 'Outro', $2::jsonb)`, [ORG_C, JSON.stringify(funil)])
+      ),
+    /já tem negociações/
+  );
+
+  // Progresso: org_admin grava pela policy de update de organizations; o
+  // vendedor não (update sem linha afetada).
+  const gravado = await comoUsuario(adminB, () =>
+    db.query(
+      `update public.organizations set onboarding_steps = '{"empresa":"done"}'::jsonb where id = $1 returning id`,
+      [ORG_C]
+    )
+  );
+  if (gravado.rows.length === 1) ok("0030: org_admin grava o progresso do assistente");
+  else fail("0030: org_admin não conseguiu gravar o progresso");
+  const doVendedor = await comoUsuario(sellerA, () =>
+    db.query(
+      `update public.organizations set onboarded_at = now() where id = $1 returning id`,
+      [ORG_A]
+    )
+  );
+  if (doVendedor.rows.length === 0) ok("0030: vendedor não conclui o assistente da empresa");
+  else fail("0030: vendedor alterou onboarded_at");
+
+  const sql = readFileSync(path.join(MIG, "0030_configuracao_inicial.sql"), "utf8");
+  if (/create\s+temp(orary)?\s+table/i.test(sql) || /^\s*(begin|commit)\s*;/im.test(sql))
+    fail("0030: usa tabela temporária ou begin/commit (o painel não preserva a sessão)");
+  else ok("0030: sem tabela temporária e sem begin/commit");
+  if (/\b(drop\s+table|truncate|drop\s+schema)\b/i.test(sql)) fail("0030: contém instrução destrutiva");
+  else ok("0030: sem DROP TABLE/TRUNCATE/DROP SCHEMA");
 }
 
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);

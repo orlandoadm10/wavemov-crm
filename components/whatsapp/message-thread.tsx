@@ -1,7 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatDateTime } from "@/lib/utils";
 import type { ConversationThreadMessage } from "@/types";
-import { CheckCheck, Paperclip } from "lucide-react";
+import { Bot, CheckCheck, Clock, Paperclip, Workflow } from "lucide-react";
 
 interface Props {
   messages: ConversationThreadMessage[];
@@ -69,8 +69,23 @@ export function MessageThread({
               message.direction === "outbound" ? "text-primary-200" : "text-ink-faint"
             )}
           >
+            {message.sender_type === "ai" && (
+              <span className="mr-1 inline-flex items-center gap-0.5 font-semibold">
+                <Bot className="h-3 w-3" aria-hidden /> IA
+              </span>
+            )}
+            {message.sender_type === "automation" && (
+              <span className="mr-1 inline-flex items-center gap-0.5 font-semibold">
+                <Workflow className="h-3 w-3" aria-hidden /> Automação
+              </span>
+            )}
             {formatDateTime(message.created_at)}
-            {message.direction === "outbound" && <CheckCheck className="h-3 w-3" />}
+            {message.direction === "outbound" &&
+              (message.delivery_status === "pending" ? (
+                <Clock className="h-3 w-3" aria-label="Enviando" />
+              ) : (
+                <CheckCheck className="h-3 w-3" />
+              ))}
           </p>
         </div>
       </div>

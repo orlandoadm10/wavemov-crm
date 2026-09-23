@@ -24,6 +24,9 @@
  *                       próprio lead, que não tem conta no CRM.
  *   - `/api/ingest`   — credencial por organização no cabeçalho
  *                       `x-webhook-secret` (migration 0014). Quem chama é o n8n.
+ *   - `/api/v1`, `/api/mcp` — token de API por organização
+ *                       (`Authorization: Bearer jid_…`, migration 0029).
+ *   - `/api/cron`     — `Authorization: Bearer $CRON_SECRET` (Vercel Cron/n8n).
  *
  * Estar nesta lista NÃO significa "sem autenticação": significa que o
  * middleware não é quem autentica. Antes de acrescentar um caminho aqui,
@@ -37,6 +40,9 @@ export const PUBLIC_PATHS = [
   "/api/webhooks",
   "/api/forms",
   "/api/ingest",
+  "/api/v1",
+  "/api/mcp",
+  "/api/cron",
 ] as const;
 
 /**

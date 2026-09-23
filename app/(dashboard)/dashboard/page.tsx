@@ -9,12 +9,14 @@ import { IngestionAlertBanner } from "@/components/crm/ingestion-alert-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardHeader, StatCard } from "@/components/ui/card";
 import { getIngestionHealth } from "@/lib/features/lead-ingestion/infrastructure/ingestion-health-query";
+import { needsOnboarding } from "@/lib/features/onboarding/domain/steps";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency, fullName } from "@/lib/utils";
 import type { Deal, LostReason, Pipeline, PipelineStage, Profile, Task } from "@/types";
 import { format, startOfMonth, subDays, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { redirect } from "next/navigation";
 
 export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -24,6 +26,20 @@ type Search = Promise<{ periodo?: string; funil?: string; responsavel?: string }
 export default async function DashboardPage({ searchParams }: { searchParams: Search }) {
   const { periodo, funil, responsavel } = await searchParams;
   const session = await getSessionContext();
+
+  // O assistente de configuração inicial é oferecido AQUI, e não no layout:
+  // `/dashboard` é onde o login e a raiz desembocam. No layout, os atalhos do
+  // próprio assistente (WhatsApp, IA) voltariam para ele em círculo.
+  if (
+    needsOnboarding({
+      onboardedAt: session.organization.onboarded_at,
+      isOrgAdminMember:
+        session.membership.role === "org_admin" && session.membership.id !== "global-admin",
+    })
+  ) {
+    redirect("/onboarding");
+  }
+
   const supabase = await createClient();
   const orgId = session.organization.id;
 

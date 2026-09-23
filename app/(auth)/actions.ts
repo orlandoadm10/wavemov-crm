@@ -106,5 +106,5 @@ export async function createOrgAction(
   });
   if (error) return { error: error.message };
 
-  redirect("/dashboard");
+  redirect("/onboarding");
 }

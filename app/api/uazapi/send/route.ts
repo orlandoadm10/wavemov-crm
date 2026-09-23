@@ -1,12 +1,11 @@
-import { sendTextMessage } from "@/lib/services/uazapi";
-import { getInstanceById, getInstanceForOrg, resolveConfig } from "@/lib/services/whatsapp";
+import { sendConversationMessage } from "@/lib/features/channels/application/send-conversation-message";
 import { getSessionContext } from "@/lib/services/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { sendMessageSchema } from "@/lib/validations";
 import { NextResponse } from "next/server";
 
-// Envia mensagem de texto via UAZAPI e registra no histórico.
+// Envia mensagem de texto pelo canal da conversa (UAZAPI ou Meta) e registra no histórico.
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = sendMessageSchema.safeParse(body);
@@ -45,67 +44,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Conversa não encontrada." }, { status: 404 });
   }
 
-  // Responde pela MESMA instância que recebeu a conversa. Uma empresa pode
-  // ter mais de um atendente conectado (mais de um número): cair direto no
-  // `getInstanceForOrg()`, que devolve a instância mais antiga, faria a
-  // resposta sair pelo número errado. O fallback continua para conversas
-  // antigas, criadas antes de a conversa passar a guardar a instância.
-  const instance = conversation.instance_id
-    ? ((await getInstanceById(conversation.organization_id, conversation.instance_id)) ??
-      (await getInstanceForOrg(conversation.organization_id)))
-    : await getInstanceForOrg(conversation.organization_id);
-  const config = resolveConfig(instance);
-  if (!config) {
-    return NextResponse.json(
-      { error: "WhatsApp não configurado. Acesse Atendimento → Configurações." },
-      { status: 400 }
-    );
-  }
-
-  const result = await sendTextMessage(config, conversation.phone, content);
-  if (!result.ok) {
-    return NextResponse.json(
-      { error: "Falha ao enviar pela UAZAPI. Verifique a conexão da instância." },
-      { status: 502 }
-    );
-  }
-
+  // Envio, registro e histórico ficam no caso de uso único — o mesmo que a
+  // IA, as automações e a API v1 usam. A instância continua sendo a MESMA
+  // que recebeu a conversa (ver `sendConversationMessage`).
   const admin = createAdminClient();
-  const { data: message } = await admin
-    .from("whatsapp_messages")
-    .insert({
-      organization_id: conversation.organization_id,
-      conversation_id,
-      provider_message_id: result.providerMessageId,
-      direction: "outbound",
-      message_type: "text",
-      content,
-      receiver_phone: conversation.phone,
-      sent_by: session.profile.id,
-      raw_payload: (result.raw as Record<string, unknown>) ?? {},
-    })
-    .select("*")
-    .single();
+  const result = await sendConversationMessage(admin, {
+    organizationId: conversation.organization_id,
+    conversationId: conversation_id,
+    text: content,
+    senderType: "user",
+    sentBy: session.profile.id,
+  });
+  if (!result.ok) {
+    const status =
+      result.code === "not_configured" || result.code === "window_closed" ? 400 : 502;
+    return NextResponse.json({ error: result.error, code: result.code }, { status });
+  }
+  const message = result.message;
 
-  await admin
-    .from("whatsapp_conversations")
-    .update({
-      last_message: content,
-      last_message_at: new Date().toISOString(),
-      status: conversation.status === "resolved" ? "open" : conversation.status,
-    })
-    .eq("id", conversation_id)
-    .eq("organization_id", conversation.organization_id);
-
-  if (conversation.deal_id) {
-    await admin.from("activity_logs").insert({
-      organization_id: conversation.organization_id,
-      actor_id: session.profile.id,
-      deal_id: conversation.deal_id,
-      type: "whatsapp_outbound",
-      title: "Mensagem WhatsApp enviada",
-      description: content.slice(0, 200),
-    });
+  // Quem responde pela tela assume a conversa: a IA para de responder até
+  // alguém devolver o atendimento a ela (retomada humana).
+  if (conversation.handling_mode === "ai") {
+    await admin
+      .from("whatsapp_conversations")
+      .update({
+        handling_mode: "human",
+        handoff_reason: "Atendente assumiu a conversa",
+        handoff_at: new Date().toISOString(),
+      })
+      .eq("id", conversation_id)
+      .eq("organization_id", conversation.organization_id);
   }
 
   return NextResponse.json({ ok: true, message });
