@@ -13,15 +13,19 @@ import Link from "next/link";
 export const metadata = { title: "Integrações" };
 export const dynamic = "force-dynamic";
 
+// Caminhos RELATIVOS à URL base (que já termina em `/api/v1`). A tela
+// mostrava `/api/v1/...` aqui E na base; quem juntava os dois chamava
+// `/api/v1/api/v1/pipelines` e recebia 404 — foi o que o cliente encontrou no
+// n8n em 23/09/2026. A URL completa de cada linha é montada abaixo.
 const ENDPOINTS: { method: string; path: string; description: string }[] = [
-  { method: "GET", path: "/api/v1/contacts?q=", description: "Buscar contatos por nome, e-mail ou telefone" },
-  { method: "GET", path: "/api/v1/pipelines", description: "Funis e etapas (ids para mover leads)" },
-  { method: "GET", path: "/api/v1/deals", description: "Listar negociações (status, stage_id, pipeline_id, q)" },
-  { method: "POST", path: "/api/v1/deals", description: "Criar lead: contato + negociação + distribuição" },
-  { method: "GET", path: "/api/v1/deals/:id", description: "Contexto completo do lead" },
-  { method: "PATCH", path: "/api/v1/deals/:id", description: "Mover etapa (stage_id/stage_name) e atualizar campos" },
-  { method: "POST", path: "/api/v1/messages", description: "Enviar WhatsApp (conversation_id ou deal_id + text)" },
-  { method: "POST", path: "/api/v1/tools/:nome", description: "Qualquer ferramenta: add_note, create_task, save_qualification…" },
+  { method: "GET", path: "/contacts?q=", description: "Buscar contatos por nome, e-mail ou telefone" },
+  { method: "GET", path: "/pipelines", description: "Funis e etapas (ids para mover leads)" },
+  { method: "GET", path: "/deals", description: "Listar negociações (status, stage_id, pipeline_id, q)" },
+  { method: "POST", path: "/deals", description: "Criar lead: contato + negociação + distribuição" },
+  { method: "GET", path: "/deals/:id", description: "Contexto completo do lead" },
+  { method: "PATCH", path: "/deals/:id", description: "Mover etapa (stage_id/stage_name) e atualizar campos" },
+  { method: "POST", path: "/messages", description: "Enviar WhatsApp (conversation_id ou deal_id + text)" },
+  { method: "POST", path: "/tools/:nome", description: "Qualquer ferramenta: add_note, create_task, save_qualification…" },
 ];
 
 export default async function IntegracoesPage() {
@@ -53,6 +57,7 @@ export default async function IntegracoesPage() {
     .order("created_at", { ascending: false });
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "") || "https://SEU-DOMINIO";
+  const apiBase = `${appUrl}/api/v1`;
   const mcpConfig = JSON.stringify(
     {
       mcpServers: {
@@ -83,7 +88,11 @@ export default async function IntegracoesPage() {
         <Card>
           <CardHeader title="API REST (n8n e sistemas externos)" subtitle="Cabeçalho: Authorization: Bearer jid_…" />
           <div className="space-y-3 p-5">
-            <CopyField label="URL base" value={`${appUrl}/api/v1`} />
+            <CopyField label="URL base" value={apiBase} />
+            <p className="text-xs text-ink-faint">
+              Cada endpoint abaixo vai <strong>depois</strong> da URL base. Exemplo: URL base +{" "}
+              <code>/pipelines</code> = <code className="break-all">{apiBase}/pipelines</code>
+            </p>
             <ul className="divide-y divide-line rounded-xl border border-line text-sm">
               {ENDPOINTS.map((e) => (
                 <li key={`${e.method} ${e.path}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-2">
@@ -93,6 +102,18 @@ export default async function IntegracoesPage() {
                 </li>
               ))}
             </ul>
+            <div className="rounded-xl border border-line bg-slate-50 p-3">
+              <p className="mb-2 text-[13px] font-medium text-ink-soft">Teste rápido no n8n (nó HTTP Request)</p>
+              <dl className="space-y-1 text-xs text-ink">
+                <div className="flex gap-2"><dt className="w-24 shrink-0 text-ink-faint">Method</dt><dd>GET</dd></div>
+                <div className="flex gap-2"><dt className="w-24 shrink-0 text-ink-faint">URL</dt><dd className="break-all font-mono">{apiBase}/pipelines</dd></div>
+                <div className="flex gap-2"><dt className="w-24 shrink-0 text-ink-faint">Header</dt><dd className="break-all font-mono">Authorization: Bearer jid_SEU_TOKEN</dd></div>
+              </dl>
+              <p className="mt-2 text-xs text-ink-faint">
+                Use um token com o escopo <strong>API</strong>. Respostas: 200 com os funis = tudo certo; 401 = token
+                ausente, errado ou revogado; 404 = caminho errado (confira se <code>/api/v1</code> não aparece duas vezes).
+              </p>
+            </div>
             <p className="text-xs text-ink-faint">
               Formulários do Meta Lead Ads e Typeform continuam entrando por <code>/api/ingest/leads</code> (painel em
               Formulários). Para reagir a eventos do CRM no n8n, use a ação &quot;Chamar webhook&quot; em Automações.
