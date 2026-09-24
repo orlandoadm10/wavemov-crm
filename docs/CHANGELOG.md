@@ -7,14 +7,17 @@ Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 No desktop, o painel de filtros de data abria ancorado à direita do botão e
 crescia para a esquerda; com o botão perto da borda do conteúdo, os 288px do
 painel passavam do `<main>`, cujo `overflow-x-clip` cortava o que ficava sob o
-menu lateral (rótulos e "Limpar" ilegíveis). O painel agora é ancorado à
-esquerda do botão (`components/crm/deal-filters-panel.tsx`). Celular inalterado.
+menu lateral (rótulos e "Limpar" ilegíveis). Trocar a âncora para a
+esquerda não bastou no preview: o painel agora vai num portal no `body`, em
+`position: fixed` calculada por `hooks/use-anchored-position.ts` — nenhum
+contêiner da página consegue cortá-lo ou encobri-lo. O foco vai para o
+primeiro campo ao abrir e volta ao botão no Esc.
 
 A varredura achou mais dois casos, também corrigidos:
 
 - Menu "⋮" das linhas de Contatos e Empresas cortado dentro da tabela (surgia
-  rolagem interna nas últimas linhas): `components/ui/dropdown.tsx` passa a
-  desenhar o menu em portal `fixed`, abrindo para cima quando falta espaço.
+  rolagem interna nas últimas linhas): `components/ui/dropdown.tsx` usa o mesmo
+  portal + `useAnchoredPosition`, abrindo para cima quando falta espaço.
   Vale também para o menu da conta.
 - Toasts de atenção escondidos sob o fundo do modal: `components/ui/toast.tsx`
   sobe para `z-60`.

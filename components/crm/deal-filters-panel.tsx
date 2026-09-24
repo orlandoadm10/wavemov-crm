@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useAnchoredPosition } from "@/hooks/use-anchored-position";
 import { Input, Label, Select } from "@/components/ui/input";
 import {
   countDealDateFilters,
@@ -17,6 +18,10 @@ import {
 } from "@/lib/utils/period";
 import { Filter } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+/** A partir daqui o painel é ancorado ao botão; abaixo, ocupa a largura da tela. */
+const ANCHORED_MEDIA = "(min-width: 640px)";
 
 /** Rascunho de um filtro enquanto o painel está aberto. */
 interface DraftField {
@@ -60,7 +65,10 @@ export function DealFiltersPanel({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => toDraft(applied));
   const [errors, setErrors] = useState<Partial<Record<DealDateFilterKey, string>>>({});
+  const [anchored, setAnchored] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const position = useAnchoredPosition(open && anchored, containerRef, panelRef);
   const appliedCount = countDealDateFilters(applied);
 
   // Fecha com Esc e com clique fora. As listas nativas dos <select> não
@@ -68,10 +76,14 @@ export function DealFiltersPanel({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      containerRef.current?.querySelector("button")?.focus();
     };
     const onPointer = (e: PointerEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointer);
@@ -81,11 +93,19 @@ export function DealFiltersPanel({
     };
   }, [open]);
 
+  // O painel mora no fim do <body>: sem levar o foco até ele, o Tab saltaria
+  // o painel inteiro. Espera ele ficar visível (medido) para focar.
+  const visible = open && (!anchored || position !== null);
+  useEffect(() => {
+    if (visible) panelRef.current?.querySelector("select")?.focus({ preventScroll: true });
+  }, [visible]);
+
   function toggle() {
     // Reabrir descarta o rascunho abandonado: o painel mostra o aplicado.
     if (!open) {
       setDraft(toDraft(applied));
       setErrors({});
+      setAnchored(window.matchMedia(ANCHORED_MEDIA).matches);
     }
     setOpen((v) => !v);
   }
@@ -140,20 +160,21 @@ export function DealFiltersPanel({
         )}
       </Button>
 
-      {open && (
+      {open &&
+        createPortal(
         <div
+          ref={panelRef}
           role="dialog"
           aria-label="Filtros de data"
+          // Portal no `body`, posicionado pela tela: dentro da página o painel
+          // era cortado pelo `overflow-x-clip` do <main> e ficava sob o menu
+          // lateral. Celular: preso às laterais da tela. Desktop: ancorado ao
+          // botão por `useAnchoredPosition`, invisível até ser medido.
+          style={anchored ? (position ?? { top: 0, left: 0, visibility: "hidden" }) : undefined}
           className={cn(
-            "animate-fade-up z-40 overflow-y-auto rounded-2xl border border-line bg-slate-50 p-4 shadow-(--shadow-pop)",
-            // Celular: preso às laterais da tela, nunca cortado. Desktop:
-            // ancorado à ESQUERDA do botão e crescendo para a direita. Ancorado
-            // à direita, o painel (288px) passava da borda esquerda do <main>
-            // quando o botão ficava perto dela, e o `overflow-x-clip` do <main>
-            // o cortava rente ao menu lateral. À direita do botão sempre há
-            // Arquivados e Etapas, mais largos que o que o painel excede.
-            "fixed inset-x-4 top-20 max-h-[calc(100dvh-6rem)]",
-            "sm:absolute sm:inset-x-auto sm:top-full sm:left-0 sm:mt-2 sm:w-72 sm:max-h-[calc(100dvh-12rem)]"
+            "z-40 overflow-y-auto rounded-2xl border border-line bg-slate-50 p-4 shadow-(--shadow-pop)",
+            anchored ? "fixed w-72" : "fixed inset-x-4 top-20 max-h-[calc(100dvh-6rem)]",
+            (!anchored || position) && "animate-fade-up"
           )}
         >
           <p className="mb-4 text-xs font-semibold text-primary-700" aria-live="polite">
@@ -220,7 +241,8 @@ export function DealFiltersPanel({
               Aplicar
             </Button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
