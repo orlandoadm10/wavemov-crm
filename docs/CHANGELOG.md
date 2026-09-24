@@ -2,6 +2,29 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-24 — Kanban: painel "Filtros" cortado sob o menu lateral
+
+No desktop, o painel de filtros de data abria ancorado à direita do botão e
+crescia para a esquerda; com o botão perto da borda do conteúdo, os 288px do
+painel passavam do `<main>`, cujo `overflow-x-clip` cortava o que ficava sob o
+menu lateral (rótulos e "Limpar" ilegíveis). Trocar a âncora para a
+esquerda não bastou no preview: o painel agora vai num portal no `body`, em
+`position: fixed` calculada por `hooks/use-anchored-position.ts` — nenhum
+contêiner da página consegue cortá-lo ou encobri-lo. O foco vai para o
+primeiro campo ao abrir e volta ao botão no Esc.
+
+A varredura achou mais dois casos, também corrigidos:
+
+- Menu "⋮" das linhas de Contatos e Empresas cortado dentro da tabela (surgia
+  rolagem interna nas últimas linhas): `components/ui/dropdown.tsx` usa o mesmo
+  portal + `useAnchoredPosition`, abrindo para cima quando falta espaço.
+  Vale também para o menu da conta.
+- Toasts de atenção escondidos sob o fundo do modal: `components/ui/toast.tsx`
+  sobe para `z-60`.
+
+Varredura das demais camadas flutuantes em `docs/HANDOFF.md`, "Sobreposições
+de camadas".
+
 ## 2026-09-23 — API v1: 404 no n8n era a tela de Integrações
 
 A URL base exibida já terminava em `/api/v1` e a lista de endpoints também

@@ -43,6 +43,41 @@ a `0020` ganhou prova em Postgres real, além do pglite.
 Isso importa: com o `.env.local` apontando para a nuvem, `npm run dev` escreve
 **nos dados reais do cliente**. Confira o arquivo antes de subir o app.
 
+## Sobreposições de camadas — varredura de 24/09/2026
+
+Motivada pelo painel "Filtros" do Kanban cortado sob o menu lateral
+(`docs/sobreposicao1.PNG` na raiz do workspace). Foram revistos todos os
+elementos `absolute`/`fixed`/`sticky` com `z-*` de `app/` e `components/` e os
+contêineres que cortam (`overflow-*`).
+
+Mapa de camadas: menu lateral `sticky z-30`; barra superior `sticky z-20`;
+flutuantes `z-40` em portal no `body` (painel de filtros, `Dropdown`);
+modal e gaveta do celular `fixed z-50`; toasts `fixed z-60`. O `<main>` tem `overflow-x-clip` e a `Table` tem
+`overflow-x-auto` — tudo que for `absolute` dentro deles é cortado na borda.
+
+| # | Onde | Sintoma | Estado |
+|---|---|---|---|
+| 1 | Painel "Filtros" do Kanban (`deal-filters-panel.tsx`) | Ancorado à direita, vazava pela esquerda do `<main>` e era cortado rente ao menu lateral | **Corrigido**: portal no `body` posicionado por `useAnchoredPosition` (a 1ª tentativa, só trocar a âncora para a esquerda, não resolveu no preview) |
+| 2 | Menu "⋮" das linhas em Contatos (`contacts-client.tsx`) e Empresas (`companies-client.tsx`) | O `Dropdown` abre para baixo dentro da `Table` (`overflow-x-auto` força rolagem vertical também): nas últimas linhas, ou com lista curta, o menu é cortado e surge uma barra de rolagem dentro da tabela | **Corrigido**: o `Dropdown` usa o mesmo portal + `useAnchoredPosition` |
+| 3 | Toasts de atenção (`toast.tsx`) com modal aberto | Mesmo `z-50`; o portal do modal entra depois no DOM, então o toast fica sob o fundo escurecido e não é clicável | **Corrigido**: viewport de toasts em `z-60` |
+
+**Regra para flutuante novo:** menu, painel ou balão que abre a partir de um
+botão vai em `createPortal(..., document.body)` com `position: fixed` calculada
+por `hooks/use-anchored-position.ts` (abre abaixo, vira para cima quando só lá
+cabe, nunca passa da tela, limita a altura e acompanha rolagem). `absolute`
+dentro da página herda o corte de quem tem `overflow` e a pilha de `z-index` do
+pai. Como o portal fica no fim do `body`, leve o foco para dentro ao abrir e
+devolva ao botão no Esc (ver `deal-filters-panel.tsx`).
+
+Verificado em bancada local (layout do app com menu lateral, `<main>` com
+`overflow-x-clip` e `Table`), 1440px: painel com o botão rente ao menu
+lateral, menu "⋮" da última linha, menu da conta e toast sobre modal — todos
+inteiros e no topo (`elementFromPoint` nos quatro cantos). 375px não medido.
+
+Sem problema: menu da conta (`user-menu.tsx`, ancorado à direita no topo),
+aviso de erro do modo IA/Equipe no chat (`handling-mode-control.tsx`, cresce
+para dentro do painel do chat), gaveta do celular e modal (portal `fixed`).
+
 ## Tarde de 23/09/2026 — filtros, celular, nomes, senha e API
 
 Tudo publicado (PRs #15, #16, #17, #18); detalhe em `docs/CHANGELOG.md` e

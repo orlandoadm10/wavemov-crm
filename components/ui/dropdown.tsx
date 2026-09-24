@@ -1,8 +1,15 @@
 "use client";
 
+import { useAnchoredPosition } from "@/hooks/use-anchored-position";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
+/**
+ * Menu suspenso. O menu vai para o `body` num portal, posicionado pelo gatilho
+ * (`useAnchoredPosition`): dentro da página ele ficava preso aos contêineres
+ * que cortam — na última linha de uma `Table`, cortado e com rolagem interna.
+ */
 export function Dropdown({
   trigger,
   children,
@@ -14,30 +21,45 @@ export function Dropdown({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const position = useAnchoredPosition(open, ref, menuRef, align);
 
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   return (
     <div ref={ref} className="relative inline-block">
       <div onClick={() => setOpen((v) => !v)}>{trigger}</div>
-      {open && (
-        <div
-          onClick={() => setOpen(false)}
-          className={cn(
-            "animate-fade-up absolute z-40 mt-1.5 min-w-44 rounded-xl border border-line bg-white p-1.5 shadow-(--shadow-pop)",
-            align === "right" ? "right-0" : "left-0"
-          )}
-        >
-          {children}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            onClick={() => setOpen(false)}
+            style={position ?? { top: 0, left: 0, visibility: "hidden" }}
+            className={cn(
+              "fixed z-40 min-w-44 overflow-y-auto rounded-xl border border-line bg-white p-1.5 shadow-(--shadow-pop)",
+              position && "animate-fade-up"
+            )}
+          >
+            {children}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

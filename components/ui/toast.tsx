@@ -49,9 +49,11 @@ export function ToastViewport({
       // A região existe mesmo vazia: `aria-live` só é anunciado quando o
       // conteúdo muda DENTRO de um nó que o leitor já está observando. Montar
       // a região junto com o texto costuma resultar em silêncio.
+      // `z-60`, acima do modal e da gaveta (`z-50`): no mesmo nível, o portal
+      // do modal entra depois no DOM e escondia o aviso sob o fundo escuro.
       aria-live="polite"
       aria-atomic="true"
-      className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2"
+      className="pointer-events-none fixed bottom-4 right-4 z-60 flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2"
     >
       {toasts.map((toast) => (
         <Toast key={toast.id} toast={toast} onDismiss={onDismiss} />
