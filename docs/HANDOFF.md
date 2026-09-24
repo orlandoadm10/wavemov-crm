@@ -43,6 +43,29 @@ a `0020` ganhou prova em Postgres real, além do pglite.
 Isso importa: com o `.env.local` apontando para a nuvem, `npm run dev` escreve
 **nos dados reais do cliente**. Confira o arquivo antes de subir o app.
 
+## Sobreposições de camadas — varredura de 24/09/2026
+
+Motivada pelo painel "Filtros" do Kanban cortado sob o menu lateral
+(`docs/sobreposicao1.PNG` na raiz do workspace). Foram revistos todos os
+elementos `absolute`/`fixed`/`sticky` com `z-*` de `app/` e `components/` e os
+contêineres que cortam (`overflow-*`).
+
+Mapa de camadas: menu lateral `sticky z-30`; barra superior `sticky z-20`;
+flutuantes da página `z-40` (painel de filtros; `Dropdown` em portal `fixed`);
+modal e gaveta do celular `fixed z-50`; toasts `fixed z-60`. O `<main>` tem `overflow-x-clip` e a `Table` tem
+`overflow-x-auto` — tudo que for `absolute` dentro deles é cortado na borda.
+
+| # | Onde | Sintoma | Estado |
+|---|---|---|---|
+| 1 | Painel "Filtros" do Kanban (`deal-filters-panel.tsx`) | Ancorado à direita, vazava pela esquerda do `<main>` e era cortado rente ao menu lateral | **Corrigido**: ancorado à esquerda do botão |
+| 2 | Menu "⋮" das linhas em Contatos (`contacts-client.tsx`) e Empresas (`companies-client.tsx`) | O `Dropdown` abre para baixo dentro da `Table` (`overflow-x-auto` força rolagem vertical também): nas últimas linhas, ou com lista curta, o menu é cortado e surge uma barra de rolagem dentro da tabela | **Corrigido**: o `Dropdown` renderiza o menu em portal `fixed`, posicionado pelo gatilho; abre para cima quando não cabe abaixo e fecha ao rolar/redimensionar |
+| 3 | Toasts de atenção (`toast.tsx`) com modal aberto | Mesmo `z-50`; o portal do modal entra depois no DOM, então o toast fica sob o fundo escurecido e não é clicável | **Corrigido**: viewport de toasts em `z-60` |
+| 4 | Painel "Filtros" com a página rolada | `z-40` passa por cima da barra superior `z-20` se a página rolar com ele aberto | Aceitável; registrar só se incomodar |
+
+Sem problema: menu da conta (`user-menu.tsx`, ancorado à direita no topo),
+aviso de erro do modo IA/Equipe no chat (`handling-mode-control.tsx`, cresce
+para dentro do painel do chat), gaveta do celular e modal (portal `fixed`).
+
 ## Tarde de 23/09/2026 — filtros, celular, nomes, senha e API
 
 Tudo publicado (PRs #15, #16, #17, #18); detalhe em `docs/CHANGELOG.md` e

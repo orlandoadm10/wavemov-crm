@@ -147,9 +147,13 @@ export function DealFiltersPanel({
           className={cn(
             "animate-fade-up z-40 overflow-y-auto rounded-2xl border border-line bg-slate-50 p-4 shadow-(--shadow-pop)",
             // Celular: preso às laterais da tela, nunca cortado. Desktop:
-            // ancorado à direita do botão.
+            // ancorado à ESQUERDA do botão e crescendo para a direita. Ancorado
+            // à direita, o painel (288px) passava da borda esquerda do <main>
+            // quando o botão ficava perto dela, e o `overflow-x-clip` do <main>
+            // o cortava rente ao menu lateral. À direita do botão sempre há
+            // Arquivados e Etapas, mais largos que o que o painel excede.
             "fixed inset-x-4 top-20 max-h-[calc(100dvh-6rem)]",
-            "sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-72 sm:max-h-[calc(100dvh-12rem)]"
+            "sm:absolute sm:inset-x-auto sm:top-full sm:left-0 sm:mt-2 sm:w-72 sm:max-h-[calc(100dvh-12rem)]"
           )}
         >
           <p className="mb-4 text-xs font-semibold text-primary-700" aria-live="polite">
