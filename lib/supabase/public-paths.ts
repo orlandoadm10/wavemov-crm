@@ -24,6 +24,8 @@
  *                       próprio lead, que não tem conta no CRM.
  *   - `/api/ingest`   — credencial por organização no cabeçalho
  *                       `x-webhook-secret` (migration 0014). Quem chama é o n8n.
+ *   - `/api/inbound` — token da fonte de lead no caminho (migration 0032).
+ *                       Quem chama é o Typeform, o site, o Make…
  *   - `/api/v1`, `/api/mcp` — token de API por organização
  *                       (`Authorization: Bearer jid_…`, migration 0029).
  *   - `/api/cron`     — `Authorization: Bearer $CRON_SECRET` (Vercel Cron/n8n).
@@ -44,6 +46,7 @@ export const PUBLIC_PATHS = [
   "/api/webhooks",
   "/api/forms",
   "/api/ingest",
+  "/api/inbound",
   "/api/v1",
   "/api/mcp",
   "/api/cron",

@@ -18,6 +18,7 @@ import {
   Trophy,
   Users,
   Wallet,
+  Webhook,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
@@ -103,7 +104,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     id: "captacao",
     label: "Captação",
-    items: [{ href: "/formularios", label: "Formulários", icon: FileText }],
+    items: [
+      { href: "/formularios", label: "Formulários", icon: FileText },
+      { href: "/fontes", label: "Fontes de lead", icon: Webhook, access: "orgAdmin" },
+    ],
   },
   {
     id: "analise",

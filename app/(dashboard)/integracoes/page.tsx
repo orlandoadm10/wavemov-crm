@@ -115,8 +115,12 @@ export default async function IntegracoesPage() {
               </p>
             </div>
             <p className="text-xs text-ink-faint">
-              Formulários do Meta Lead Ads e Typeform continuam entrando por <code>/api/ingest/leads</code> (painel em
-              Formulários). Para reagir a eventos do CRM no n8n, use a ação &quot;Chamar webhook&quot; em Automações.
+              Para receber leads do Typeform, do site ou de qualquer ferramenta com webhook, use{" "}
+              <Link href="/fontes" className="font-medium text-primary-600 hover:text-primary-700">
+                Fontes de lead
+              </Link>{" "}
+              — sem n8n no meio. Fluxos antigos continuam em <code>/api/ingest/leads</code> (painel em Formulários).
+              Para reagir a eventos do CRM no n8n, use a ação &quot;Chamar webhook&quot; em Automações.
             </p>
           </div>
         </Card>

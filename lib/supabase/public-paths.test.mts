@@ -40,6 +40,8 @@ const DECISAO_POR_ROTA: Record<string, boolean> = {
   "/api/forms/[slug]/submit": true,
   // Credencial por organização no cabeçalho x-webhook-secret (0014).
   "/api/ingest/leads": true,
+  // Token da fonte de lead no caminho (0032); fonte pausada = 404.
+  "/api/inbound/[token]": true,
   // Segredo por instância WhatsApp (0010).
   "/api/webhooks/uazapi": true,
   // Assinatura X-Hub-Signature-256 do app da Meta + phone_number_id (0027).
@@ -119,6 +121,7 @@ test("páginas públicas e privadas", () => {
     "/negociacoes/abc-123",
     "/atendimento",
     "/formularios",
+    "/fontes",
     "/funis",
     "/admin",
     "/perfil",
