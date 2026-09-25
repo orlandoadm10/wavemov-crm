@@ -22,7 +22,7 @@ export interface AuditEntry {
 
 const ORIGIN_LABELS: Record<string, string> = {
   public_form: "Formulário público",
-  external_ingest: "Integração (n8n)",
+  external_ingest: "Integração (fonte de lead ou n8n)",
   whatsapp: "WhatsApp",
 };
 
