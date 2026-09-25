@@ -40,6 +40,28 @@ rose, amber, cyan, fuchsia…) para painéis de análise com faixa no topo
 configurações. Filtros de barra de ferramentas: 40 px, raio de 12 px, busca
 com borda azul de 2 px; filtro fora do padrão fica âmbar.
 
+**Regras de padronização (QA + front, 25/09).** Valem para todo código novo:
+
+1. Cartão/painel `rounded-2xl`; bloco interno `rounded-xl`; badge `rounded-md`;
+   contador `rounded-full`.
+2. Barra de filtros solta sobre o fundo (sem cartão em volta): controles
+   `FILTER_CONTROL` (40 px, `rounded-xl`), busca `ui/search-field`
+   (`SearchField`, com "x" e Esc), filtro fora do padrão com `ACTIVE_FILTER`.
+3. Ações da página (criar, configurar) no `PageHeader actions`, não na linha
+   de filtros; atalhos administrativos num menu "…".
+4. Título de seção `font-sans text-sm font-semibold`; título de página só no
+   `PageHeader` (eyebrow = grupo do menu).
+5. Texto secundário `text-muted-foreground`; `ink-faint` (86%, AA) só para
+   metadado de menor peso e placeholder.
+6. Erro/aviso com `ui/alert` (`role="alert"`); vazio com `EmptyState`
+   (`compact` dentro de painel).
+7. Texto sobre cor escolhida pelo usuário (etapa) com `textOnColor()`
+   (`lib/utils/color.ts`), nunca branco fixo.
+8. Alvo de toque mínimo 32 px (40 px no celular) e `aria-label` em todo botão
+   só com ícone.
+9. Situação da negociação com um vocabulário só: Em aberto, Venda realizada,
+   Perdida, Arquivada (`DealStatusBadge`).
+
 **Transição.** As classes do guia v1 continuam funcionando e já apontam para os
 tokens novos: `text-ink` → `foreground`, `text-ink-soft` / `text-ink-faint` →
 tons de `muted-foreground`, `border-line` → `border`, `primary-50…900` → mistura

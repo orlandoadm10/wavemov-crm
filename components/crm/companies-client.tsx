@@ -1,5 +1,7 @@
 "use client";
 
+import { ACTIVE_FILTER, SearchField } from "@/components/ui/search-field";
+
 
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -11,11 +13,11 @@ import { Switch } from "@/components/ui/switch";
 import { DataTable, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { createClient } from "@/lib/supabase/client";
-import { describeWriteError, formatDate } from "@/lib/utils";
+import { cn, describeWriteError, formatDate } from "@/lib/utils";
 import { organizationSchema } from "@/lib/validations";
 import type { Organization } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, LogIn, MoreVertical, Pencil, Plus, Search, UserCircle } from "lucide-react";
+import { Building2, LogIn, MoreVertical, Pencil, Plus, UserCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -134,22 +136,14 @@ export function CompaniesClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge tone="blue" className="px-3 py-1.5">
           Todas empresas · {organizations.length}
         </Badge>
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-          <Input
-            className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
-            placeholder="Buscar empresa…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchField value={search} onChange={setSearch} placeholder="Buscar empresa…" label="Buscar empresa" />
         {segments.length > 0 && (
           <Select
-            className="h-10 rounded-xl bg-card w-auto min-w-36"
+            className={cn("h-10 rounded-xl bg-card w-auto min-w-36", segmentFilter && ACTIVE_FILTER)}
             value={segmentFilter}
             onChange={(e) => setSegmentFilter(e.target.value)}
           >
@@ -161,7 +155,7 @@ export function CompaniesClient({
             ))}
           </Select>
         )}
-        <Select className="h-10 rounded-xl bg-card w-auto min-w-40" value={sort} onChange={(e) => setSort(e.target.value)}>
+        <Select aria-label="Ordenação" className={cn("h-10 rounded-xl bg-card w-auto min-w-40", sort !== "recente" && ACTIVE_FILTER)} value={sort} onChange={(e) => setSort(e.target.value)}>
           <option value="recente">Modificada recente</option>
           <option value="nome">Nome (A-Z)</option>
           <option value="leads">Mais leads</option>

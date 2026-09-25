@@ -2,6 +2,56 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-25 — Design: auditoria de QA e front, cartão do Kanban enxuto
+
+O P.O. apontou inconsistências e pediu para enxugar o cartão do Kanban
+(retirar valor e qualificação). Rodaram em paralelo uma auditoria de QA
+(`.claude/agents/qa-engineer.md`) e uma revisão de front
+(`.claude/agents/crm-frontend.md`), somente leitura; as decisões e as regras
+resultantes estão em `DESIGN_GUIDE.md`, seção 0.
+
+**Cartão do Kanban** (de ~300 px para ~100 px; ~3 cartões por coluna numa
+tela de 900 px): faixa de 4 px na cor da etapa no lugar do cabeçalho "EM
+ABERTO"; situação só quando não é "aberto"; título com menu "…"; contato só se
+não repetir o título (ícone de pessoa, não de prédio); origem numa linha;
+rodapé único com "há N", IA, até 2 tags, botão de conversa e avatar (tracejado
+sem responsável). Saíram: valor, qualificação, telefone, data completa e o
+rodapé "Abrir lead"/"Conversa".
+
+**QA (bloqueadores resolvidos):** `ink-faint` de 3,6:1 para 4,8:1 (claro) e
+5,6:1 (escuro); tooltip dos gráficos nas cores do tema (sumia no escuro);
+texto sobre a cor da etapa por contraste (`textOnColor`, testado), não branco
+fixo; alvos de toque de 32–40 px (menu do cartão, "x" da busca, fechar do
+modal, voltar/informações do Atendimento, checkboxes); `aria-label` em buscas
+e botões só com ícone; `role="alert"` nos erros que não tinham.
+
+**Consistência:** busca única (`ui/search-field`) nas 9 telas que tinham
+cópias; barras de filtro soltas sobre o fundo (prints 3 e 5); filtro ativo em
+âmbar em Tarefas, Contatos, Empresas, Carteira, relatório de entrada e
+Dashboard; `ui/alert`; `EmptyState compact`; `CardHeader` quebra linha no
+celular; `PageHeader` com `mb-4`; sombras só `shadow-panel`/`shadow-lift`;
+abas dos relatórios em azul sólido; seletor de período nos tokens; cabeçalho
+das tabelas de relatório em 10 px; "Hoje" em âmbar nas tarefas; títulos `h2`
+maiores que o `h1` corrigidos; ficha da empresa volta a cartão branco;
+rótulos da sidebar com mais contraste.
+
+**Kanban:** "Configurar funil" e "Criar negociação" no cabeçalho da página
+(seção 7); Tags e Distribuição num menu "…"; linha de filtros só com filtros.
+`DndContext` com `id` fixo — corrige um erro de hidratação que já existia.
+
+**Detalhe do lead:** um selo de situação (`DealStatusBadge`) com o vocabulário
+único; responsável só no rodapé; temperatura na aba Dados; "Contato" com ícone
+de pessoa; abas centralizadas; sem emoji no diálogo de venda.
+
+**Não feito (pedidos separados):** título da página dentro da barra superior
+(portal), gaveta lateral do lead, "dias nesta etapa" e avançaram/parados no
+funil. `.claude/agents/crm-frontend.md` ainda descreve a barra de filtros em
+cartão branco — diverge da regra nova e deve ser atualizado.
+
+**Validação.** `tsc`, `npm run test:unit` (215, 3 novos), `npm run build`,
+`git diff --check`, conferência visual do cartão e do cabeçalho com página
+temporária (removida) e console sem erro de hidratação.
+
 ## 2026-09-25 — Design Jidianos nas demais telas
 
 Pedido do P.O.: aplicar o design dos prints em todas as telas restantes, sem

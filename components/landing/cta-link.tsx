@@ -10,7 +10,7 @@ const tones: Record<Tone, string> = {
   outline:
     "bg-white text-primary-700 border border-primary-100 hover:border-primary-300 hover:bg-primary-50",
   light:
-    "bg-white text-primary-800 shadow-(--shadow-card) hover:-translate-y-0.5 hover:shadow-(--shadow-pop)",
+    "bg-white text-primary-800 shadow-panel hover:-translate-y-0.5 hover:shadow-lift",
 };
 
 const sizes: Record<Size, string> = {

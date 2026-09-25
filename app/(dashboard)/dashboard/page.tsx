@@ -160,7 +160,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
 
   return (
     <div className="animate-fade-up space-y-4">
-      <PageHeader eyebrow="Análise" title="Dashboard" subtitle={`Como o funil está performando — ${PERIOD_LABEL[days] ?? `últimos ${days} dias`}.`} />
+      <PageHeader eyebrow="Início" title="Dashboard" subtitle={`Como o funil está performando — ${PERIOD_LABEL[days] ?? `últimos ${days} dias`}.`} />
 
       <DashboardFilters pipelines={pipelines} members={members} />
 

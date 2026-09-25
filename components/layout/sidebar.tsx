@@ -122,7 +122,7 @@ export function SidebarContent({
                       type="button"
                       onClick={() => toggleGroup(group.id)}
                       aria-expanded={open}
-                      className="flex w-full items-center justify-between rounded-md px-3 py-1 text-[10px] font-semibold tracking-[0.16em] text-white/55 uppercase transition-colors hover:text-white/85"
+                      className="flex w-full items-center justify-between rounded-md px-3 py-1 text-[10px] font-semibold tracking-[0.16em] text-white/75 uppercase transition-colors hover:text-white"
                     >
                       {group.label}
                       <ChevronDown

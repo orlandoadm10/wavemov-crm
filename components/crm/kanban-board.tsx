@@ -6,7 +6,11 @@ import { DealCard, dealTags } from "@/components/crm/kanban/deal-card";
 import { KanbanColumn } from "@/components/crm/kanban/kanban-column";
 import { UnreadConversationsPill } from "@/components/crm/unread-conversations-pill";
 import { Button, buttonClasses } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
+import { Alert } from "@/components/ui/alert";
+import { Dropdown } from "@/components/ui/dropdown";
+import { ACTIVE_FILTER, FILTER_CONTROL, SearchField } from "@/components/ui/search-field";
+import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
@@ -35,12 +39,11 @@ import {
   Archive,
   ArrowUpDown,
   Handshake,
+  MoreHorizontal,
   Plus,
   Scale,
-  Search,
   SlidersHorizontal,
   Tags as TagsIcon,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -260,7 +263,46 @@ export function KanbanBoard({
   const valueOnBoard = filtered.reduce((sum, d) => sum + Number(d.value), 0);
 
   return (
-    <div className="-mt-3 flex h-[calc(100dvh-12.5rem)] min-h-[34rem] flex-col gap-3">
+    <div className="flex h-[calc(100dvh-8rem)] min-h-[36rem] flex-col gap-3">
+      {/* Cabeçalho (seção 7): ações da página aqui, não na linha de filtros. */}
+      <PageHeader
+        eyebrow="Vendas"
+        title="Negociações"
+        subtitle="Cada lead do primeiro contato até a venda, com origem, tarefas e histórico completo."
+        actions={
+          <>
+            <Link
+              href={activePipeline ? `/funis?funil=${activePipeline.id}` : "/funis"}
+              className={buttonClasses({ variant: "outline" })}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Configurar funil
+            </Link>
+            {/* Atalhos de administração só para quem pode usá-los: oferecer a
+                um `seller` levaria a uma tela bloqueada. */}
+            {canManageOrg && (
+              <Dropdown
+                trigger={
+                  <Button variant="outline" size="icon" aria-label="Mais opções do funil">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                }
+              >
+                <Link href="/tags" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <TagsIcon className="h-4 w-4" /> Tags
+                </Link>
+                <Link href="/distribuicao" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <Scale className="h-4 w-4" /> Distribuição
+                </Link>
+              </Dropdown>
+            )}
+            <Button className="hidden md:inline-flex" onClick={() => setModalOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Criar negociação
+            </Button>
+          </>
+        }
+      />
       {/* Barra de resumo (seção 10): pílulas que nunca quebram por dentro;
           no celular, a faixa rola de lado. */}
       <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-border bg-card/70 px-3 py-2.5 shadow-panel backdrop-blur">
@@ -281,10 +323,10 @@ export function KanbanBoard({
       {/* Filtros (seção 11). Celular: só busca, "Filtros" e "+". */}
       <div>
         <div className="flex items-center gap-2 md:hidden">
-          <SearchField value={search} onChange={setSearch} placeholder="Buscar lead…" />
+          <SearchField value={search} onChange={setSearch} placeholder="Buscar lead…" label="Buscar negociação" />
           <Button
             variant="outline"
-            className={cn("h-10 rounded-xl bg-card", activeToolCount > 0 && ACTIVE_FILTER)}
+            className={cn(FILTER_CONTROL, activeToolCount > 0 && ACTIVE_FILTER)}
             onClick={() => setToolsOpen((v) => !v)}
             aria-expanded={toolsOpen}
             aria-controls="kanban-ferramentas"
@@ -305,7 +347,7 @@ export function KanbanBoard({
         <div id="kanban-ferramentas" className={cn("md:flex md:flex-wrap md:items-center md:gap-2", toolsOpen ? "mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2" : "hidden")}>
           <Select
             aria-label="Funil"
-            className={cn(FILTER, "md:w-52")}
+            className={cn(FILTER_CONTROL, "md:w-52")}
             value={params.get("funil") ?? activePipeline?.id ?? ""}
             onChange={(e) => setParam("funil", e.target.value)}
           >
@@ -316,11 +358,11 @@ export function KanbanBoard({
             ))}
           </Select>
           <div className="hidden min-w-64 flex-1 md:block md:max-w-sm">
-            <SearchField value={search} onChange={setSearch} placeholder="Buscar lead, telefone…" />
+            <SearchField value={search} onChange={setSearch} placeholder="Buscar lead, telefone…" label="Buscar negociação" />
           </div>
           <Select
             aria-label="Responsável"
-            className={cn(FILTER, "md:w-52", responsible && ACTIVE_FILTER)}
+            className={cn(FILTER_CONTROL, "md:w-52", responsible && ACTIVE_FILTER)}
             value={responsible}
             onChange={(e) => setParam("responsavel", e.target.value)}
           >
@@ -334,14 +376,14 @@ export function KanbanBoard({
           <Button
             variant="outline"
             aria-pressed={responsible === profileId}
-            className={cn("h-10 rounded-xl bg-card", responsible === profileId && ACTIVE_FILTER)}
+            className={cn(FILTER_CONTROL, responsible === profileId && ACTIVE_FILTER)}
             onClick={() => setParam("responsavel", responsible === profileId ? "" : profileId)}
           >
             Minhas negociações
           </Button>
           <Select
             aria-label="Situação"
-            className={cn(FILTER, "md:w-44", status !== "open" && ACTIVE_FILTER)}
+            className={cn(FILTER_CONTROL, "md:w-44", status !== "open" && ACTIVE_FILTER)}
             value={status}
             onChange={(e) => setParam("status", e.target.value)}
           >
@@ -355,7 +397,7 @@ export function KanbanBoard({
             <ArrowUpDown className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Select
               aria-label="Ordenação"
-              className={cn(FILTER, "pl-9", sort !== DEFAULT_DEAL_SORT && ACTIVE_FILTER)}
+              className={cn(FILTER_CONTROL, "pl-9", sort !== DEFAULT_DEAL_SORT && ACTIVE_FILTER)}
               value={sort}
               onChange={(e) => setParam("ordem", e.target.value)}
             >
@@ -368,7 +410,7 @@ export function KanbanBoard({
           </div>
           <Select
             aria-label="Tag"
-            className={cn(FILTER, "md:w-44", tagParam !== "todas" && ACTIVE_FILTER)}
+            className={cn(FILTER_CONTROL, "md:w-44", tagParam !== "todas" && ACTIVE_FILTER)}
             value={tagParam}
             onChange={(e) => setParam("tag", e.target.value)}
           >
@@ -379,52 +421,26 @@ export function KanbanBoard({
           </Select>
           <DealFiltersPanel applied={dateFilters} onApply={applyDateFilters} onClear={clearDateFilters} />
 
-          <div className="flex flex-wrap items-center gap-2 md:ml-auto">
-            <Button
-              variant="outline"
-              className={cn("h-10 rounded-xl bg-card", status === "archived" && ACTIVE_FILTER)}
-              onClick={() => setParam("status", status === "archived" ? "open" : "archived")}
-            >
-              <Archive className="h-4 w-4" />
-              Arquivados
-            </Button>
-            <Link
-              href={activePipeline ? `/funis?funil=${activePipeline.id}` : "/funis"}
-              className={buttonClasses({ variant: "outline", className: "h-10 rounded-xl bg-card" })}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Configurar funil
-            </Link>
-            {/* Atalhos de administração só para quem pode usá-los: oferecer a
-                um `seller` levaria a uma tela bloqueada. */}
-            {canManageOrg && (
-              <>
-                <Link href="/tags" className={buttonClasses({ variant: "outline", className: "h-10 rounded-xl bg-card" })}>
-                  <TagsIcon className="h-4 w-4" />
-                  Tags
-                </Link>
-                <Link href="/distribuicao" className={buttonClasses({ variant: "outline", className: "h-10 rounded-xl bg-card" })}>
-                  <Scale className="h-4 w-4" />
-                  Distribuição
-                </Link>
-              </>
-            )}
-            <Button className="hidden h-10 rounded-xl md:inline-flex" onClick={() => setModalOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Criar negociação
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            aria-pressed={status === "archived"}
+            className={cn(FILTER_CONTROL, status === "archived" && ACTIVE_FILTER)}
+            onClick={() => setParam("status", status === "archived" ? "open" : "archived")}
+          >
+            <Archive className="h-4 w-4" />
+            Arquivados
+          </Button>
         </div>
 
-        {moveError && <Alert tone="error">{moveError}</Alert>}
-        {tagsError && <Alert tone="error">{tagsError}</Alert>}
+        {moveError && <Alert className="mt-2">{moveError}</Alert>}
+        {tagsError && <Alert className="mt-2">{tagsError}</Alert>}
         {totalDeals > initialDeals.length && (
-          <Alert tone="warning">
+          <Alert tone="warning" className="mt-2">
             Mostrando {initialDeals.length} de {totalDeals} negociações (limite de {dealsLimit}).
             Refine com os filtros ou a busca para ver as demais.
           </Alert>
         )}
-        {dealsError && <Alert tone="error">{dealsError}</Alert>}
+        {dealsError && <Alert className="mt-2">{dealsError}</Alert>}
       </div>
 
       {/* Quadro (seção 12): fundo azul translúcido, rolagem horizontal própria. */}
@@ -435,7 +451,14 @@ export function KanbanBoard({
           description="Crie um funil com etapas para começar a organizar suas negociações."
         />
       ) : (
-        <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+        <DndContext
+          // `id` fixo: sem ele o dnd-kit gera ids de acessibilidade diferentes
+          // no servidor e no navegador, e o React acusa erro de hidratação.
+          id="kanban"
+          sensors={sensors}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+        >
           <div className="flex min-h-[26rem] flex-1 gap-4 overflow-x-auto rounded-2xl border border-border bg-primary/[0.04] p-4">
             {stages.map((stage) => (
               <KanbanColumn
@@ -473,68 +496,10 @@ export function KanbanBoard({
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  open: "Em andamento",
-  won: "Ganhas",
+  // Mesmo vocabulário do selo de situação (DealStatusBadge), no plural.
+  open: "Em aberto",
+  won: "Vendas realizadas",
   lost: "Perdidas",
   archived: "Arquivadas",
   todas: "Todas",
 };
-
-/** Seletor de filtro: branco, 40px, raio de 12px (print 3). */
-const FILTER = "h-10 rounded-xl bg-card";
-/** Filtro diferente do padrão: borda âmbar 60% + fundo âmbar 15% + texto âmbar. */
-const ACTIVE_FILTER = "border-warning/60 bg-warning/15 text-warning-text hover:bg-warning/20";
-
-/** Busca (seção 11): borda azul de 2px, lupa à esquerda, "x" para limpar, Esc limpa. */
-function SearchField({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-}) {
-  return (
-    <div className="relative min-w-0 flex-1">
-      <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-      <Input
-        type="search"
-        aria-label="Buscar negociação"
-        className="h-10 rounded-xl border-2 border-primary/70 bg-card pr-9 pl-9 focus:border-primary focus:ring-0"
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onChange("");
-        }}
-      />
-      {value && (
-        <button
-          type="button"
-          onClick={() => onChange("")}
-          aria-label="Limpar busca"
-          className="absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function Alert({ tone, children }: { tone: "error" | "warning"; children: React.ReactNode }) {
-  return (
-    <p
-      role={tone === "error" ? "alert" : undefined}
-      className={cn(
-        "mt-2 rounded-xl border px-3 py-2 text-sm",
-        tone === "error"
-          ? "border-destructive/25 bg-destructive/10 text-destructive-text"
-          : "border-warning/40 bg-warning/15 text-warning-text"
-      )}
-    >
-      {children}
-    </p>
-  );
-}

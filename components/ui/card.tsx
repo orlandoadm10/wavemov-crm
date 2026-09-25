@@ -59,7 +59,7 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-4 px-5 py-4",
+        "flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-5 py-4",
         tint ? "pb-1" : "border-b border-border",
         className
       )}

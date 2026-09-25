@@ -23,9 +23,12 @@ const AXIS = "#7c8aa5";
 const GRID = "rgba(124, 138, 165, 0.25)";
 const PALETTE = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4", "#64748b", "#ec4899"];
 
+// Estilo inline: aqui `var()` resolve (em atributo SVG, não).
 const tooltipStyle = {
+  background: "var(--popover)",
+  color: "var(--popover-foreground)",
   borderRadius: 12,
-  border: "1px solid rgba(124, 138, 165, 0.3)",
+  border: "1px solid var(--border)",
   boxShadow: "0 8px 24px rgb(15 23 42 / 0.08)",
   fontSize: 12,
 };

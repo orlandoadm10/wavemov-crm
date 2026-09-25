@@ -63,7 +63,7 @@ export function AgentsPanel({ agents, defaultModel }: { agents: AiAgent[]; defau
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {agents.map((agent) => (
-            <Card key={agent.id} className="flex flex-col p-5 transition-shadow hover:shadow-(--shadow-pop)">
+            <Card key={agent.id} className="flex flex-col p-5 transition-shadow hover:shadow-lift">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-400/15 text-violet-700 dark:text-violet-200">

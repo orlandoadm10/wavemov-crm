@@ -71,7 +71,7 @@ export function AppPreview({ className }: { className?: string }) {
     <div className={cn("relative", className)} aria-hidden>
       <div className="absolute -inset-x-8 -top-10 bottom-0 rounded-2xl bg-linear-to-br from-primary-100/70 via-white to-primary-50/60 blur-2xl" />
 
-      <div className="relative overflow-hidden rounded-2xl border border-line bg-white shadow-(--shadow-pop)">
+      <div className="relative overflow-hidden rounded-2xl border border-line bg-white shadow-lift">
         <div className="flex h-12 items-center justify-between border-b border-line px-4">
           <div className="flex gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-rose-300" />
@@ -111,7 +111,7 @@ export function AppPreview({ className }: { className?: string }) {
                 {column.cards.map((card) => (
                   <div
                     key={card.title}
-                    className="rounded-lg border border-line bg-white p-2.5 shadow-(--shadow-card)"
+                    className="rounded-lg border border-line bg-white p-2.5 shadow-panel"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={cn("h-1.5 w-1.5 rounded-full", card.statusColor)} />
@@ -171,7 +171,7 @@ function FloatingBadge({
   return (
     <div
       className={cn(
-        "absolute items-center gap-2.5 rounded-xl border border-line bg-white/90 px-3.5 py-2.5 shadow-(--shadow-pop) backdrop-blur-md",
+        "absolute items-center gap-2.5 rounded-xl border border-line bg-white/90 px-3.5 py-2.5 shadow-lift backdrop-blur-md",
         className
       )}
     >

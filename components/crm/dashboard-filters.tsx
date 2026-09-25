@@ -1,6 +1,7 @@
 "use client";
 
 import { Select } from "@/components/ui/input";
+import { ACTIVE_FILTER } from "@/components/ui/search-field";
 import type { Pipeline, Profile } from "@/types";
 import { cn, fullName } from "@/lib/utils";
 
@@ -33,7 +34,7 @@ export function DashboardFilters({
         <CalendarDays className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Select
           aria-label="Período"
-          className={cn(FILTER, "pl-9")}
+          className={cn(FILTER, "pl-9", (params.get("periodo") ?? "90") !== "90" && ACTIVE_FILTER)}
           value={params.get("periodo") ?? "90"}
           onChange={(e) => setParam("periodo", e.target.value)}
         >
@@ -46,7 +47,7 @@ export function DashboardFilters({
       </div>
       <Select
         aria-label="Funil"
-        className={FILTER}
+        className={cn(FILTER, params.get("funil") && ACTIVE_FILTER)}
         value={params.get("funil") ?? ""}
         onChange={(e) => setParam("funil", e.target.value)}
       >
@@ -59,7 +60,7 @@ export function DashboardFilters({
       </Select>
       <Select
         aria-label="Responsável"
-        className={FILTER}
+        className={cn(FILTER, params.get("responsavel") && ACTIVE_FILTER)}
         value={params.get("responsavel") ?? ""}
         onChange={(e) => setParam("responsavel", e.target.value)}
       >

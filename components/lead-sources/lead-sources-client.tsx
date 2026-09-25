@@ -30,7 +30,7 @@ export function LeadSourcesClient({
   return (
     <>
       <section aria-labelledby="conectar-titulo">
-        <h2 id="conectar-titulo" className="mb-3 text-sm font-semibold text-ink">
+        <h2 id="conectar-titulo" className="font-sans mb-3 text-sm font-semibold text-ink">
           Conectar uma fonte nova
         </h2>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -42,7 +42,7 @@ export function LeadSourcesClient({
                 type="button"
                 disabled={!provider.available}
                 onClick={() => setConnecting(id)}
-                className="group flex h-full flex-col gap-3 rounded-2xl border border-line bg-card p-5 text-left shadow-(--shadow-card) transition hover:border-primary-300 hover:shadow-(--shadow-pop) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-line disabled:hover:shadow-(--shadow-card)"
+                className="group flex h-full flex-col gap-3 rounded-2xl border border-line bg-card p-5 text-left shadow-panel transition hover:border-primary-300 hover:shadow-lift focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-line disabled:hover:shadow-panel"
               >
                 <div className="flex items-center gap-3">
                   <ProviderIcon provider={id} />

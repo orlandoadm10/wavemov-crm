@@ -1,17 +1,19 @@
 "use client";
 
+import { ACTIVE_FILTER, SearchField } from "@/components/ui/search-field";
+
 import { TaskModal } from "@/components/crm/task-modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, PriorityBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input, Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatDateTime, fullName } from "@/lib/utils";
 import type { Contact, Deal, Profile, Task } from "@/types";
 import { isPast, isToday } from "date-fns";
-import { CheckCircle2, CheckSquare, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, CheckSquare, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -96,7 +98,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
     if (!task.due_at) return null;
     const due = new Date(task.due_at);
     if (task.status === "done") return <Badge tone="green">Concluída</Badge>;
-    if (isToday(due)) return <Badge tone="green">Hoje</Badge>;
+    if (isToday(due)) return <Badge tone="amber">Hoje</Badge>;
     if (isPast(due)) return <Badge tone="red">Em atraso!</Badge>;
     return null;
   }
@@ -106,17 +108,9 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
       {/* Busca e filtros. Celular: busca + botão numa linha, os três filtros
           em grade logo abaixo — antes eles disputavam a mesma linha e a busca
           ficava com 40px. */}
-      <div className="space-y-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card) lg:flex lg:items-center lg:gap-2 lg:space-y-0">
+      <div className="space-y-2 rounded-2xl border border-line bg-card p-3 shadow-panel lg:flex lg:items-center lg:gap-2 lg:space-y-0">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-            <Input
-              className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
-              placeholder="Pesquisar tarefa…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchField value={search} onChange={setSearch} placeholder="Pesquisar tarefa…" label="Pesquisar tarefa" />
           <Button className="h-10 shrink-0 rounded-xl lg:hidden" onClick={() => setModalOpen(true)} aria-label="Criar tarefa">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Criar Tarefa</span>
@@ -125,7 +119,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
         <div className="grid grid-cols-3 gap-2 lg:flex lg:w-auto">
           <Select
             aria-label="Situação"
-            className="h-10 rounded-xl bg-card min-w-0 lg:w-auto lg:min-w-32"
+            className={cn("h-10 rounded-xl bg-card min-w-0 lg:w-auto lg:min-w-32", statusFilter !== "pending" && ACTIVE_FILTER)}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -136,7 +130,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
           </Select>
           <Select
             aria-label="Prioridade"
-            className="h-10 rounded-xl bg-card min-w-0 lg:w-auto lg:min-w-32"
+            className={cn("h-10 rounded-xl bg-card min-w-0 lg:w-auto lg:min-w-32", priorityFilter && ACTIVE_FILTER)}
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
           >
@@ -147,7 +141,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
           </Select>
           <Select
             aria-label="Responsável"
-            className="h-10 rounded-xl bg-card min-w-0 lg:w-auto lg:min-w-36"
+            className={cn("h-10 rounded-xl bg-card min-w-0 lg:w-auto lg:min-w-36", assigneeFilter && ACTIVE_FILTER)}
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
           >
@@ -178,7 +172,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
             <span className="text-sm text-white/80">Nenhuma tarefa agendada 🎉</span>
           )}
         </div>
-        <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-primary">
+        <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-[#1d3fb8]">
           Tarefas: {filtered.length}
         </span>
       </div>
@@ -204,7 +198,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
               <li
                 key={task.id}
                 className={cn(
-                  "flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 shadow-(--shadow-card) transition-shadow hover:shadow-(--shadow-pop)",
+                  "flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 shadow-panel transition-shadow hover:shadow-lift",
                   task.status === "done" && "opacity-60"
                 )}
               >

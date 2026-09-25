@@ -24,7 +24,7 @@ export function Dashboards() {
         <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {DASHBOARDS.cards.map((card, index) => (
             <Reveal key={card.title} delay={index * 80} className="h-full">
-              <div className="h-full rounded-2xl border border-line bg-white p-7 shadow-(--shadow-card)">
+              <div className="h-full rounded-2xl border border-line bg-white p-7 shadow-panel">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br from-primary-600 to-primary-500 text-white shadow-md shadow-primary-600/20">
                   <card.icon className="h-5 w-5" />
                 </span>

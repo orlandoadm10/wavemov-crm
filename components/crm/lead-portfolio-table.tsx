@@ -1,5 +1,7 @@
 "use client";
 
+import { ACTIVE_FILTER, SearchField } from "@/components/ui/search-field";
+
 // ============================================================
 // Carteira de leads — tabela e filtros.
 //
@@ -19,7 +21,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input, Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { DataTable, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
 import {
@@ -35,8 +37,8 @@ import {
   type Janela,
   type Ordem,
 } from "@/lib/features/lead-followup/domain/follow-up";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { CheckCircle2, Layers, Search, TriangleAlert, Users } from "lucide-react";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { CheckCircle2, Layers, TriangleAlert, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -121,19 +123,10 @@ export function LeadPortfolioTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-          <Input
-            className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
-            placeholder="Buscar por lead ou contato…"
-            aria-label="Buscar por lead ou contato"
-            value={termo}
-            onChange={(e) => onBusca(e.target.value)}
-          />
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchField value={termo} onChange={onBusca} placeholder="Buscar por lead ou contato…" label="Buscar por lead ou contato" />
         <Select
-          className="h-10 rounded-xl bg-card w-auto min-w-48"
+          className={cn("h-10 rounded-xl bg-card w-auto min-w-48", janela !== "todos" && ACTIVE_FILTER)}
           aria-label="Filtrar por tempo sem tratativa"
           value={janela}
           onChange={(e) => setParams({ janela: e.target.value })}
@@ -216,7 +209,7 @@ export function LeadPortfolioTable({
                 <li key={l.deal_id}>
                   <Link
                     href={`/negociacoes/${l.deal_id}`}
-                    className="block rounded-2xl border border-line bg-card p-4 shadow-(--shadow-card) transition-colors hover:border-primary-200"
+                    className="block rounded-2xl border border-line bg-card p-4 shadow-panel transition-colors hover:border-primary-200"
                   >
                     <div className="flex items-start gap-3">
                       {tom === "slate" ? (

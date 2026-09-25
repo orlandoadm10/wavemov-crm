@@ -77,9 +77,10 @@ export function DropdownItem({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+        "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring",
         danger
           ? "text-destructive-text hover:bg-destructive/10"
           : "text-muted-foreground hover:bg-muted hover:text-foreground"

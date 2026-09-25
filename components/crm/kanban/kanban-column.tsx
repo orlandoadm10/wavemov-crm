@@ -49,7 +49,7 @@ export function KanbanColumn({
         </span>
       </header>
 
-      <div ref={setNodeRef} className="flex-1 space-y-3 overflow-y-auto px-3 pb-3">
+      <div ref={setNodeRef} className="flex-1 space-y-2 overflow-y-auto px-3 pb-3">
         {deals.map((deal) => (
           <DraggableDealCard key={deal.id} deal={deal} stageColor={color} stages={stages} onMove={onMove} />
         ))}

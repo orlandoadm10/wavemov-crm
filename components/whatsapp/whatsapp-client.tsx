@@ -1,10 +1,12 @@
 "use client";
 
+import { SearchField } from "@/components/ui/search-field";
+
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { DealTagsSelector } from "@/components/crm/deal-tags-selector";
 import type { PublicInstance } from "@/lib/services/whatsapp";
@@ -42,7 +44,6 @@ import {
   Link2,
   MessageCircle,
   Phone,
-  Search,
   Send,
   Settings,
   StickyNote,
@@ -520,7 +521,7 @@ export function WhatsAppClient({
   return (
     <div className="flex h-[calc(100dvh-7.5rem)] flex-col">
       {/* Topo: status da conexão */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-line bg-card px-4 py-2.5 shadow-(--shadow-card)">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-line bg-card px-4 py-2.5 shadow-panel">
         <div className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-success/10 text-success-text">
             <MessageCircle className="h-4.5 w-4.5" />
@@ -562,20 +563,12 @@ export function WhatsAppClient({
         {/* ---------------- Lista de conversas ---------------- */}
         <div
           className={cn(
-            "flex min-h-0 min-w-0 flex-col rounded-2xl border border-line bg-card shadow-(--shadow-card)",
+            "flex min-h-0 min-w-0 flex-col rounded-2xl border border-line bg-card shadow-panel",
             mobilePane !== "list" && "hidden lg:flex"
           )}
         >
           <div className="border-b border-line p-3">
-            <div className="relative">
-              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-              <Input
-                className="h-10 rounded-xl border-2 border-primary/70 pl-9 text-xs focus:border-primary focus:ring-0"
-                placeholder="Buscar conversa…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
+            <SearchField value={search} onChange={setSearch} placeholder="Buscar conversa…" label="Buscar conversa" />
             <div className="mt-2 flex gap-1 overflow-x-auto">
               {(
                 [
@@ -656,7 +649,7 @@ export function WhatsAppClient({
         {/* ---------------- Chat ---------------- */}
         <div
           className={cn(
-            "flex min-h-0 min-w-0 flex-col rounded-2xl border border-line bg-card shadow-(--shadow-card)",
+            "flex min-h-0 min-w-0 flex-col rounded-2xl border border-line bg-card shadow-panel",
             mobilePane !== "chat" && "hidden lg:flex"
           )}
         >
@@ -674,7 +667,9 @@ export function WhatsAppClient({
               {/* Cabeçalho do chat */}
               <div className="flex items-center gap-2 border-b border-line px-3 py-3 sm:gap-3 sm:px-4">
                 <button
-                  className="rounded-lg p-1.5 text-ink-faint hover:bg-muted lg:hidden"
+                  type="button"
+                  aria-label="Voltar para as conversas"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted lg:hidden"
                   onClick={() => setMobilePane("list")}
                 >
                   <ArrowLeft className="h-4.5 w-4.5" />
@@ -687,7 +682,9 @@ export function WhatsAppClient({
                   <p className="truncate text-xs text-ink-faint">+{selected.phone}</p>
                 </div>
                 <button
-                  className="rounded-lg p-1.5 text-ink-faint hover:bg-muted lg:hidden"
+                  type="button"
+                  aria-label="Informações do lead"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted lg:hidden"
                   onClick={() => setMobilePane("info")}
                 >
                   <Info className="h-4.5 w-4.5" />
@@ -792,7 +789,7 @@ export function WhatsAppClient({
 
           {selected ? (
             <>
-              <div className="rounded-2xl border border-line bg-card p-4 shadow-(--shadow-card)">
+              <div className="rounded-2xl border border-line bg-card p-4 shadow-panel">
                 <div className="flex flex-col items-center text-center">
                   <Avatar name={selected.name ?? selected.phone} size="lg" />
                   <p className="mt-2 text-sm font-bold text-ink">
@@ -824,7 +821,7 @@ export function WhatsAppClient({
               </div>
 
               {/* Lead vinculado */}
-              <div className="rounded-2xl border border-line bg-card p-4 shadow-(--shadow-card)">
+              <div className="rounded-2xl border border-line bg-card p-4 shadow-panel">
                 <p className="mb-2.5 text-xs font-semibold tracking-wide text-ink-faint uppercase">
                   Negociação
                 </p>
@@ -927,7 +924,7 @@ export function WhatsAppClient({
               {/* Ações — todas escrevem, então ficam fora do alcance do
                   viewer, que é somente leitura desde a 0003. */}
               {canManageDeal && (
-              <div className="space-y-2 rounded-2xl border border-line bg-card p-4 shadow-(--shadow-card)">
+              <div className="space-y-2 rounded-2xl border border-line bg-card p-4 shadow-panel">
                 <p className="text-xs font-semibold tracking-wide text-ink-faint uppercase">
                   Ações
                 </p>

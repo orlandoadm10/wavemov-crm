@@ -44,11 +44,12 @@ export function Badge({
 
 // Badges semânticos do CRM
 export function DealStatusBadge({ status }: { status: string }) {
+  // Um vocabulário só no CRM inteiro (cartão, detalhe, listas, relatórios).
   const map: Record<string, { tone: Tone; label: string }> = {
-    open: { tone: "green", label: "Em andamento" },
-    won: { tone: "blue", label: "Ganho" },
-    lost: { tone: "red", label: "Perdido" },
-    archived: { tone: "slate", label: "Arquivado" },
+    open: { tone: "blue", label: "Em aberto" },
+    won: { tone: "green", label: "Venda realizada" },
+    lost: { tone: "red", label: "Perdida" },
+    archived: { tone: "slate", label: "Arquivada" },
   };
   const s = map[status] ?? map.open;
   return <Badge tone={s.tone} dot>{s.label}</Badge>;

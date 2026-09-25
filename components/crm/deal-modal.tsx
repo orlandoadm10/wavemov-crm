@@ -229,7 +229,7 @@ export function DealModal({
         </details>
 
         {error && (
-          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{error}</p>
+          <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{error}</p>
         )}
 
         <div className="flex justify-end gap-2 pt-1">

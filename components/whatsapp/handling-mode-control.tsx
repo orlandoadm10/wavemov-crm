@@ -62,7 +62,7 @@ export function HandlingModeControl({
       {error && (
         <p
           role="alert"
-          className="absolute top-full right-0 z-10 mt-1.5 w-64 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive-text shadow-(--shadow-pop)"
+          className="absolute top-full right-0 z-10 mt-1.5 w-64 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive-text shadow-lift"
         >
           {error}
         </p>

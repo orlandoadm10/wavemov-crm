@@ -133,7 +133,7 @@ export default async function UltimoLeadPage() {
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="text-2xl font-bold tracking-tight text-ink">
+              <h2 className="text-lg font-bold tracking-tight text-ink">
                 {lead.contact?.name ?? lead.title}
               </h2>
               <DealStatusBadge status={lead.status} />
