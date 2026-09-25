@@ -1,33 +1,24 @@
 "use client";
 
+import { dealOrigin, EntityAvatar, OriginChip, TemperatureChip } from "@/components/crm/pipeline/deal-visuals";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
-import { cn, formatDateTime, fullName } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, fullName } from "@/lib/utils";
 import type { Deal, DealTag, PipelineStage } from "@/types";
-import { formatDistanceToNowStrict } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { ExternalLink, Megaphone, MessageCircle, MoreHorizontal, Sparkles, User, UserRound } from "lucide-react";
+import { ExternalLink, MessageCircle, MoreHorizontal, Phone, Sparkles, UserRound } from "lucide-react";
 import Link from "next/link";
 
 /**
- * Cartão do lead no Kanban (DESIGN_GUIDE, seção 13; print 1).
+ * Cartão de oportunidade (print-melhorias-deals; prompt de design, seção 8).
  *
- * Enxuto de propósito (P.O., 25/09): só o que decide a próxima ação. Valor e
- * qualificação saíram (o valor está na soma da coluna e no detalhe); telefone
- * virou o botão de conversa; a data virou "há N". Cabem ~3 cartões por coluna
- * numa tela de 900px, contra 1,5 antes.
+ * Hierarquia: nome/contato → valor → origem e temperatura → responsável.
+ * Ações rápidas (WhatsApp, ligar, abrir) só no hover/foco — nada de dez
+ * ícones fixos. Clicar no cartão abre o painel lateral; o "…" tem "Abrir
+ * ficha completa" e o "Mover para", alternativa acessível ao arrastar.
  */
 
-/** Só aparece fora de "aberto": no filtro padrão a situação é óbvia. */
-const STATUS_LABEL: Partial<Record<Deal["status"], string>> = {
-  won: "Venda realizada",
-  lost: "Perdida",
-  archived: "Arquivada",
-};
-
 const AI_STATUS: Record<Exclude<Deal["ai_status"], "none">, string> = {
-  qualifying: "Em qualificação pela IA",
+  qualifying: "IA qualificando",
   qualified: "Qualificado pela IA",
   handoff: "Transferido pela IA",
 };
@@ -38,164 +29,169 @@ export function dealTags(deal: Deal): DealTag[] {
     .filter((tag): tag is DealTag => Boolean(tag));
 }
 
-/** Faixa do topo: cor da etapa enquanto aberto; verde/vermelho/neutro depois. */
-function stripColor(deal: Deal, stageColor: string): string {
-  if (deal.status === "won") return "var(--success)";
-  if (deal.status === "lost") return "var(--destructive)";
-  if (deal.status === "archived") return "var(--muted-foreground)";
-  return stageColor;
-}
-
-/** "há 2 d", "há 5 h" — a data completa fica no `title`. */
-function since(iso: string): string {
-  return `há ${formatDistanceToNowStrict(new Date(iso), { locale: ptBR })}`;
-}
+const stop = {
+  onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+  onClick: (e: React.MouseEvent) => e.stopPropagation(),
+};
 
 export function DealCard({
   deal,
-  stageColor,
   stages,
   onMove,
+  onOpen,
+  selected,
   overlay,
 }: {
   deal: Deal;
-  stageColor: string;
-  /** Etapas do funil para o "Mover para…" — alternativa ao arrastar. */
+  /** Etapas do funil para o "Mover para…". */
   stages?: PipelineStage[];
   onMove?: (dealId: string, stageId: string) => void;
+  /** Abre o painel lateral. */
+  onOpen?: (deal: Deal) => void;
+  selected?: boolean;
   overlay?: boolean;
 }) {
-  const tags = dealTags(deal);
-  const origin = deal.utm_campaign || deal.utm_source || deal.source;
+  const origin = dealOrigin(deal);
   const phone = deal.contact?.whatsapp_phone ?? null;
   const contactName = deal.contact?.name?.trim();
-  // "Isnar · MR Corretora" já contém o contato: repetir é ruído.
-  const showContact = contactName && !deal.title.toLowerCase().includes(contactName.toLowerCase());
-  const statusLabel = STATUS_LABEL[deal.status];
-  const stopDrag = { onPointerDown: (e: React.PointerEvent) => e.stopPropagation() };
+  const subtitle = contactName && !deal.title.toLowerCase().includes(contactName.toLowerCase()) ? contactName : null;
+  const value = Number(deal.value) || 0;
 
   return (
     <article
+      onClick={onOpen ? () => onOpen(deal) : undefined}
       className={cn(
-        "group overflow-hidden rounded-xl border bg-card text-card-foreground shadow-panel transition duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-lift",
-        deal.status === "lost" && "border-destructive/30 bg-[color-mix(in_oklab,var(--destructive)_5%,var(--card))]",
-        deal.status === "won" && "border-success/30 bg-[color-mix(in_oklab,var(--success)_6%,var(--card))]",
-        overlay && "rotate-2 opacity-90 shadow-lift"
+        "group relative cursor-pointer rounded-xl border border-border bg-card p-3 text-card-foreground shadow-[0_1px_2px_rgb(15_23_42/0.04)] transition duration-150",
+        "hover:border-primary/35 hover:shadow-panel motion-safe:hover:-translate-y-px",
+        selected && "outline-2 outline-offset-1 outline-primary",
+        deal.status === "lost" && "border-l-2 border-l-destructive",
+        overlay && "scale-[1.02] opacity-95 shadow-lift"
       )}
     >
-      <div className="h-1" style={{ background: stripColor(deal, stageColor) }} />
-
-      <div className="space-y-2 p-3">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-1">
-          <Link href={`/negociacoes/${deal.id}`} className="min-w-0" {...stopDrag}>
-            {statusLabel && (
-              <span className="mb-0.5 block text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                {statusLabel}
-              </span>
-            )}
-            <h3 className="line-clamp-2 text-[15px] leading-snug font-bold text-foreground group-hover:text-primary">
-              {deal.title}
-            </h3>
-          </Link>
-          {onMove && stages && (
-            <div {...stopDrag}>
-              <Dropdown
-                trigger={
-                  <button
-                    type="button"
-                    aria-label={`Ações de ${deal.title}`}
-                    className="-mt-1 -mr-1.5 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                }
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2.5">
+        <EntityAvatar name={deal.title} />
+        <div className="min-w-0">
+          <h3 className="truncate text-sm leading-snug font-semibold text-foreground" title={deal.title}>
+            {onOpen ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpen(deal);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="max-w-full truncate text-left hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"
               >
-                <Link
-                  href={`/negociacoes/${deal.id}`}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <ExternalLink className="h-4 w-4" /> Abrir negociação
-                </Link>
-                <p className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                  Mover para
-                </p>
-                {stages
-                  .filter((s) => s.id !== deal.stage_id)
-                  .map((s) => (
-                    <DropdownItem key={s.id} onClick={() => onMove(deal.id, s.id)}>
-                      <span className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
-                        {s.name}
-                      </span>
-                    </DropdownItem>
-                  ))}
-              </Dropdown>
-            </div>
-          )}
+                {deal.title}
+              </button>
+            ) : (
+              deal.title
+            )}
+          </h3>
+          <p className="truncate text-xs text-muted-foreground">{subtitle ?? " "}</p>
         </div>
-
-        {showContact && (
-          <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            <User className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="truncate">{contactName}</span>
-          </p>
-        )}
-
-        {origin && (
-          <p className="flex min-w-0 items-center gap-1.5 text-xs" title={`Origem: ${origin}`}>
-            <Megaphone className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-            <span className="truncate text-primary">{origin}</span>
-          </p>
-        )}
-
-        {/* Rodapé: idade · IA · tags … conversa · responsável. */}
-        <div className="flex items-center gap-1.5 pt-1" {...stopDrag}>
-          <time
-            dateTime={deal.created_at}
-            title={`Entrou em ${formatDateTime(deal.created_at)}`}
-            className="shrink-0 text-[11px] text-muted-foreground"
-            suppressHydrationWarning
-          >
-            {since(deal.created_at)}
-          </time>
-          {deal.ai_status !== "none" && (
-            <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" aria-label={AI_STATUS[deal.ai_status]}>
-              <title>{AI_STATUS[deal.ai_status]}</title>
-            </Sparkles>
-          )}
-          <div className="flex min-w-0 flex-1 gap-1 overflow-hidden">
-            {tags.slice(0, 2).map((tag) => (
-              <Badge key={tag.id} tone={tag.tone} className="max-w-24 truncate">
-                {tag.name}
-              </Badge>
-            ))}
-            {tags.length > 2 && <Badge tone="slate">+{tags.length - 2}</Badge>}
-          </div>
-          {phone && (
-            <Link
-              href={`/atendimento?telefone=${phone}`}
-              aria-label={`Abrir conversa com ${deal.title}`}
-              title="Abrir conversa no WhatsApp"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-success-text transition-colors hover:bg-success/15"
+        {onMove && stages && (
+          <div {...stop} className="-mt-1 -mr-1">
+            <Dropdown
+              trigger={
+                <button
+                  type="button"
+                  aria-label={`Ações de ${deal.title}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              }
             >
-              <MessageCircle className="h-4 w-4" />
-            </Link>
-          )}
+              <Link
+                href={`/negociacoes/${deal.id}`}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <ExternalLink className="h-4 w-4" /> Abrir ficha completa
+              </Link>
+              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                Mover para
+              </p>
+              {stages
+                .filter((s) => s.id !== deal.stage_id)
+                .map((s) => (
+                  <DropdownItem key={s.id} onClick={() => onMove(deal.id, s.id)}>
+                    <span className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+                      {s.name}
+                    </span>
+                  </DropdownItem>
+                ))}
+            </Dropdown>
+          </div>
+        )}
+      </div>
+
+      <p className={cn("font-display mt-2 text-[15px] font-bold tabular-nums", value > 0 ? "text-foreground" : "text-muted-foreground")}>
+        {value > 0 ? formatCurrency(value) : "Sem valor"}
+      </p>
+
+      <div className="mt-2 flex items-center gap-1.5">
+        {deal.status === "won" ? (
+          <span className="inline-flex h-5 items-center rounded-md bg-success/12 px-1.5 text-[11px] font-semibold text-success-text">
+            Ganho{deal.won_at ? ` · ${formatDate(deal.won_at)}` : ""}
+          </span>
+        ) : deal.status === "lost" ? (
+          <span className="inline-flex h-5 items-center rounded-md bg-destructive/10 px-1.5 text-[11px] font-semibold text-destructive-text">
+            Perdida
+          </span>
+        ) : (
+          <>
+            {origin && <OriginChip origin={origin} />}
+            <TemperatureChip temperature={deal.temperature} />
+          </>
+        )}
+        {deal.ai_status !== "none" && (
+          <span title={AI_STATUS[deal.ai_status]} className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-300">
+            <Sparkles className="h-3 w-3" aria-label={AI_STATUS[deal.ai_status]} />
+          </span>
+        )}
+        <span className="ml-auto shrink-0">
           {deal.responsible ? (
-            <span title={fullName(deal.responsible)} className="shrink-0">
+            <span title={fullName(deal.responsible)}>
               <Avatar name={fullName(deal.responsible)} src={deal.responsible.avatar_url} size="xs" />
             </span>
           ) : (
             <span
               title="Sem responsável"
               aria-label="Sem responsável"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-muted-foreground/50 text-muted-foreground"
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-muted-foreground/50 text-muted-foreground"
             >
               <UserRound className="h-3.5 w-3.5" />
             </span>
           )}
-        </div>
+        </span>
       </div>
+
+      {/* Ações rápidas: só no hover/foco (prompt de design, seção 11). */}
+      {phone && !overlay && (
+        <div
+          {...stop}
+          className="pointer-events-none absolute top-11 right-2 flex gap-1 rounded-lg border border-border bg-card p-0.5 opacity-0 shadow-panel transition-opacity duration-150 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
+        >
+          <Link
+            href={`/atendimento?telefone=${phone}`}
+            aria-label={`WhatsApp de ${deal.title}`}
+            title="Abrir conversa"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-success-text hover:bg-success/15"
+          >
+            <MessageCircle className="h-4 w-4" />
+          </Link>
+          <a
+            href={`tel:+${phone}`}
+            aria-label={`Ligar para ${deal.title}`}
+            title="Ligar"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-primary hover:bg-primary/10"
+          >
+            <Phone className="h-4 w-4" />
+          </a>
+        </div>
+      )}
     </article>
   );
 }

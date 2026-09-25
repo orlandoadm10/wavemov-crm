@@ -14,6 +14,7 @@ export function SearchField({
   onChange,
   placeholder,
   label,
+  size = "md",
   className,
 }: {
   value: string;
@@ -21,15 +22,28 @@ export function SearchField({
   placeholder: string;
   /** Nome acessível; o placeholder some ao digitar e não serve de rótulo. */
   label: string;
+  /** `sm` (32px, borda fina) para barras compactas como a do pipeline. */
+  size?: "sm" | "md";
   className?: string;
 }) {
   return (
     <div className={cn("relative min-w-0 flex-1", className)}>
-      <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" aria-hidden />
+      <Search
+        className={cn(
+          "pointer-events-none absolute top-1/2 left-3 -translate-y-1/2",
+          size === "sm" ? "h-3.5 w-3.5 text-muted-foreground" : "h-4 w-4 text-primary"
+        )}
+        aria-hidden
+      />
       <Input
         type="search"
         aria-label={label}
-        className="h-10 rounded-xl border-2 border-primary/70 bg-card pr-10 pl-9 focus:border-primary focus:ring-0"
+        className={cn(
+          "bg-card pr-10 pl-9",
+          size === "sm"
+            ? "h-8 rounded-lg text-xs focus:border-ring focus:ring-1 focus:ring-ring"
+            : "h-10 rounded-xl border-2 border-primary/70 focus:border-primary focus:ring-0"
+        )}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -42,7 +56,10 @@ export function SearchField({
           type="button"
           onClick={() => onChange("")}
           aria-label="Limpar busca"
-          className="absolute top-1/2 right-1 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          className={cn(
+            "absolute top-1/2 right-0.5 flex -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground",
+            size === "sm" ? "h-7 w-7" : "right-1 h-8 w-8"
+          )}
         >
           <X className="h-3.5 w-3.5" />
         </button>

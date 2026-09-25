@@ -5,6 +5,10 @@ import {
   loadKanbanDeals,
   readDealDateFilters,
 } from "@/lib/features/deal-filters/infrastructure/kanban-deals-query";
+import {
+  currentMonthStart,
+  loadPipelineMonthDeals,
+} from "@/lib/features/deal-filters/infrastructure/pipeline-metrics-query";
 import { getSessionContext } from "@/lib/services/session";
 import { createClient } from "@/lib/supabase/server";
 import type { Contact, DealTag, Pipeline, Profile } from "@/types";
@@ -51,7 +55,8 @@ export default async function NegociacoesPage({ searchParams }: { searchParams: 
   // Só um UUID de membro chega à RPC; lixo na URL vira "todos".
   const responsibleFilter = responsavel && /^[0-9a-f-]{36}$/i.test(responsavel) ? responsavel : null;
 
-  const [kanban, { data: membersRaw }, { data: contactsRaw }] = await Promise.all([
+  const monthStart = currentMonthStart();
+  const [kanban, { data: membersRaw }, { data: contactsRaw }, monthDeals] = await Promise.all([
     loadKanbanDeals(supabase, {
       organizationId: orgId,
       pipelineId: activePipeline?.id ?? null,
@@ -73,6 +78,7 @@ export default async function NegociacoesPage({ searchParams }: { searchParams: 
       .eq("organization_id", orgId)
       .order("name")
       .limit(500),
+    loadPipelineMonthDeals(supabase, orgId, activePipeline?.id ?? null, monthStart),
   ]);
 
   const members = ((membersRaw ?? []) as unknown as { profile: Profile }[]).map((m) => m.profile);
@@ -99,6 +105,8 @@ export default async function NegociacoesPage({ searchParams }: { searchParams: 
         canManageOrg={
           session.membership.role === "org_admin" || session.profile.is_global_admin
         }
+        monthDeals={monthDeals}
+        monthStart={monthStart.toISOString()}
       />
     </div>
   );

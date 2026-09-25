@@ -2,6 +2,48 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-25 — Negociações no print "melhorias deals" (conceito 1)
+
+O P.O. enviou `docs/print-melhorias-deals.png` e `docs/prompt-design.txt`
+(pasta raiz do projeto) para deixar a tela de negociações "perfeita". Seguido o
+conceito 1 (claro).
+
+- **Barra do workspace:** título = nome do funil com seletor, "Vendas ·
+  Negociações" acima, alternância Kanban | Lista | Conversas, ações à direita
+  (Configurar funil, "…" com Tags/Distribuição, **Nova oportunidade**).
+- **Filtros compactos** (`components/crm/pipeline/filter-menu.tsx`): botões de
+  32 px com ícone e menu — Responsável (com "Minhas negociações"), Situação,
+  Tag, Mais filtros (datas), Ordenar; busca compacta. Filtro ativo fica azul e
+  vira **chip removível**, com "Limpar filtros". No celular a faixa rola de
+  lado. Os antigos seletores nativos de 40 px e o botão "Arquivados" (agora na
+  Situação) saíram.
+- **Faixa de indicadores** (`metric-strip.tsx`): oportunidades, valor no
+  pipeline e ticket (das negociações exibidas) + conversão e ganhos do mês (do
+  funil ativo). Cálculo em `lib/features/deal-filters/domain/pipeline-metrics.ts`
+  (testado); leitura do mês em `infrastructure/pipeline-metrics-query.ts`, sob
+  a RLS — a única consulta nova da tela.
+- **Colunas:** "1. Novos Leads", contador, soma, "+" (abre o modal de
+  criação), linha fina na cor da etapa, fundo um tom acima da página,
+  cabeçalho fixo, halo azul como destino do arraste.
+- **Cartão de oportunidade:** avatar quadrado com inicial, nome, contato,
+  valor, chips de origem e temperatura (Frio/Morno/Quente), IA em roxo,
+  responsável; ações rápidas (WhatsApp, Ligar) só no hover/foco; ganho e
+  perdida com selo próprio. Valor e temperatura voltaram, discretos, porque o
+  print novo os mostra (a caixa grande tinha saído a pedido).
+- **Painel lateral** (`deal-drawer.tsx`): clicar no cartão abre a visão geral
+  à direita, sem sair do Kanban — atalhos WhatsApp/Ligar/E-mail/Abrir ficha,
+  próxima tarefa pendente (lida ao abrir), dados principais. Esc fecha; tela
+  cheia no celular. A ficha completa segue em `/negociacoes/[id]`.
+- **Visão Lista** (`pipeline-list.tsx`, `?visao=lista`): tabela densa com
+  cabeçalho fixo; a linha abre o mesmo painel.
+
+**Fora (pedidos do prompt que são do app inteiro):** busca global com Ctrl+K,
+Copilot, densidade configurável, modo escuro, topbar com breadcrumb.
+
+**Validação.** `tsc`, `npm run test:unit` (218), `npm run build`, `git diff
+--check` e conferência visual (Kanban, painel, Lista, chips) com página
+temporária removida.
+
 ## 2026-09-25 — Design: auditoria de QA e front, cartão do Kanban enxuto
 
 O P.O. apontou inconsistências e pediu para enxugar o cartão do Kanban
