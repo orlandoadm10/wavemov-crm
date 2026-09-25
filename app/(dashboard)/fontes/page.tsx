@@ -81,7 +81,7 @@ export default async function FontesPage() {
 
   return (
     <div className="animate-fade-up space-y-6">
-      <PageHeader
+      <PageHeader eyebrow="Captação"
         title="Fontes de lead"
         subtitle="Conecte Typeform, seu site e outras ferramentas direto ao funil, sem automação no meio"
       />

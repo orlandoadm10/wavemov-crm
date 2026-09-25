@@ -37,7 +37,7 @@ export default async function TarefasPage() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader title="Tarefas" subtitle="Acompanhe follow-ups e atividades da equipe" />
+      <PageHeader eyebrow="Início" title="Tarefas" subtitle="Acompanhe follow-ups e atividades da equipe" />
       <TasksClient
         organizationId={orgId}
         profileId={session.profile.id}

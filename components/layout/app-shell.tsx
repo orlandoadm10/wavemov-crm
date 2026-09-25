@@ -57,8 +57,8 @@ export function AppShell({
           discordar da largura dela. */}
       <aside
         className={cn(
-          "sticky top-0 z-30 hidden h-screen shrink-0 border-r border-line bg-white transition-[width] duration-200 lg:block",
-          collapsed ? "w-16" : "w-60"
+          "sticky top-0 z-30 hidden h-screen shrink-0 bg-sidebar transition-[width] duration-200 lg:block",
+          collapsed ? "w-[72px]" : "w-64"
         )}
       >
         <SidebarContent
@@ -76,12 +76,12 @@ export function AppShell({
             className="absolute inset-0 bg-black/60"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="animate-fade-up absolute inset-y-0 left-0 w-72 max-w-[calc(100vw-3rem)] bg-card shadow-(--shadow-pop)">
+          <div className="animate-fade-up absolute inset-y-0 left-0 w-72 max-w-[calc(100vw-3rem)] bg-sidebar shadow-lift">
             <button
               type="button"
               aria-label="Fechar menu"
               onClick={() => setMobileOpen(false)}
-              className="absolute top-3 right-3 rounded-lg p-1.5 text-ink-soft hover:bg-muted"
+              className="absolute top-4 right-3 z-10 rounded-lg p-1.5 text-white/80 hover:bg-sidebar-accent"
             >
               <X className="h-5 w-5" />
             </button>
@@ -97,17 +97,17 @@ export function AppShell({
       {/* `min-w-0` deixa a coluna encolher: sem ele, uma tabela larga empurra
           a página inteira para o lado em vez de rolar dentro da própria caixa. */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-chrome bg-card/75 px-4 backdrop-blur-md">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-chrome bg-card/70 px-4 backdrop-blur-md sm:px-8">
           <button
             type="button"
-            className="rounded-lg p-2 text-ink-soft hover:bg-muted lg:hidden"
+            className="rounded-lg p-2 text-chrome hover:bg-chrome-soft lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Abrir menu"
             aria-expanded={mobileOpen}
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="truncate text-sm font-bold text-ink lg:hidden">
+          <span className="font-display truncate text-sm font-bold text-chrome lg:hidden">
             {session.organization.name}
           </span>
           <div className="ml-auto flex items-center gap-1.5">
@@ -118,7 +118,8 @@ export function AppShell({
             virar contêiner de rolagem (que quebraria o `sticky` do topo). É a
             rede de segurança — o que rola de lado de propósito (Kanban) tem a
             própria caixa com `overflow-x-auto`. */}
-        <main className="mx-auto w-full max-w-[1600px] flex-1 overflow-x-clip px-4 py-4 sm:py-6">
+        {/* 32px de margem no computador, 16px no celular (seção 5). */}
+        <main className="mx-auto w-full max-w-[1600px] flex-1 overflow-x-clip px-4 py-4 sm:px-8 sm:py-6">
           {children}
         </main>
       </div>

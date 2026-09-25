@@ -18,6 +18,13 @@ import {
 
 const CLOSED_GROUPS_KEY = "wavemov-sidebar-grupos-fechados";
 
+const ROLE_LABEL: Record<string, string> = {
+  org_admin: "Administrador",
+  seller: "Vendedor",
+  agent: "Atendente",
+  viewer: "Visualizador",
+};
+
 /**
  * Conteúdo da navegação lateral — usado pela barra fixa do desktop e pela
  * gaveta do celular. Não decide permissão: `visibleNavGroups` resolve.
@@ -72,12 +79,12 @@ export function SidebarContent({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <Link
         href="/dashboard"
         onClick={onNavigate}
         className={cn(
-          "flex h-14 shrink-0 items-center gap-2.5 border-b border-line",
+          "flex h-16 shrink-0 items-center gap-2.5 border-b border-sidebar-border",
           collapsed ? "justify-center px-2" : "px-4"
         )}
         title={collapsed ? session.organization.name : undefined}
@@ -87,15 +94,15 @@ export function SidebarContent({
           <img
             src={session.organization.logo_url}
             alt=""
-            className="h-8 w-8 shrink-0 rounded-full object-cover"
+            className="h-9 w-9 shrink-0 rounded-xl bg-white object-cover"
           />
         ) : (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-white">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/25">
             <Waves className="h-4.5 w-4.5" />
           </span>
         )}
         {!collapsed && (
-          <span className="truncate text-sm font-bold text-ink">{session.organization.name}</span>
+          <span className="font-display truncate text-sm font-bold text-white">{session.organization.name}</span>
         )}
       </Link>
 
@@ -108,14 +115,14 @@ export function SidebarContent({
             <div key={group.id} className="space-y-0.5">
               {group.label &&
                 (collapsed ? (
-                  <div aria-hidden className="mx-2 mb-1 border-t border-line" />
+                  <div aria-hidden className="mx-2 mb-1 border-t border-sidebar-border" />
                 ) : (
                   <h2 id={headingId}>
                     <button
                       type="button"
                       onClick={() => toggleGroup(group.id)}
                       aria-expanded={open}
-                      className="flex w-full items-center justify-between rounded-md px-3 py-1 text-[11px] font-semibold tracking-wide text-ink-faint uppercase transition-colors hover:text-ink-soft"
+                      className="flex w-full items-center justify-between rounded-md px-3 py-1 text-[10px] font-semibold tracking-[0.16em] text-white/55 uppercase transition-colors hover:text-white/85"
                     >
                       {group.label}
                       <ChevronDown
@@ -149,13 +156,22 @@ export function SidebarContent({
       </nav>
 
       {onToggleCollapsed && (
-        <div className="shrink-0 border-t border-line p-2">
+        <div className="shrink-0 border-t border-sidebar-border p-2">
+          {!collapsed && (
+            // Rodapé (seção 6): papel em caixa alta e a marca do produto.
+            <p className="px-3 pt-1 pb-2 text-[10px] leading-relaxed text-white/60">
+              <span className="block font-semibold tracking-[0.16em] uppercase">
+                {ROLE_LABEL[session.membership.role] ?? session.membership.role}
+              </span>
+              CRM JID Mídia
+            </p>
+          )}
           <button
             type="button"
             onClick={onToggleCollapsed}
             aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
             className={cn(
-              "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-ink-faint transition-colors hover:bg-slate-50 hover:text-ink",
+              "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-white/70 transition-colors hover:bg-sidebar-accent hover:text-white",
               collapsed && "justify-center px-2"
             )}
           >
@@ -193,16 +209,17 @@ function SidebarLink({
       title={collapsed ? item.label : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex items-center gap-2.5 rounded-lg py-2 text-sm font-medium transition-colors",
+        "relative flex items-center gap-2.5 rounded-xl py-2 text-sm font-medium transition-colors duration-150",
         collapsed ? "justify-center px-2" : "px-3",
+        // Ativo: azul mais claro translúcido, texto branco e anel fino (seção 6).
         active
-          ? "bg-primary-50 text-primary-700"
-          : "text-ink-soft hover:bg-slate-50 hover:text-ink"
+          ? "bg-sidebar-primary/45 text-white ring-1 ring-sidebar-ring"
+          : "text-white/80 hover:bg-sidebar-accent hover:text-white"
       )}
     >
       <Icon
         aria-hidden
-        className={cn("h-4 w-4 shrink-0", active ? "text-primary-600" : "text-ink-faint")}
+        className={cn("h-4 w-4 shrink-0", active ? "text-white" : "text-white/75")}
       />
       {collapsed ? (
         <span className="sr-only">{item.label}</span>

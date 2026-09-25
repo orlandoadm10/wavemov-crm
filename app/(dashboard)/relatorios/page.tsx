@@ -173,7 +173,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader eyebrow="Análise"
         title="Relatório de entrada de leads"
         subtitle="Acompanhe a entrada de leads por período e formulário"
         actions={<PeriodFilter />}

@@ -37,7 +37,7 @@ export default async function PessoasPage() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader title="Pessoas" subtitle="Equipe e permissões da empresa" />
+      <PageHeader eyebrow="Organização" title="Pessoas" subtitle="Equipe e permissões da empresa" />
       <PeopleClient
         organizationId={orgId}
         organizationName={session.organization.name}

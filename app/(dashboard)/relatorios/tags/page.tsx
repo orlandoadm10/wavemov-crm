@@ -100,7 +100,7 @@ export default async function TagsReportPage({ searchParams }: { searchParams: S
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader eyebrow="Análise"
         title="Relatório de tags"
         subtitle="Uso operacional das tags nas negociações do período"
         actions={

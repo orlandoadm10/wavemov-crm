@@ -1,13 +1,17 @@
-import {
-  DealsByStageChart,
-  HorizontalCountChart,
-  LeadsPerMonthChart,
-  SalesPerMonthChart,
-} from "@/components/crm/dashboard-charts";
+import { MonthlyBarChart, MonthlyLineChart } from "@/components/crm/dashboard-charts";
 import { DashboardFilters } from "@/components/crm/dashboard-filters";
 import { IngestionAlertBanner } from "@/components/crm/ingestion-alert-banner";
+import { CampaignSales } from "@/components/dashboard/campaign-sales";
+import { LossReasons, SellerRanking } from "@/components/dashboard/seller-and-loss";
+import { StageFunnel } from "@/components/dashboard/stage-funnel";
+import { TintPanel, TintStat } from "@/components/dashboard/tinted";
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardHeader, StatCard } from "@/components/ui/card";
+import {
+  campaignStats,
+  monthlySeries,
+  sellerRanking,
+  stageFunnel,
+} from "@/lib/features/dashboard/domain/dashboard-metrics";
 import { getIngestionHealth } from "@/lib/features/lead-ingestion/infrastructure/ingestion-health-query";
 import { needsOnboarding } from "@/lib/features/onboarding/domain/steps";
 import { getSessionContext } from "@/lib/services/session";
@@ -16,6 +20,18 @@ import { formatCurrency, fullName } from "@/lib/utils";
 import type { Deal, LostReason, Pipeline, PipelineStage, Profile, Task } from "@/types";
 import { format, startOfMonth, subDays, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  Award,
+  CheckCircle2,
+  Clock,
+  Handshake,
+  ListTodo,
+  Megaphone,
+  Percent,
+  ThumbsDown,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import { redirect } from "next/navigation";
 
 export const metadata = { title: "Dashboard" };
@@ -59,7 +75,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     await Promise.all([
       dealsQuery,
       supabase.from("tasks").select("id,status,due_at").eq("organization_id", orgId),
-      supabase.from("pipelines").select("*").eq("organization_id", orgId).order("created_at"),
+      supabase.from("pipelines").select("*, stages:pipeline_stages(*)").eq("organization_id", orgId).order("created_at"),
       supabase
         .from("organization_members")
         .select("profile:profiles(*)")
@@ -104,34 +120,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     const key = format(date, "yyyy-MM");
     return { key, label: format(date, "MMM", { locale: ptBR }) };
   });
-  const leadsPerMonth = months.map((m) => ({
-    month: m.label,
-    leads: allDeals.filter((d) => format(new Date(d.created_at), "yyyy-MM") === m.key).length,
-  }));
-  const salesPerMonth = months.map((m) => ({
-    month: m.label,
-    valor: allDeals
-      .filter((d) => d.status === "won" && d.won_at && format(new Date(d.won_at), "yyyy-MM") === m.key)
-      .reduce((s, d) => s + Number(d.value), 0),
-  }));
-
-  // Negociações por etapa (somente abertas)
-  const stageMap = new Map<string, { name: string; value: number; color: string }>();
-  for (const d of open) {
-    const stage = d.stage as PipelineStage | null;
-    if (!stage) continue;
-    const cur = stageMap.get(stage.id) ?? { name: stage.name, value: 0, color: stage.color };
-    cur.value += 1;
-    stageMap.set(stage.id, cur);
-  }
-
-  // Ganhos por responsável
-  const winsByResp = new Map<string, number>();
-  for (const d of won) {
-    const name = fullName(d.responsible) ?? "Sem responsável";
-    winsByResp.set(name, (winsByResp.get(name) ?? 0) + Number(d.value));
-  }
-
   // Perdas por motivo
   const lossByReason = new Map<string, number>();
   for (const d of lost) {
@@ -139,21 +127,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     lossByReason.set(name, (lossByReason.get(name) ?? 0) + 1);
   }
 
-  // UTMs
-  const utmCount = (list: Deal[]) => {
-    const map = new Map<string, number>();
-    for (const d of list) {
-      const key = d.utm_source || d.source || "Direto";
-      map.set(key, (map.get(key) ?? 0) + 1);
-    }
-    return [...map.entries()]
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
-  };
-
   const pendingTasks = tasks.filter((t) => t.status === "pending").length;
   const doneTasks = tasks.filter((t) => t.status === "done").length;
+
+  // Funil: etapas do funil filtrado, senão do padrão (nunca "o primeiro").
+  const funnelPipeline =
+    pipelines.find((p) => p.id === funil) ?? pipelines.find((p) => p.is_default) ?? null;
+  const funnel = stageFunnel(
+    deals.filter((d) => !funnelPipeline || d.pipeline_id === funnelPipeline.id),
+    (funnelPipeline?.stages ?? []) as PipelineStage[]
+  );
+  const sellers = sellerRanking(deals);
+  const people = new Map(
+    members.map((m) => [m.id, { name: fullName(m) ?? "Responsável", avatarUrl: m.avatar_url, role: m.job_title }])
+  );
+  const campaigns = campaignStats(deals);
+  const series = monthlySeries(allDeals, months);
 
   // Saúde da entrada de leads — só para quem enxerga a organização inteira.
   // `seller`/`agent` ficam de fora: sob a 0011 eles leem apenas os próprios
@@ -167,13 +156,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     ? await getIngestionHealth(supabase, orgId)
     : null;
 
+  const pct = (n: number) => `${n.toFixed(1).replace(".", ",")}%`;
+
   return (
-    <div className="animate-fade-up">
-      <PageHeader
-        title="Dashboard"
-        subtitle="Visão geral do funil, performance e atividades"
-        actions={<DashboardFilters pipelines={pipelines} members={members} />}
-      />
+    <div className="animate-fade-up space-y-4">
+      <PageHeader eyebrow="Análise" title="Dashboard" subtitle={`Como o funil está performando — ${PERIOD_LABEL[days] ?? `últimos ${days} dias`}.`} />
+
+      <DashboardFilters pipelines={pipelines} members={members} />
 
       {ingestionHealth && (
         <IngestionAlertBanner
@@ -182,133 +171,80 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         />
       )}
 
-      {/* Linha 1 — contadores */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Negociações criadas"
-          sublabel="no período"
-          value={created}
-          tone="blue"
-          hint={`${open.length} em andamento`}
-        />
-        <StatCard
-          label="Negociações vendidas"
-          sublabel="ganhas"
-          value={won.length}
-          tone="green"
-          hint={`${conversion.toFixed(1)}% taxa de conversão`}
-        />
-        <StatCard
-          label="Negociações perdidas"
-          sublabel="no período"
-          value={lost.length}
-          tone="red"
-          hint={`${lossRate.toFixed(1)}% taxa de perda`}
-        />
-        <StatCard
+      {/* Indicadores (print 5), cada um na sua cor. */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <TintStat tint="sky" icon={<TrendingUp />} label="Negociações criadas" value={created} hint={`${open.length} ainda em aberto`} />
+        <TintStat tint="emerald" icon={<Award />} label="Vendas realizadas" value={won.length} hint={formatCurrency(wonValue)} />
+        <TintStat tint="rose" icon={<ThumbsDown />} label="Perdidas" value={lost.length} hint={`${pct(lossRate)} do que entrou no período`} />
+        <TintStat tint="violet" icon={<Percent />} label="Taxa de conversão" value={pct(conversion)} hint={`${created} leads na base do período`} />
+
+        <TintStat tint="sky" icon={<Wallet />} label="Valor em negociação" value={formatCurrency(openValue)} hint="Tudo que está em aberto" />
+        <TintStat tint="emerald" icon={<Wallet />} label="Total vendido" value={formatCurrency(wonValue)} hint={`${won.length} venda(s) no período`} />
+        <TintStat tint="amber" icon={<Wallet />} label="Ticket médio" value={formatCurrency(ticket)} hint="Valor médio por venda fechada" />
+        <TintStat
+          tint="orange"
+          icon={<Clock />}
           label="Tempo médio até a venda"
-          sublabel="em dias"
-          value={avgDaysToWin !== null ? `${avgDaysToWin}d` : "—"}
-          tone="amber"
-          hint="baseado em negociações ganhas"
+          value={avgDaysToWin !== null ? `${avgDaysToWin} dias` : "—"}
+          hint="Da criação ao ganho"
         />
+
+        <TintStat tint="cyan" icon={<ListTodo />} label="Tarefas pendentes" value={pendingTasks} hint="Da empresa inteira" />
+        <TintStat tint="emerald" icon={<CheckCircle2 />} label="Tarefas concluídas" value={doneTasks} hint="Da empresa inteira" />
+        <TintStat tint="rose" icon={<ThumbsDown />} label="Taxa de perda geral" value={pct(lossRate)} hint="Sobre tudo que foi criado no período" />
+        <TintStat tint="violet" icon={<Handshake />} label="Em andamento" value={open.length} hint="Negociações abertas do período" />
       </div>
 
-      {/* Linha 2 — valores */}
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Valor total em negociação"
-          sublabel="pipeline aberto"
-          value={<span className="text-2xl">{formatCurrency(openValue)}</span>}
-          tone="blue"
-        />
-        <StatCard
-          label="Valor total vendido"
-          sublabel="negociações ganhas"
-          value={<span className="text-2xl">{formatCurrency(wonValue)}</span>}
-          tone="green"
-        />
-        <StatCard
-          label="Ticket médio"
-          sublabel="por venda no período"
-          value={<span className="text-2xl">{formatCurrency(ticket)}</span>}
-          tone="slate"
-        />
-        <StatCard
-          label="Tarefas"
-          sublabel="pendentes / concluídas"
-          value={
-            <span className="text-2xl">
-              {pendingTasks} <span className="text-ink-faint">/</span>{" "}
-              <span className="text-emerald-600">{doneTasks}</span>
-            </span>
-          }
-          tone="amber"
-        />
+      <TintPanel
+        tint="sky"
+        title={`Funil por etapa${funnelPipeline ? ` · ${funnelPipeline.name}` : ""}`}
+        action={<span className="text-xs text-muted-foreground">largura = % da etapa com mais negociações abertas</span>}
+      >
+        <StageFunnel rows={funnel} />
+      </TintPanel>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <TintPanel tint="violet" title="Quem mais vendeu">
+          <SellerRanking rows={sellers} people={people} />
+        </TintPanel>
+        <TintPanel tint="rose" title="Motivos de perda">
+          <LossReasons
+            rows={[...lossByReason.entries()]
+              .map(([name, value]) => ({ name, value }))
+              .sort((a, b) => b.value - a.value)}
+          />
+        </TintPanel>
       </div>
 
-      {/* Gráficos principais */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Leads por mês" subtitle="Todos os leads criados mês a mês" />
-          <div className="p-4">
-            <LeadsPerMonthChart data={leadsPerMonth} />
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="Valor em vendas" subtitle="Receita de negociações ganhas por mês" />
-          <div className="p-4">
-            <SalesPerMonthChart data={salesPerMonth} />
-          </div>
-        </Card>
-      </div>
+      <TintPanel tint="fuchsia" icon={<Megaphone />} title="De qual anúncio vêm as vendas">
+        <CampaignSales rows={campaigns} />
+      </TintPanel>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Negociações por etapa" subtitle="Distribuição do pipeline aberto" />
-          <div className="p-4">
-            <DealsByStageChart data={[...stageMap.values()]} />
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="Quem mais vendeu" subtitle="Valor ganho por responsável" />
-          <div className="p-4">
-            <HorizontalCountChart
-              data={[...winsByResp.entries()]
-                .map(([name, value]) => ({ name, value }))
-                .sort((a, b) => b.value - a.value)}
-              color="#10b981"
-              currency
-            />
-          </div>
-        </Card>
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader title="Motivos de perda" />
-          <div className="p-4">
-            <HorizontalCountChart
-              data={[...lossByReason.entries()]
-                .map(([name, value]) => ({ name, value }))
-                .sort((a, b) => b.value - a.value)}
-              color="#ef4444"
-            />
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="UTMs / origens (criadas)" />
-          <div className="p-4">
-            <HorizontalCountChart data={utmCount(deals)} />
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="UTMs / origens (vendas)" />
-          <div className="p-4">
-            <HorizontalCountChart data={utmCount(won)} color="#10b981" />
-          </div>
-        </Card>
+      <p className="pt-2 text-xs text-muted-foreground">
+        Os gráficos abaixo mostram sempre os últimos 6 meses, independente do período filtrado.
+      </p>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <TintPanel tint="sky" title="Leads criados mês a mês">
+          <MonthlyBarChart data={series} dataKey="leads" name="Leads" color="#1d5bf0" />
+        </TintPanel>
+        <TintPanel tint="violet" title="Conversão mês a mês (%)">
+          <MonthlyLineChart data={series} dataKey="conversion" name="Conversão" color="#8b5cf6" />
+        </TintPanel>
+        <TintPanel tint="cyan" title="Número de vendas mês a mês">
+          <MonthlyBarChart data={series} dataKey="sales" name="Vendas" color="#06b6d4" />
+        </TintPanel>
+        <TintPanel tint="emerald" title="Valor vendido mês a mês">
+          <MonthlyBarChart data={series} dataKey="salesValue" name="Valor vendido" color="#10b981" currency />
+        </TintPanel>
       </div>
     </div>
   );
 }
+
+const PERIOD_LABEL: Record<number, string> = {
+  7: "últimos 7 dias",
+  30: "últimos 30 dias",
+  90: "últimos 90 dias",
+  180: "últimos 6 meses",
+  365: "último ano",
+};

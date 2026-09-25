@@ -25,7 +25,7 @@ export default async function AdminPage() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader eyebrow="Organização"
         title="Administração"
         subtitle="Gestão global de usuários, organizações e permissões"
       />

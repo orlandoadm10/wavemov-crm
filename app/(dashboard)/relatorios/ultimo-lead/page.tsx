@@ -57,7 +57,7 @@ export default async function UltimoLeadPage() {
   if (!lead) {
     return (
       <div className="animate-fade-up">
-        <PageHeader title="Último lead recebido" subtitle="Dados do lead mais recente da empresa" />
+        <PageHeader eyebrow="Análise" title="Último lead recebido" subtitle="Dados do lead mais recente da empresa" />
         <EmptyState
           icon={<UserRound className="h-6 w-6" />}
           title="Nenhum lead recebido ainda"
@@ -120,7 +120,7 @@ export default async function UltimoLeadPage() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader eyebrow="Análise"
         title="Último lead recebido"
         subtitle="Veja rapidamente os dados do lead mais recente da empresa"
       />

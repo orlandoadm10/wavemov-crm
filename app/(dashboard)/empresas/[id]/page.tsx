@@ -137,7 +137,7 @@ export default async function EmpresaPerfilPage({
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader eyebrow="Organização"
         title="Resumo da empresa"
         subtitle="Visão geral da conta, leads e atividade"
         actions={

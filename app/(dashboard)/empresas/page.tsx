@@ -39,7 +39,7 @@ export default async function EmpresasPage() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader eyebrow="Organização"
         title="Empresas"
         subtitle="Organizações cadastradas na plataforma"
       />

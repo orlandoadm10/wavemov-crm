@@ -22,7 +22,7 @@ export default async function IaPage() {
   if (!canManage) {
     return (
       <div className="animate-fade-up">
-        <PageHeader title="IA" subtitle="Agentes que atendem pelo WhatsApp" />
+        <PageHeader eyebrow="Inteligência" title="IA" subtitle="Agentes que atendem pelo WhatsApp" />
         <EmptyState
           icon={<Lock className="h-6 w-6" />}
           title="Restrito ao administrador da empresa"
@@ -64,7 +64,7 @@ export default async function IaPage() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader eyebrow="Inteligência"
         title="IA"
         subtitle="Agentes que atendem, qualificam e atualizam o CRM pelo WhatsApp"
         actions={

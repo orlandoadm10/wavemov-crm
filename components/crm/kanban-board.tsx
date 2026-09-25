@@ -2,8 +2,8 @@
 
 import { DealFiltersPanel } from "@/components/crm/deal-filters-panel";
 import { DealModal } from "@/components/crm/deal-modal";
-import { Badge, TemperatureBadge } from "@/components/ui/badge";
-import { Avatar } from "@/components/ui/avatar";
+import { DealCard, dealTags } from "@/components/crm/kanban/deal-card";
+import { KanbanColumn } from "@/components/crm/kanban/kanban-column";
 import { UnreadConversationsPill } from "@/components/crm/unread-conversations-pill";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -19,15 +19,13 @@ import {
 } from "@/lib/features/deal-filters/domain/deal-filters";
 import { createClient } from "@/lib/supabase/client";
 import { encodeDateRange } from "@/lib/utils/period";
-import { cn, formatCurrency, formatDateTime, fullName } from "@/lib/utils";
-import type { Contact, Deal, DealTag, Pipeline, PipelineStage, Profile } from "@/types";
+import { cn, formatCurrency, fullName } from "@/lib/utils";
+import type { Contact, Deal, DealTag, Pipeline, Profile } from "@/types";
 import {
   DndContext,
   DragOverlay,
   PointerSensor,
   TouchSensor,
-  useDraggable,
-  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -35,15 +33,14 @@ import {
 } from "@dnd-kit/core";
 import {
   Archive,
-  Clock,
+  ArrowUpDown,
   Handshake,
-  Phone,
   Plus,
   Scale,
   Search,
   SlidersHorizontal,
-  Sparkles,
   Tags as TagsIcon,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -181,13 +178,19 @@ export function KanbanBoard({
     setActiveDeal(deals.find((d) => d.id === event.active.id) ?? null);
   }
 
-  async function onDragEnd(event: DragEndEvent) {
+  function onDragEnd(event: DragEndEvent) {
     setActiveDeal(null);
     const { active, over } = event;
     if (!over) return;
+    void moveDeal(String(active.id), String(over.id));
+  }
 
-    const dealId = String(active.id);
-    const newStageId = String(over.id);
+  /**
+   * Move a negociação de etapa. Um caminho só para o arrastar e para o
+   * "Mover para…" do cartão — que existe porque arrastar não pode ser a única
+   * forma de mover (toque e teclado; DESIGN_GUIDE, seção 12).
+   */
+  async function moveDeal(dealId: string, newStageId: string) {
     const deal = deals.find((d) => d.id === dealId);
     const newStage = stages.find((s) => s.id === newStageId);
     if (!deal || !newStage || deal.stage_id === newStageId) return;
@@ -251,25 +254,37 @@ export function KanbanBoard({
     router.refresh();
   }
 
+  const status = params.get("status") ?? "open";
+  const responsible = params.get("responsavel") ?? "";
+  const tagParam = tags.some((tag) => tag.id === params.get("tag")) ? params.get("tag")! : "todas";
+  const valueOnBoard = filtered.reduce((sum, d) => sum + Number(d.value), 0);
+
   return (
-    <div className="flex h-[calc(100dvh-8.5rem)] flex-col">
-      {/* Barra de filtros */}
-      <div className="mb-3 rounded-2xl border border-line bg-white p-2 shadow-(--shadow-card) md:mb-4 md:p-3">
-        {/* Celular: só busca, o botão que abre os filtros e o "+". O resto
-            empurrava o quadro para fora da tela — a pessoa rolava 700px de
-            selects antes de ver o primeiro card. */}
+    <div className="-mt-3 flex h-[calc(100dvh-12.5rem)] min-h-[34rem] flex-col gap-3">
+      {/* Barra de resumo (seção 10): pílulas que nunca quebram por dentro;
+          no celular, a faixa rola de lado. */}
+      <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-border bg-card/70 px-3 py-2.5 shadow-panel backdrop-blur">
+        <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-bold whitespace-nowrap text-primary-foreground">
+          {totalDeals} negociações
+        </span>
+        <span className="shrink-0 rounded-full border border-violet-300/60 bg-violet-400/10 px-3 py-1 text-xs font-semibold whitespace-nowrap text-violet-700 dark:text-violet-200">
+          {STATUS_LABELS[status] ?? "Todas"}
+        </span>
+        <span className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold whitespace-nowrap text-primary">
+          {formatCurrency(valueOnBoard)} {status === "open" ? "em aberto" : "no quadro"}
+        </span>
+        <div className="ml-auto shrink-0">
+          <UnreadConversationsPill />
+        </div>
+      </div>
+
+      {/* Filtros (seção 11). Celular: só busca, "Filtros" e "+". */}
+      <div>
         <div className="flex items-center gap-2 md:hidden">
-          <div className="relative min-w-0 flex-1">
-            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-            <Input
-              className="pl-9"
-              placeholder="Buscar lead…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchField value={search} onChange={setSearch} placeholder="Buscar lead…" />
           <Button
-            variant={toolsOpen || activeToolCount > 0 ? "secondary" : "outline"}
+            variant="outline"
+            className={cn("h-10 rounded-xl bg-card", activeToolCount > 0 && ACTIVE_FILTER)}
             onClick={() => setToolsOpen((v) => !v)}
             aria-expanded={toolsOpen}
             aria-controls="kanban-ferramentas"
@@ -277,19 +292,20 @@ export function KanbanBoard({
             <SlidersHorizontal className="h-4 w-4" />
             Filtros
             {activeToolCount > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-bold text-white tabular-nums">
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-warning px-1.5 text-[10px] font-bold text-warning-foreground tabular-nums">
                 {activeToolCount}
               </span>
             )}
           </Button>
-          <Button size="icon" className="h-10 w-10" onClick={() => setModalOpen(true)} aria-label="Nova negociação">
+          <Button size="icon" className="h-10 w-10 rounded-xl" onClick={() => setModalOpen(true)} aria-label="Nova negociação">
             <Plus className="h-4 w-4" />
           </Button>
         </div>
 
-        <div id="kanban-ferramentas" className={cn("md:block", toolsOpen ? "mt-2 block" : "hidden")}>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div id="kanban-ferramentas" className={cn("md:flex md:flex-wrap md:items-center md:gap-2", toolsOpen ? "mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2" : "hidden")}>
           <Select
+            aria-label="Funil"
+            className={cn(FILTER, "md:w-52")}
             value={params.get("funil") ?? activePipeline?.id ?? ""}
             onChange={(e) => setParam("funil", e.target.value)}
           >
@@ -299,18 +315,13 @@ export function KanbanBoard({
               </option>
             ))}
           </Select>
+          <div className="hidden min-w-64 flex-1 md:block md:max-w-sm">
+            <SearchField value={search} onChange={setSearch} placeholder="Buscar lead, telefone…" />
+          </div>
           <Select
-            value={params.get("status") ?? "open"}
-            onChange={(e) => setParam("status", e.target.value)}
-          >
-            <option value="open">Em andamento</option>
-            <option value="won">Ganhas</option>
-            <option value="lost">Perdidas</option>
-            <option value="archived">Arquivadas</option>
-            <option value="todas">Todas</option>
-          </Select>
-          <Select
-            value={params.get("responsavel") ?? ""}
+            aria-label="Responsável"
+            className={cn(FILTER, "md:w-52", responsible && ACTIVE_FILTER)}
+            value={responsible}
             onChange={(e) => setParam("responsavel", e.target.value)}
           >
             <option value="">Todos os responsáveis</option>
@@ -320,8 +331,45 @@ export function KanbanBoard({
               </option>
             ))}
           </Select>
+          <Button
+            variant="outline"
+            aria-pressed={responsible === profileId}
+            className={cn("h-10 rounded-xl bg-card", responsible === profileId && ACTIVE_FILTER)}
+            onClick={() => setParam("responsavel", responsible === profileId ? "" : profileId)}
+          >
+            Minhas negociações
+          </Button>
           <Select
-            value={tags.some((tag) => tag.id === params.get("tag")) ? params.get("tag")! : "todas"}
+            aria-label="Situação"
+            className={cn(FILTER, "md:w-44", status !== "open" && ACTIVE_FILTER)}
+            value={status}
+            onChange={(e) => setParam("status", e.target.value)}
+          >
+            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+          <div className="relative md:w-52">
+            <ArrowUpDown className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Select
+              aria-label="Ordenação"
+              className={cn(FILTER, "pl-9", sort !== DEFAULT_DEAL_SORT && ACTIVE_FILTER)}
+              value={sort}
+              onChange={(e) => setParam("ordem", e.target.value)}
+            >
+              {DEAL_SORTS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <Select
+            aria-label="Tag"
+            className={cn(FILTER, "md:w-44", tagParam !== "todas" && ACTIVE_FILTER)}
+            value={tagParam}
             onChange={(e) => setParam("tag", e.target.value)}
           >
             <option value="todas">Todas as tags</option>
@@ -329,105 +377,57 @@ export function KanbanBoard({
               <option key={tag.id} value={tag.id}>{tag.name}</option>
             ))}
           </Select>
-          <Select
-            aria-label="Ordenação"
-            value={sort}
-            onChange={(e) => setParam("ordem", e.target.value)}
-          >
-            {DEAL_SORTS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <div className="relative hidden min-w-0 flex-1 md:block">
-            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-            <Input
-              className="pl-9"
-              placeholder="Buscar lead por nome ou telefone…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <DealFiltersPanel
-            applied={dateFilters}
-            onApply={applyDateFilters}
-            onClear={clearDateFilters}
-          />
-          <Button className="hidden md:inline-flex" onClick={() => setModalOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Negociação
-          </Button>
-          <Button
-            variant={params.get("status") === "archived" ? "secondary" : "outline"}
-            onClick={() =>
-              setParam("status", params.get("status") === "archived" ? "open" : "archived")
-            }
-          >
-            <Archive className="h-4 w-4" />
-            Arquivados
-          </Button>
-          <Link
-            href={activePipeline ? `/funis?funil=${activePipeline.id}` : "/funis"}
-            className={buttonClasses({ variant: "outline" })}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            Etapas
-          </Link>
-          {/* Configurações do trabalho com negociações, ao lado dos filtros em
-              vez do menu superior. Só para quem pode administrá-las: oferecer o
-              atalho a um `seller` levaria a uma tela bloqueada. */}
-          {canManageOrg && (
-            <>
-              <Link href="/tags" className={buttonClasses({ variant: "outline" })}>
-                <TagsIcon className="h-4 w-4" />
-                Tags
-              </Link>
-              <Link href="/distribuicao" className={buttonClasses({ variant: "outline" })}>
-                <Scale className="h-4 w-4" />
-                Distribuição
-              </Link>
-            </>
-          )}
-          {/* O contador que o cliente pediu "na página do kanban". Empurrado
-              para a direita da fileira; em telas estreitas o `flex-wrap` já
-              existente o joga para a linha de baixo, com largura própria —
-              nunca `w-full`, porque pílula esticada de borda a borda vira
-              faixa, e faixa nesta tela é do aviso de ingestão. */}
-          <div className="ml-auto">
-            <UnreadConversationsPill />
+          <DealFiltersPanel applied={dateFilters} onApply={applyDateFilters} onClear={clearDateFilters} />
+
+          <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+            <Button
+              variant="outline"
+              className={cn("h-10 rounded-xl bg-card", status === "archived" && ACTIVE_FILTER)}
+              onClick={() => setParam("status", status === "archived" ? "open" : "archived")}
+            >
+              <Archive className="h-4 w-4" />
+              Arquivados
+            </Button>
+            <Link
+              href={activePipeline ? `/funis?funil=${activePipeline.id}` : "/funis"}
+              className={buttonClasses({ variant: "outline", className: "h-10 rounded-xl bg-card" })}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Configurar funil
+            </Link>
+            {/* Atalhos de administração só para quem pode usá-los: oferecer a
+                um `seller` levaria a uma tela bloqueada. */}
+            {canManageOrg && (
+              <>
+                <Link href="/tags" className={buttonClasses({ variant: "outline", className: "h-10 rounded-xl bg-card" })}>
+                  <TagsIcon className="h-4 w-4" />
+                  Tags
+                </Link>
+                <Link href="/distribuicao" className={buttonClasses({ variant: "outline", className: "h-10 rounded-xl bg-card" })}>
+                  <Scale className="h-4 w-4" />
+                  Distribuição
+                </Link>
+              </>
+            )}
+            <Button className="hidden h-10 rounded-xl md:inline-flex" onClick={() => setModalOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Criar negociação
+            </Button>
           </div>
         </div>
-        </div>
-        {moveError && (
-          <p
-            role="alert"
-            className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
-          >
-            {moveError}
-          </p>
-        )}
-        {tagsError && (
-          <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {tagsError}
-          </p>
-        )}
+
+        {moveError && <Alert tone="error">{moveError}</Alert>}
+        {tagsError && <Alert tone="error">{tagsError}</Alert>}
         {totalDeals > initialDeals.length && (
-          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+          <Alert tone="warning">
             Mostrando {initialDeals.length} de {totalDeals} negociações (limite de {dealsLimit}).
             Refine com os filtros ou a busca para ver as demais.
-          </p>
+          </Alert>
         )}
-        {dealsError && (
-          <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {dealsError}
-          </p>
-        )}
+        {dealsError && <Alert tone="error">{dealsError}</Alert>}
       </div>
 
-      {/* Board */}
+      {/* Quadro (seção 12): fundo azul translúcido, rolagem horizontal própria. */}
       {stages.length === 0 ? (
         <EmptyState
           icon={<Handshake className="h-6 w-6" />}
@@ -436,17 +436,25 @@ export function KanbanBoard({
         />
       ) : (
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <div className="flex flex-1 gap-3 overflow-x-auto pb-3">
+          <div className="flex min-h-[26rem] flex-1 gap-4 overflow-x-auto rounded-2xl border border-border bg-primary/[0.04] p-4">
             {stages.map((stage) => (
               <KanbanColumn
                 key={stage.id}
                 stage={stage}
+                stages={stages}
+                onMove={moveDeal}
                 deals={filtered.filter((d) => d.stage_id === stage.id)}
               />
             ))}
           </div>
           <DragOverlay>
-            {activeDeal && <DealCard deal={activeDeal} overlay />}
+            {activeDeal && (
+              <DealCard
+                deal={activeDeal}
+                stageColor={stages.find((s) => s.id === activeDeal.stage_id)?.color ?? "var(--primary)"}
+                overlay
+              />
+            )}
           </DragOverlay>
         </DndContext>
       )}
@@ -464,146 +472,69 @@ export function KanbanBoard({
   );
 }
 
-// ---------------- Coluna ----------------
-function KanbanColumn({ stage, deals }: { stage: PipelineStage; deals: Deal[] }) {
-  const { setNodeRef, isOver } = useDroppable({ id: stage.id });
-  const total = deals.reduce((s, d) => s + Number(d.value), 0);
+const STATUS_LABELS: Record<string, string> = {
+  open: "Em andamento",
+  won: "Ganhas",
+  lost: "Perdidas",
+  archived: "Arquivadas",
+  todas: "Todas",
+};
 
+/** Seletor de filtro: branco, 40px, raio de 12px (print 3). */
+const FILTER = "h-10 rounded-xl bg-card";
+/** Filtro diferente do padrão: borda âmbar 60% + fundo âmbar 15% + texto âmbar. */
+const ACTIVE_FILTER = "border-warning/60 bg-warning/15 text-warning-text hover:bg-warning/20";
+
+/** Busca (seção 11): borda azul de 2px, lupa à esquerda, "x" para limpar, Esc limpa. */
+function SearchField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
   return (
-    <div className="flex w-[280px] shrink-0 flex-col sm:w-[300px]">
-      <div
-        className="mb-2 flex items-center justify-between rounded-xl border border-line bg-white px-3.5 py-2.5 shadow-(--shadow-card)"
-        style={{ borderTop: `3px solid ${stage.color}` }}
-      >
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-semibold text-ink">{stage.name}</span>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-ink-soft">
-            {deals.length}
-          </span>
-        </div>
-        <span className="text-[11px] font-semibold whitespace-nowrap text-ink-faint">
-          {formatCurrency(total)}
-        </span>
-      </div>
-
-      <div
-        ref={setNodeRef}
-        className={cn(
-          "flex-1 space-y-2.5 overflow-y-auto rounded-xl p-1 transition-colors",
-          isOver && "bg-primary-50/80 ring-2 ring-primary-200"
-        )}
-      >
-        {deals.map((deal) => (
-          <DraggableDealCard key={deal.id} deal={deal} />
-        ))}
-        {deals.length === 0 && (
-          <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-line text-xs text-ink-faint">
-            Arraste leads para cá
-          </div>
-        )}
-      </div>
+    <div className="relative min-w-0 flex-1">
+      <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
+      <Input
+        type="search"
+        aria-label="Buscar negociação"
+        className="h-10 rounded-xl border-2 border-primary/70 bg-card pr-9 pl-9 focus:border-primary focus:ring-0"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onChange("");
+        }}
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label="Limpar busca"
+          className="absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }
 
-// ---------------- Card ----------------
-function DraggableDealCard({ deal }: { deal: Deal }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: deal.id,
-  });
-
+function Alert({ tone, children }: { tone: "error" | "warning"; children: React.ReactNode }) {
   return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={cn(isDragging && "opacity-30")}
-    >
-      <DealCard deal={deal} />
-    </div>
-  );
-}
-
-function DealCard({ deal, overlay }: { deal: Deal; overlay?: boolean }) {
-  const tags = dealTags(deal);
-  return (
-    <div
+    <p
+      role={tone === "error" ? "alert" : undefined}
       className={cn(
-        "group rounded-xl border border-line bg-white p-3.5 shadow-(--shadow-card) transition-shadow hover:shadow-(--shadow-pop)",
-        overlay && "rotate-2 shadow-(--shadow-pop)"
+        "mt-2 rounded-xl border px-3 py-2 text-sm",
+        tone === "error"
+          ? "border-destructive/25 bg-destructive/10 text-destructive-text"
+          : "border-warning/40 bg-warning/15 text-warning-text"
       )}
     >
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <TemperatureBadge temperature={deal.temperature} />
-        <span className="text-xs font-bold text-ink">{formatCurrency(deal.value)}</span>
-      </div>
-
-      <Link
-        href={`/negociacoes/${deal.id}`}
-        className="block"
-        onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2.5">
-          <Avatar name={deal.contact?.name ?? deal.title} size="sm" />
-          <p className="truncate text-sm font-semibold text-ink group-hover:text-primary-700">
-            {deal.title}
-          </p>
-        </div>
-
-        <div className="mt-2.5 space-y-1 text-xs text-ink-faint">
-          <p className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            {formatDateTime(deal.created_at)}
-          </p>
-          {deal.contact?.whatsapp_phone && (
-            <p className="flex items-center gap-1.5">
-              <Phone className="h-3.5 w-3.5" />+{deal.contact.whatsapp_phone}
-            </p>
-          )}
-          {deal.ai_status !== "none" && (
-            <p className="flex items-center gap-1.5 font-medium text-primary-600">
-              <Sparkles className="h-3.5 w-3.5" />
-              {deal.ai_status === "qualifying"
-                ? "Em qualificação IA"
-                : deal.ai_status === "qualified"
-                  ? "Qualificado pela IA"
-                  : "Transferido pela IA"}
-            </p>
-          )}
-        </div>
-      </Link>
-
-      {tags.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap gap-1">
-          {tags.slice(0, 3).map((tag) => (
-            <Badge key={tag.id} tone={tag.tone} className="max-w-[8.5rem] truncate">
-              {tag.name}
-            </Badge>
-          ))}
-          {tags.length > 3 && <Badge tone="slate">+{tags.length - 3}</Badge>}
-        </div>
-      )}
-
-      <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2.5">
-        {deal.responsible ? (
-          <span className="flex items-center gap-1.5 text-xs text-ink-soft">
-            <Avatar name={fullName(deal.responsible)} src={deal.responsible.avatar_url} size="xs" />
-            <span className="max-w-24 truncate">{fullName(deal.responsible)}</span>
-          </span>
-        ) : (
-          <Badge tone="slate">Sem responsável</Badge>
-        )}
-        {deal.source && (
-          <span className="max-w-24 truncate text-[10px] text-ink-faint">{deal.source}</span>
-        )}
-      </div>
-    </div>
+      {children}
+    </p>
   );
-}
-
-function dealTags(deal: Deal): DealTag[] {
-  return (deal.tag_assignments ?? [])
-    .map((assignment) => assignment.tag)
-    .filter((tag): tag is DealTag => Boolean(tag));
 }

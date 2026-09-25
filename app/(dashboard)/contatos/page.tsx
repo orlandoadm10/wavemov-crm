@@ -110,7 +110,7 @@ export default async function ContatosPage({ searchParams }: { searchParams: Sea
 
   return (
     <div className="animate-fade-up">
-      <PageHeader title="Contatos" subtitle="Base de clientes e leads da empresa" />
+      <PageHeader eyebrow="Vendas" title="Contatos" subtitle="Base de clientes e leads da empresa" />
       <ContactsClient
         organizationId={orgId}
         contacts={contacts}

@@ -156,7 +156,7 @@ export function TagsCatalogClient({ organizationId, profileId, tags: serverTags,
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow="Vendas"
         title="Catálogo de tags"
         subtitle="Organize situações operacionais usadas pela equipe nas negociações"
         actions={!loadError ? (

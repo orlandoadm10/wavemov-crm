@@ -59,7 +59,7 @@ export default async function FormulariosPage() {
 
   return (
     <div className="animate-fade-up space-y-4">
-      <PageHeader
+      <PageHeader eyebrow="Captação"
         title="Criador de formulários"
         subtitle={`Formulários de captura de leads · ${forms.length} criado(s)`}
       />

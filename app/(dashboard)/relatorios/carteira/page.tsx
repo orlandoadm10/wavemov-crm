@@ -101,7 +101,7 @@ export default async function CarteiraPage({ searchParams }: { searchParams: Sea
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader eyebrow="Análise"
         title="Carteira de leads"
         subtitle={
           visaoDaEmpresa
