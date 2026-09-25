@@ -153,13 +153,13 @@ export default async function EmpresaPerfilPage({
         }
       />
 
-      {/* Identificação */}
-      <Card tint="sky" className="p-5">
+      {/* Identificação — ficha de cadastro: cartão branco, não painel de análise. */}
+      <Card className="p-5">
         <div className="flex flex-wrap items-center gap-4">
           <Avatar name={org.name} src={org.logo_url} size="xl" />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold tracking-tight text-ink">{org.name}</h2>
+              <h2 className="text-lg font-bold tracking-tight text-ink">{org.name}</h2>
               <BadgeCheck className="h-5 w-5 text-primary-500" />
               <Badge tone={org.is_active ? "green" : "slate"}>
                 {org.is_active ? "Ativa" : "Inativa"}

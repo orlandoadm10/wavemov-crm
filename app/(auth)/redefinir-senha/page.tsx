@@ -12,7 +12,7 @@ export default function ResetPasswordPage() {
   const [state, formAction, pending] = useActionState(setNewPasswordAction, null);
 
   return (
-    <div className="animate-fade-up rounded-2xl border border-line bg-card p-8 shadow-(--shadow-card)">
+    <div className="animate-fade-up rounded-2xl border border-line bg-card p-8 shadow-panel">
       <h1 className="text-xl font-bold text-ink">Criar senha nova</h1>
       <p className="mt-1 text-sm text-ink-faint">Mínimo de {PASSWORD_MIN} caracteres.</p>
 

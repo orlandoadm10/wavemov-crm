@@ -1,15 +1,17 @@
 "use client";
 
+import { ACTIVE_FILTER, SearchField } from "@/components/ui/search-field";
+
 import { ContactModal } from "@/components/crm/contact-modal";
 import { Avatar } from "@/components/ui/avatar";
 import { DealStatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input, Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { DataTable, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import type { Contact, Deal } from "@/types";
 import {
   Contact as ContactIcon,
@@ -17,7 +19,6 @@ import {
   MoreVertical,
   Pencil,
   Plus,
-  Search,
   TriangleAlert,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -119,19 +120,10 @@ export function ContactsClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-          <Input
-            className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
-            placeholder="Buscar contato por nome, e-mail ou telefone…"
-            aria-label="Buscar contato por nome, e-mail ou telefone"
-            value={termo}
-            onChange={(e) => onBuscaChange(e.target.value)}
-          />
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchField value={termo} onChange={onBuscaChange} placeholder="Buscar contato por nome, e-mail ou telefone…" label="Buscar contato por nome, e-mail ou telefone" />
         <Select
-          className="h-10 rounded-xl bg-card w-auto min-w-44"
+          className={cn("h-10 rounded-xl bg-card w-auto min-w-44", status && ACTIVE_FILTER)}
           aria-label="Filtrar por status da negociação"
           value={status}
           onChange={(e) => setParams({ status: e.target.value })}

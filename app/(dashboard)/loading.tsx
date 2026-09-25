@@ -12,7 +12,7 @@ export default function DashboardLoading() {
         <Skeleton className="h-10 w-32 rounded-lg" />
       </div>
       <CardsSkeleton />
-      <div className="rounded-2xl border border-line bg-card shadow-(--shadow-card)">
+      <div className="rounded-2xl border border-line bg-card shadow-panel">
         <TableSkeleton rows={7} />
       </div>
     </div>

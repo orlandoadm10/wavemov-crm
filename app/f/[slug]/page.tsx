@@ -36,7 +36,7 @@ export default async function PublicFormPage({
           <span className="text-sm font-semibold">CRM JID Mídia</span>
         </div>
 
-        <div className="animate-fade-up rounded-2xl border border-line bg-card p-8 shadow-(--shadow-card)">
+        <div className="animate-fade-up rounded-2xl border border-line bg-card p-8 shadow-panel">
           <h1 className="text-xl font-bold text-ink">{form.name}</h1>
           {form.description && (
             <p className="mt-1 text-sm text-ink-faint">{form.description}</p>

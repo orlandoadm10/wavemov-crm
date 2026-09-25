@@ -1,5 +1,6 @@
 import type { FunnelRow } from "@/lib/features/dashboard/domain/dashboard-metrics";
 import { formatCurrency } from "@/lib/utils";
+import { textOnColor } from "@/lib/utils/color";
 
 /**
  * Funil por etapa (print 7): uma faixa em trapézio por etapa, na cor dela,
@@ -19,10 +20,11 @@ export function StageFunnel({ rows }: { rows: FunnelRow[] }) {
         return (
           <li key={row.id} className="flex flex-col items-center">
             <div
-              className="flex h-9 items-center justify-between gap-3 px-6 text-xs font-semibold text-white sm:text-sm"
+              className="flex h-9 min-w-60 items-center justify-between gap-3 px-6 text-xs font-semibold sm:text-sm"
               style={{
                 width: `${width}%`,
                 background: row.color || "var(--primary)",
+                color: textOnColor(row.color),
                 clipPath: "polygon(0 0, 100% 0, calc(100% - 14px) 100%, 14px 100%)",
               }}
             >

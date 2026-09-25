@@ -149,7 +149,7 @@ export function AutomationsClient({
       )}
 
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+        <h2 className="font-sans mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
           <History className="h-4 w-4 text-ink-faint" /> Últimas execuções
         </h2>
         {runs.length === 0 ? (

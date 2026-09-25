@@ -47,10 +47,11 @@ export function ReportNav() {
             href={r.href}
             aria-current={ativo ? "page" : undefined}
             className={cn(
-              "shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
+              // Navegação interna (seção 8): ativo em azul sólido, raio de 12px.
+              "shrink-0 rounded-xl px-3.5 py-1.5 text-sm font-medium transition-colors",
               ativo
-                ? "bg-primary-50 text-primary-700 ring-1 ring-primary-100"
-                : "text-ink-soft hover:bg-muted/50 hover:text-ink"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
           >
             {r.label}

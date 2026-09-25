@@ -1,13 +1,15 @@
 "use client";
 
+import { ACTIVE_FILTER, FILTER_CONTROL, SearchField } from "@/components/ui/search-field";
+
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input, Select } from "@/components/ui/input";
-import { formatDateTime } from "@/lib/utils";
+import { Select } from "@/components/ui/input";
+import { cn, formatDateTime } from "@/lib/utils";
 import type { LeadRow } from "@/types";
-import { MessageCircle, Search, UserRound } from "lucide-react";
+import { MessageCircle, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -52,20 +54,11 @@ export function LeadsReportTable({
         }
         subtitle={`${filtered.length} de ${rows.length} no período`}
         action={
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-              <Input
-                className="h-10 w-56 rounded-xl border-2 border-primary/70 bg-card pl-9 text-xs focus:border-primary focus:ring-0"
-                placeholder="Buscar lead, formulário ou responsável…"
-                aria-label="Buscar leads"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <SearchField value={query} onChange={setQuery} placeholder="Buscar lead, formulário ou responsável…" label="Buscar lead, formulário ou responsável" className="w-full sm:w-56 flex-none" />
             {formNames.length > 0 && (
               <Select
-                className="h-9 w-auto min-w-40 text-xs"
+                className={cn(FILTER_CONTROL, "w-auto min-w-40 text-xs", form && ACTIVE_FILTER)}
                 aria-label="Filtrar por formulário"
                 value={form}
                 onChange={(e) => setForm(e.target.value)}
@@ -93,7 +86,7 @@ export function LeadsReportTable({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
-              <tr className="border-b border-line bg-muted/50 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+              <tr className="border-b border-border bg-muted/60 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                 <th className="px-5 py-3.5 whitespace-nowrap">Data/Hora</th>
                 <th className="px-5 py-3.5 whitespace-nowrap">Lead</th>
                 <th className="px-5 py-3.5 whitespace-nowrap">WhatsApp</th>

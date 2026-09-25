@@ -144,7 +144,7 @@ export function AgentFormModal({
         </section>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-ink">O que o agente pode fazer no CRM</h3>
+          <h3 className="font-sans mb-2 text-sm font-semibold text-ink">O que o agente pode fazer no CRM</h3>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {AI_TOOL_NAMES.map((name) => (
               <label
@@ -166,7 +166,7 @@ export function AgentFormModal({
         <section>
           <div className="mb-2 flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-ink">Dados de qualificação</h3>
+              <h3 className="font-sans text-sm font-semibold text-ink">Dados de qualificação</h3>
               <p className="text-xs text-ink-faint">O agente coleta e salva na negociação (extração estruturada).</p>
             </div>
             <Button
@@ -217,7 +217,7 @@ export function AgentFormModal({
 
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-ink">Transferir para humano quando</h3>
+            <h3 className="font-sans text-sm font-semibold text-ink">Transferir para humano quando</h3>
             <Switch checked={form.handoff_on_request} onChange={(v) => set("handoff_on_request", v)} label="O lead pedir uma pessoa" />
             <Switch checked={form.handoff_on_legal} onChange={(v) => set("handoff_on_legal", v)} label="Citar Procon, advogado, processo" />
             <Switch
@@ -234,7 +234,7 @@ export function AgentFormModal({
             </Field>
           </div>
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-ink">Funcionamento</h3>
+            <h3 className="font-sans text-sm font-semibold text-ink">Funcionamento</h3>
             <Switch checked={form.is_active} onChange={(v) => set("is_active", v)} label="Agente ativo" />
             <Switch checked={form.is_default} onChange={(v) => set("is_default", v)} label="Agente padrão da empresa" />
             <Switch

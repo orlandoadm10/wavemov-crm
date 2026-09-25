@@ -67,7 +67,7 @@ export function DealHistoryPanel({
     <Card className="overflow-hidden">
       <div className="flex flex-col gap-3 border-b border-line px-5 pt-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="pb-3">
-          <h2 className="text-sm font-semibold text-ink">Histórico do lead</h2>
+          <h2 className="font-sans text-sm font-semibold text-ink">Histórico do lead</h2>
           <p className="mt-0.5 text-xs text-ink-faint">
             Operação comercial e conversas ficam separadas para facilitar a leitura.
           </p>

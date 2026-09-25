@@ -144,26 +144,28 @@ export function DealFiltersPanel({
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Filtro ativo fica âmbar (DESIGN_GUIDE, seção 11). */}
-      <Button
+      {/* Mesmo formato dos filtros da barra do pipeline (FilterMenu). */}
+      <button
         type="button"
         onClick={toggle}
         aria-expanded={open}
         aria-haspopup="dialog"
         className={cn(
-          "h-10 rounded-xl",
-          appliedCount > 0 &&
-            "border border-warning/60 bg-warning/15 text-warning-text shadow-none hover:bg-warning/25"
+          "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium whitespace-nowrap transition-colors duration-150",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+          appliedCount > 0
+            ? "border-primary/40 bg-primary/10 text-primary"
+            : "border-border bg-card text-foreground hover:border-primary/35 hover:bg-secondary/60"
         )}
       >
-        <Filter className="h-4 w-4" />
-        Filtros personalizados
+        <Filter className="h-3.5 w-3.5" aria-hidden />
+        Mais filtros
         {appliedCount > 0 && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-warning px-1.5 text-[10px] font-bold text-warning-foreground tabular-nums">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground tabular-nums">
             {appliedCount}
           </span>
         )}
-      </Button>
+      </button>
 
       {open &&
         createPortal(

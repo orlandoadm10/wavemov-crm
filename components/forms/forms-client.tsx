@@ -1,5 +1,7 @@
 "use client";
 
+import { SearchField } from "@/components/ui/search-field";
+
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +20,6 @@ import {
   Link2,
   Pencil,
   Plus,
-  Search,
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -285,16 +286,8 @@ export function FormsClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-          <Input
-            className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
-            placeholder="Buscar formulário…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchField value={search} onChange={setSearch} placeholder="Buscar formulário…" label="Buscar formulário" />
         <Button className="h-10 rounded-xl" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           Novo formulário
@@ -330,7 +323,7 @@ export function FormsClient({
             return (
               <div
                 key={form.id}
-                className="flex flex-col rounded-2xl border border-line bg-card p-5 shadow-(--shadow-card) transition-shadow hover:shadow-(--shadow-pop)"
+                className="flex flex-col rounded-2xl border border-line bg-card p-5 shadow-panel transition-shadow hover:shadow-lift"
               >
                 <div className="mb-3 flex items-center justify-between">
                   <button onClick={() => toggleActive(form)}>

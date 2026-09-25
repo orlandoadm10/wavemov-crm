@@ -36,7 +36,7 @@ export function AiWorkspace({
       <div
         role="tablist"
         aria-label="Seções da IA"
-        className="mb-4 flex flex-wrap gap-1 rounded-2xl border border-line bg-card p-1.5 shadow-(--shadow-card)"
+        className="mb-4 flex flex-wrap gap-1 rounded-2xl border border-line bg-card p-1.5 shadow-panel"
       >
         {TABS.map(({ id, label, icon: Icon }) => (
           <button

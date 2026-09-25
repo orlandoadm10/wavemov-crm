@@ -85,7 +85,7 @@ export default async function AutomacoesPage() {
         }
       />
       {(rulesRes.error || runsRes.error) && (
-        <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
+        <p role="alert" className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           Não foi possível carregar as automações. Se a migration 0028 ainda não foi aplicada, aplique-a e recarregue.
         </p>
       )}

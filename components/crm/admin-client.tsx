@@ -1,15 +1,17 @@
 "use client";
 
+import { SearchField } from "@/components/ui/search-field";
+
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input, Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { DataTable, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
 import { fullName } from "@/lib/utils";
 import type { Organization, OrganizationMember, Role } from "@/types";
-import { BookOpen, Search, ShieldCheck } from "lucide-react";
+import { BookOpen, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -64,19 +66,11 @@ export function AdminClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
-        <span className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink">
-          Todos <span className="text-primary-600">{memberships.length}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold whitespace-nowrap text-primary-foreground">
+          Todos <span>{memberships.length}</span>
         </span>
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-          <Input
-            className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
-            placeholder="Buscar usuário…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchField value={search} onChange={setSearch} placeholder="Buscar usuário…" label="Buscar usuário" />
         <Switch checked={onlyActive} onChange={setOnlyActive} label="Ativos" />
         <Button variant="secondary" onClick={() => window.open("https://supabase.com/docs", "_blank")}>
           <BookOpen className="h-4 w-4" />

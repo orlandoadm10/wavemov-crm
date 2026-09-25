@@ -135,7 +135,7 @@ export function RuleFormModal({
         </section>
 
         <section className="rounded-2xl border border-line bg-muted/50 p-4">
-          <h3 className="mb-3 text-sm font-semibold text-ink">1. Quando</h3>
+          <h3 className="font-sans mb-3 text-sm font-semibold text-ink">1. Quando</h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Gatilho" className="sm:col-span-3">
               <Select
@@ -216,7 +216,7 @@ export function RuleFormModal({
 
         <section className="rounded-2xl border border-line bg-muted/50 p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-ink">2. Se (opcional)</h3>
+            <h3 className="font-sans text-sm font-semibold text-ink">2. Se (opcional)</h3>
             <Button
               type="button"
               variant="outline"
@@ -265,7 +265,7 @@ export function RuleFormModal({
 
         <section className="rounded-2xl border border-line bg-muted/50 p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-ink">3. Então</h3>
+            <h3 className="font-sans text-sm font-semibold text-ink">3. Então</h3>
             <Button
               type="button"
               variant="outline"

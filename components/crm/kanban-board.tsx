@@ -4,22 +4,28 @@ import { DealFiltersPanel } from "@/components/crm/deal-filters-panel";
 import { DealModal } from "@/components/crm/deal-modal";
 import { DealCard, dealTags } from "@/components/crm/kanban/deal-card";
 import { KanbanColumn } from "@/components/crm/kanban/kanban-column";
+import { DealDrawer } from "@/components/crm/pipeline/deal-drawer";
+import { FilterChip, FilterMenu } from "@/components/crm/pipeline/filter-menu";
+import { MetricStrip } from "@/components/crm/pipeline/metric-strip";
+import { PipelineList } from "@/components/crm/pipeline/pipeline-list";
 import { UnreadConversationsPill } from "@/components/crm/unread-conversations-pill";
+import { Alert } from "@/components/ui/alert";
 import { Button, buttonClasses } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Dropdown } from "@/components/ui/dropdown";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SearchField } from "@/components/ui/search-field";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
-  countDealDateFilters,
   DEAL_DATE_FILTERS,
   DEAL_SORTS,
   DEFAULT_DEAL_SORT,
   type DealDateFilters,
   type DealSort,
 } from "@/lib/features/deal-filters/domain/deal-filters";
+import { pipelineMetrics, type MetricDealRow } from "@/lib/features/deal-filters/domain/pipeline-metrics";
 import { createClient } from "@/lib/supabase/client";
-import { encodeDateRange } from "@/lib/utils/period";
-import { cn, formatCurrency, fullName } from "@/lib/utils";
+import { describeDateRange, encodeDateRange } from "@/lib/utils/period";
+import { cn, fullName } from "@/lib/utils";
 import type { Contact, Deal, DealTag, Pipeline, Profile } from "@/types";
 import {
   DndContext,
@@ -32,19 +38,24 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
-  Archive,
   ArrowUpDown,
+  Check,
+  ChevronDown,
+  CircleDot,
   Handshake,
+  LayoutGrid,
+  List,
+  MessageCircle,
+  MoreHorizontal,
   Plus,
   Scale,
-  Search,
   SlidersHorizontal,
   Tags as TagsIcon,
-  X,
+  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface Props {
   organizationId: string;
@@ -67,6 +78,10 @@ interface Props {
   dealsError: string | null;
   /** `org_admin`/admin global: libera o catálogo de tags e a distribuição. */
   canManageOrg: boolean;
+  /** Negociações do funil que entraram ou foram vendidas no mês (indicadores). */
+  monthDeals: MetricDealRow[];
+  /** Início do mês no fuso do negócio, em ISO. */
+  monthStart: string;
 }
 
 export function KanbanBoard({
@@ -86,6 +101,8 @@ export function KanbanBoard({
   tagsError,
   dealsError,
   canManageOrg,
+  monthDeals,
+  monthStart,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -94,20 +111,11 @@ export function KanbanBoard({
 
   const [deals, setDeals] = useState(initialDeals);
   const [search, setSearch] = useState(appliedSearch);
-  // Celular: ferramentas recolhidas até a pessoa pedir.
-  const [toolsOpen, setToolsOpen] = useState(false);
-  // O que está mudando o quadro além do padrão — o número no botão "Filtros"
-  // do celular, para ninguém esquecer um filtro escondido.
-  const activeToolCount =
-    [
-      (params.get("status") ?? "open") !== "open",
-      Boolean(params.get("responsavel")),
-      tags.some((tag) => tag.id === params.get("tag")),
-      sort !== DEFAULT_DEAL_SORT,
-    ].filter(Boolean).length + countDealDateFilters(dateFilters);
   const debouncedSearch = useDebounce(search.trim(), 400);
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  // Oportunidade aberta no painel lateral.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -257,207 +265,252 @@ export function KanbanBoard({
   const status = params.get("status") ?? "open";
   const responsible = params.get("responsavel") ?? "";
   const tagParam = tags.some((tag) => tag.id === params.get("tag")) ? params.get("tag")! : "todas";
-  const valueOnBoard = filtered.reduce((sum, d) => sum + Number(d.value), 0);
+  const view: "kanban" | "lista" = params.get("visao") === "lista" ? "lista" : "kanban";
+  const metrics = pipelineMetrics(filtered, monthDeals, new Date(monthStart));
+  const selectedDeal = deals.find((d) => d.id === selectedId) ?? null;
+  const openDeal = useCallback((deal: Deal) => setSelectedId(deal.id), []);
+  const closeDrawer = useCallback(() => setSelectedId(null), []);
+
+  const responsibleOptions = [
+    { value: "", label: "Todos os responsáveis" },
+    { value: profileId, label: "Minhas negociações" },
+    ...members.filter((m) => m.id !== profileId).map((m) => ({ value: m.id, label: fullName(m) ?? "Sem nome" })),
+  ];
+  const tagOptions = [{ value: "todas", label: "Todas as tags" }, ...tags.map((t) => ({ value: t.id, label: t.name }))];
+  const statusOptions = Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }));
+  const sortOptions = DEAL_SORTS.map((o) => ({ value: o.value, label: o.label }));
+
+  // Filtros ativos viram chips removíveis (prompt de design, seção 5).
+  const chips: { label: string; clear: () => void }[] = [];
+  if (responsible) {
+    chips.push({
+      label: `Responsável: ${responsibleOptions.find((o) => o.value === responsible)?.label ?? "—"}`,
+      clear: () => setParam("responsavel", ""),
+    });
+  }
+  if (status !== "open") chips.push({ label: `Situação: ${STATUS_LABELS[status] ?? status}`, clear: () => setParam("status", "") });
+  if (tagParam !== "todas") {
+    chips.push({ label: `Tag: ${tags.find((t) => t.id === tagParam)?.name ?? "—"}`, clear: () => setParam("tag", "") });
+  }
+  if (sort !== DEFAULT_DEAL_SORT) {
+    chips.push({ label: `Ordem: ${DEAL_SORTS.find((o) => o.value === sort)?.label}`, clear: () => setParam("ordem", "") });
+  }
+  for (const { key, param, label } of DEAL_DATE_FILTERS) {
+    const value = dateFilters[key];
+    if (value) chips.push({ label: `${label}: ${describeDateRange(value)}`, clear: () => setParams({ [param]: null }) });
+  }
+  if (appliedSearch) chips.push({ label: `Busca: “${appliedSearch}”`, clear: () => setSearch("") });
+
+  function clearAll() {
+    setSearch("");
+    setParams({
+      responsavel: null,
+      status: null,
+      tag: null,
+      ordem: null,
+      q: null,
+      ...Object.fromEntries(DEAL_DATE_FILTERS.map(({ param }) => [param, null])),
+    });
+  }
 
   return (
-    <div className="-mt-3 flex h-[calc(100dvh-12.5rem)] min-h-[34rem] flex-col gap-3">
-      {/* Barra de resumo (seção 10): pílulas que nunca quebram por dentro;
-          no celular, a faixa rola de lado. */}
-      <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-border bg-card/70 px-3 py-2.5 shadow-panel backdrop-blur">
-        <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-bold whitespace-nowrap text-primary-foreground">
-          {totalDeals} negociações
-        </span>
-        <span className="shrink-0 rounded-full border border-violet-300/60 bg-violet-400/10 px-3 py-1 text-xs font-semibold whitespace-nowrap text-violet-700 dark:text-violet-200">
-          {STATUS_LABELS[status] ?? "Todas"}
-        </span>
-        <span className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold whitespace-nowrap text-primary">
-          {formatCurrency(valueOnBoard)} {status === "open" ? "em aberto" : "no quadro"}
-        </span>
-        <div className="ml-auto shrink-0">
-          <UnreadConversationsPill />
-        </div>
-      </div>
-
-      {/* Filtros (seção 11). Celular: só busca, "Filtros" e "+". */}
-      <div>
-        <div className="flex items-center gap-2 md:hidden">
-          <SearchField value={search} onChange={setSearch} placeholder="Buscar lead…" />
-          <Button
-            variant="outline"
-            className={cn("h-10 rounded-xl bg-card", activeToolCount > 0 && ACTIVE_FILTER)}
-            onClick={() => setToolsOpen((v) => !v)}
-            aria-expanded={toolsOpen}
-            aria-controls="kanban-ferramentas"
+    <div className="flex h-[calc(100dvh-8rem)] min-h-[38rem] flex-col gap-3">
+      {/* Barra do workspace (print-melhorias-deals; prompt de design, seção 5). */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold tracking-[0.2em] text-primary uppercase">Vendas · Negociações</p>
+          <Dropdown
+            align="left"
+            trigger={
+              <button
+                type="button"
+                aria-label={`Funil: ${activePipeline?.name ?? "nenhum"}. Trocar funil`}
+                className="group inline-flex max-w-full items-center gap-1.5 rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                  {activePipeline?.name ?? "Pipeline"}
+                </h1>
+                <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden />
+              </button>
+            }
           >
-            <SlidersHorizontal className="h-4 w-4" />
-            Filtros
-            {activeToolCount > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-warning px-1.5 text-[10px] font-bold text-warning-foreground tabular-nums">
-                {activeToolCount}
-              </span>
-            )}
-          </Button>
-          <Button size="icon" className="h-10 w-10 rounded-xl" onClick={() => setModalOpen(true)} aria-label="Nova negociação">
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div id="kanban-ferramentas" className={cn("md:flex md:flex-wrap md:items-center md:gap-2", toolsOpen ? "mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2" : "hidden")}>
-          <Select
-            aria-label="Funil"
-            className={cn(FILTER, "md:w-52")}
-            value={params.get("funil") ?? activePipeline?.id ?? ""}
-            onChange={(e) => setParam("funil", e.target.value)}
-          >
+            <p className="px-3 pt-1.5 pb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Funis</p>
             {pipelines.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setParam("funil", p.id)}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm",
+                  p.id === activePipeline?.id ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                {p.id === activePipeline?.id && <Check className="h-4 w-4 text-primary" aria-hidden />}
+              </button>
             ))}
-          </Select>
-          <div className="hidden min-w-64 flex-1 md:block md:max-w-sm">
-            <SearchField value={search} onChange={setSearch} placeholder="Buscar lead, telefone…" />
-          </div>
-          <Select
-            aria-label="Responsável"
-            className={cn(FILTER, "md:w-52", responsible && ACTIVE_FILTER)}
-            value={responsible}
-            onChange={(e) => setParam("responsavel", e.target.value)}
-          >
-            <option value="">Todos os responsáveis</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {fullName(m)}
-              </option>
-            ))}
-          </Select>
-          <Button
-            variant="outline"
-            aria-pressed={responsible === profileId}
-            className={cn("h-10 rounded-xl bg-card", responsible === profileId && ACTIVE_FILTER)}
-            onClick={() => setParam("responsavel", responsible === profileId ? "" : profileId)}
-          >
-            Minhas negociações
-          </Button>
-          <Select
-            aria-label="Situação"
-            className={cn(FILTER, "md:w-44", status !== "open" && ACTIVE_FILTER)}
-            value={status}
-            onChange={(e) => setParam("status", e.target.value)}
-          >
-            {Object.entries(STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-          <div className="relative md:w-52">
-            <ArrowUpDown className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Select
-              aria-label="Ordenação"
-              className={cn(FILTER, "pl-9", sort !== DEFAULT_DEAL_SORT && ACTIVE_FILTER)}
-              value={sort}
-              onChange={(e) => setParam("ordem", e.target.value)}
-            >
-              {DEAL_SORTS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <Select
-            aria-label="Tag"
-            className={cn(FILTER, "md:w-44", tagParam !== "todas" && ACTIVE_FILTER)}
-            value={tagParam}
-            onChange={(e) => setParam("tag", e.target.value)}
-          >
-            <option value="todas">Todas as tags</option>
-            {tags.map((tag) => (
-              <option key={tag.id} value={tag.id}>{tag.name}</option>
-            ))}
-          </Select>
-          <DealFiltersPanel applied={dateFilters} onApply={applyDateFilters} onClear={clearDateFilters} />
-
-          <div className="flex flex-wrap items-center gap-2 md:ml-auto">
-            <Button
-              variant="outline"
-              className={cn("h-10 rounded-xl bg-card", status === "archived" && ACTIVE_FILTER)}
-              onClick={() => setParam("status", status === "archived" ? "open" : "archived")}
-            >
-              <Archive className="h-4 w-4" />
-              Arquivados
-            </Button>
-            <Link
-              href={activePipeline ? `/funis?funil=${activePipeline.id}` : "/funis"}
-              className={buttonClasses({ variant: "outline", className: "h-10 rounded-xl bg-card" })}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Configurar funil
-            </Link>
-            {/* Atalhos de administração só para quem pode usá-los: oferecer a
-                um `seller` levaria a uma tela bloqueada. */}
-            {canManageOrg && (
-              <>
-                <Link href="/tags" className={buttonClasses({ variant: "outline", className: "h-10 rounded-xl bg-card" })}>
-                  <TagsIcon className="h-4 w-4" />
-                  Tags
-                </Link>
-                <Link href="/distribuicao" className={buttonClasses({ variant: "outline", className: "h-10 rounded-xl bg-card" })}>
-                  <Scale className="h-4 w-4" />
-                  Distribuição
-                </Link>
-              </>
-            )}
-            <Button className="hidden h-10 rounded-xl md:inline-flex" onClick={() => setModalOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Criar negociação
-            </Button>
-          </div>
+          </Dropdown>
         </div>
 
-        {moveError && <Alert tone="error">{moveError}</Alert>}
-        {tagsError && <Alert tone="error">{tagsError}</Alert>}
-        {totalDeals > initialDeals.length && (
-          <Alert tone="warning">
-            Mostrando {initialDeals.length} de {totalDeals} negociações (limite de {dealsLimit}).
-            Refine com os filtros ou a busca para ver as demais.
-          </Alert>
-        )}
-        {dealsError && <Alert tone="error">{dealsError}</Alert>}
+        {/* Troca de visão (seção 5): segmentado. */}
+        <div role="tablist" aria-label="Visão" className="flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
+          {(
+            [
+              ["kanban", "Kanban", LayoutGrid],
+              ["lista", "Lista", List],
+            ] as const
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={view === id}
+              onClick={() => setParam("visao", id === "kanban" ? "" : "lista")}
+              className={cn(
+                "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition-colors",
+                view === id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden />
+              {label}
+            </button>
+          ))}
+          <Link
+            href="/atendimento"
+            className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          >
+            <MessageCircle className="h-3.5 w-3.5" aria-hidden />
+            Conversas
+          </Link>
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <UnreadConversationsPill />
+          <Link
+            href={activePipeline ? `/funis?funil=${activePipeline.id}` : "/funis"}
+            className={buttonClasses({ variant: "outline", size: "sm" })}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Configurar funil</span>
+          </Link>
+          {/* Atalhos de administração só para quem pode usá-los. */}
+          {canManageOrg && (
+            <Dropdown
+              trigger={
+                <Button variant="outline" size="sm" className="w-8 px-0" aria-label="Mais opções do funil">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              }
+            >
+              <Link href="/tags" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+                <TagsIcon className="h-4 w-4" /> Tags
+              </Link>
+              <Link href="/distribuicao" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+                <Scale className="h-4 w-4" /> Distribuição
+              </Link>
+            </Dropdown>
+          )}
+          <Button size="sm" onClick={() => setModalOpen(true)}>
+            <Plus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Nova oportunidade</span>
+            <span className="sr-only sm:hidden">Nova oportunidade</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Quadro (seção 12): fundo azul translúcido, rolagem horizontal própria. */}
+      {/* Filtros compactos: rolam de lado no celular em vez de empilhar. */}
+      <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-0.5">
+        <SearchField
+          size="sm"
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar lead, telefone…"
+          label="Buscar negociação"
+          className="w-56 flex-none"
+        />
+        <FilterMenu
+          icon={UserRound}
+          label="Responsável"
+          value={responsible}
+          defaultValue=""
+          options={responsibleOptions}
+          onChange={(v) => setParam("responsavel", v)}
+        />
+        <FilterMenu icon={CircleDot} label="Situação" value={status} defaultValue="open" options={statusOptions} onChange={(v) => setParam("status", v === "open" ? "" : v)} />
+        <FilterMenu icon={TagsIcon} label="Tag" value={tagParam} defaultValue="todas" options={tagOptions} onChange={(v) => setParam("tag", v === "todas" ? "" : v)} />
+        <DealFiltersPanel applied={dateFilters} onApply={applyDateFilters} onClear={clearDateFilters} />
+        <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />
+        <FilterMenu icon={ArrowUpDown} label="Ordenar" value={sort} defaultValue={DEFAULT_DEAL_SORT} options={sortOptions} onChange={(v) => setParam("ordem", v === DEFAULT_DEAL_SORT ? "" : v)} />
+      </div>
+
+      {chips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {chips.map((chip) => (
+            <FilterChip key={chip.label} label={chip.label} onRemove={chip.clear} />
+          ))}
+          <button
+            type="button"
+            onClick={clearAll}
+            className="ml-1 h-7 rounded-md px-2 text-xs font-semibold text-destructive-text hover:bg-destructive/10"
+          >
+            Limpar filtros
+          </button>
+        </div>
+      )}
+
+      {moveError && <Alert>{moveError}</Alert>}
+      {tagsError && <Alert>{tagsError}</Alert>}
+      {totalDeals > initialDeals.length && (
+        <Alert tone="warning">
+          Mostrando {initialDeals.length} de {totalDeals} negociações (limite de {dealsLimit}). Refine com os
+          filtros ou a busca para ver as demais.
+        </Alert>
+      )}
+      {dealsError && <Alert>{dealsError}</Alert>}
+
+      <MetricStrip metrics={metrics} />
+
       {stages.length === 0 ? (
         <EmptyState
           icon={<Handshake className="h-6 w-6" />}
           title="Nenhum funil configurado"
           description="Crie um funil com etapas para começar a organizar suas negociações."
         />
+      ) : view === "lista" ? (
+        <PipelineList deals={filtered} stages={stages} onOpen={openDeal} selectedId={selectedId} />
       ) : (
-        <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <div className="flex min-h-[26rem] flex-1 gap-4 overflow-x-auto rounded-2xl border border-border bg-primary/[0.04] p-4">
-            {stages.map((stage) => (
+        <DndContext
+          // `id` fixo: sem ele o dnd-kit gera ids de acessibilidade diferentes
+          // no servidor e no navegador, e o React acusa erro de hidratação.
+          id="kanban"
+          sensors={sensors}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+        >
+          <div className="flex min-h-[24rem] flex-1 gap-3 overflow-x-auto pb-2">
+            {stages.map((stage, index) => (
               <KanbanColumn
                 key={stage.id}
                 stage={stage}
+                index={index + 1}
                 stages={stages}
                 onMove={moveDeal}
+                onOpen={openDeal}
+                onCreate={() => setModalOpen(true)}
+                selectedId={selectedId}
                 deals={filtered.filter((d) => d.stage_id === stage.id)}
               />
             ))}
           </div>
-          <DragOverlay>
-            {activeDeal && (
-              <DealCard
-                deal={activeDeal}
-                stageColor={stages.find((s) => s.id === activeDeal.stage_id)?.color ?? "var(--primary)"}
-                overlay
-              />
-            )}
-          </DragOverlay>
+          <DragOverlay>{activeDeal && <DealCard deal={activeDeal} overlay />}</DragOverlay>
         </DndContext>
       )}
+
+      <DealDrawer
+        deal={selectedDeal}
+        stage={selectedDeal ? (stages.find((s) => s.id === selectedDeal.stage_id) ?? null) : null}
+        onClose={closeDrawer}
+      />
 
       <DealModal
         open={modalOpen}
@@ -473,68 +526,10 @@ export function KanbanBoard({
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  open: "Em andamento",
-  won: "Ganhas",
+  // Mesmo vocabulário do selo de situação (DealStatusBadge), no plural.
+  open: "Em aberto",
+  won: "Vendas realizadas",
   lost: "Perdidas",
   archived: "Arquivadas",
   todas: "Todas",
 };
-
-/** Seletor de filtro: branco, 40px, raio de 12px (print 3). */
-const FILTER = "h-10 rounded-xl bg-card";
-/** Filtro diferente do padrão: borda âmbar 60% + fundo âmbar 15% + texto âmbar. */
-const ACTIVE_FILTER = "border-warning/60 bg-warning/15 text-warning-text hover:bg-warning/20";
-
-/** Busca (seção 11): borda azul de 2px, lupa à esquerda, "x" para limpar, Esc limpa. */
-function SearchField({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-}) {
-  return (
-    <div className="relative min-w-0 flex-1">
-      <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-      <Input
-        type="search"
-        aria-label="Buscar negociação"
-        className="h-10 rounded-xl border-2 border-primary/70 bg-card pr-9 pl-9 focus:border-primary focus:ring-0"
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onChange("");
-        }}
-      />
-      {value && (
-        <button
-          type="button"
-          onClick={() => onChange("")}
-          aria-label="Limpar busca"
-          className="absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function Alert({ tone, children }: { tone: "error" | "warning"; children: React.ReactNode }) {
-  return (
-    <p
-      role={tone === "error" ? "alert" : undefined}
-      className={cn(
-        "mt-2 rounded-xl border px-3 py-2 text-sm",
-        tone === "error"
-          ? "border-destructive/25 bg-destructive/10 text-destructive-text"
-          : "border-warning/40 bg-warning/15 text-warning-text"
-      )}
-    >
-      {children}
-    </p>
-  );
-}

@@ -7,7 +7,7 @@ import { DealTagsSelector } from "@/components/crm/deal-tags-selector";
 import { DealHistoryPanel } from "@/components/crm/deal-history-panel";
 import { TaskModal } from "@/components/crm/task-modal";
 import { Avatar } from "@/components/ui/avatar";
-import { PriorityBadge, TemperatureBadge } from "@/components/ui/badge";
+import { DealStatusBadge, PriorityBadge, TemperatureBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LeadInfoCard } from "@/components/crm/lead-info-card";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { Select, Textarea } from "@/components/ui/input";
 import { ConfirmDialog, Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatCurrency, formatDate, formatDateTime, fullName } from "@/lib/utils";
+import { textOnColor } from "@/lib/utils/color";
 import type {
   ActivityLog,
   Contact,
@@ -30,7 +31,6 @@ import {
   Archive,
   ArrowLeft,
   ArrowRightLeft,
-  Building2,
   CalendarClock,
   CheckSquare,
   Mail,
@@ -41,8 +41,10 @@ import {
   Plus,
   StickyNote,
   Tag as TagIcon,
+  Thermometer,
   ThumbsDown,
   ThumbsUp,
+  User,
   Workflow,
 } from "lucide-react";
 import Link from "next/link";
@@ -267,20 +269,14 @@ export function DealDetail({
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                 {currentStage && (
                   <span
-                    className="rounded-full px-2.5 py-1 font-semibold text-white"
-                    style={{ background: currentStage.color || "var(--primary)" }}
+                    className="rounded-full px-2.5 py-1 font-semibold"
+                    style={{ background: currentStage.color || "var(--primary)", color: textOnColor(currentStage.color) }}
                   >
                     {currentStage.name}
                   </span>
                 )}
-                <DealStatusPill status={deal.status} />
-                <TemperatureBadge temperature={deal.temperature} />
-                <span className="text-muted-foreground">
-                  Criado em {formatDate(deal.created_at)} · Responsável:{" "}
-                  <span className="font-semibold text-foreground">
-                    {deal.responsible ? fullName(deal.responsible) : "—"}
-                  </span>
-                </span>
+                <DealStatusBadge status={deal.status} />
+                <span className="text-muted-foreground">Criado em {formatDate(deal.created_at)}</span>
               </div>
             </div>
             <div className="min-w-32 rounded-2xl border border-primary/20 bg-card/80 px-4 py-2.5 text-right">
@@ -334,11 +330,11 @@ export function DealDetail({
                   disabled={busy || deal.status !== "open"}
                   aria-current={isCurrent ? "step" : undefined}
                   onClick={() => moveToStage(stage.id)}
-                  style={{ "--stage": color } as React.CSSProperties}
+                  style={{ "--stage": color, ...(isCurrent ? { color: textOnColor(stage.color) } : {}) } as React.CSSProperties}
                   className={cn(
                     "shrink-0 rounded-xl border px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed",
                     isCurrent
-                      ? "border-transparent bg-(--stage) text-white shadow-sm"
+                      ? "border-transparent bg-(--stage) shadow-sm"
                       : "border-[color-mix(in_oklab,var(--stage)_35%,transparent)] bg-[color-mix(in_oklab,var(--stage)_9%,var(--card))] text-[color-mix(in_oklab,var(--stage)_80%,var(--foreground))] enabled:hover:bg-[color-mix(in_oklab,var(--stage)_16%,var(--card))]"
                   )}
                 >
@@ -351,14 +347,14 @@ export function DealDetail({
 
         {/* Abas (print 2): barra azul-clara, aba ativa em pílula branca. */}
         <div className="border-t border-border px-4 pt-4 sm:px-6">
-          <div role="tablist" aria-label="Seções do lead" className="flex gap-1 overflow-x-auto rounded-2xl bg-secondary/70 p-1.5">
+          <div role="tablist" aria-label="Seções do lead" className="flex gap-1 overflow-x-auto rounded-2xl bg-secondary/70 p-1.5 sm:justify-center">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 role="tab"
                 id={`aba-${t.id}`}
                 aria-selected={tab === t.id}
-                aria-controls={`painel-${t.id}`}
+                aria-controls={tab === t.id ? `painel-${t.id}` : undefined}
                 onClick={() => setTab(t.id)}
                 className={cn(
                   "shrink-0 rounded-xl px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors",
@@ -379,7 +375,16 @@ export function DealDetail({
               <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
                 <DataItem icon={<Mail />} label="E-mail" value={deal.contact?.email} />
                 <DataItem icon={<Phone />} label="Telefone" value={phone ? `+${phone}` : deal.contact?.phone} />
-                <DataItem icon={<Building2 />} label="Contato" value={deal.contact?.name} />
+                <DataItem icon={<User />} label="Contato" value={deal.contact?.name} />
+                <div className="min-w-0">
+                  <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Thermometer className="h-3.5 w-3.5" />
+                    Qualificação
+                  </dt>
+                  <dd className="mt-1">
+                    <TemperatureBadge temperature={deal.temperature} />
+                  </dd>
+                </div>
                 <DataItem icon={<TagIcon />} label="Origem" value={deal.source} />
                 <DataItem icon={<CalendarClock />} label="Entrou em" value={formatDateTime(deal.created_at)} />
                 <DataItem icon={<CalendarClock />} label="Previsão de fechamento" value={formatDate(deal.expected_close_date)} />
@@ -467,7 +472,7 @@ export function DealDetail({
                     <li key={t.id} className="flex items-center gap-3 px-5 py-3">
                       <button
                         onClick={() => toggleTask(t)}
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-input transition-colors hover:border-primary"
+                        className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-input transition-colors after:absolute after:-inset-2.5 hover:border-primary"
                         aria-label="Concluir tarefa"
                       />
                       <div className="min-w-0 flex-1">
@@ -486,7 +491,7 @@ export function DealDetail({
             <Card className="p-5">
               <div className="mb-3 flex items-center gap-2">
                 <StickyNote className="h-4 w-4 text-warning" />
-                <h3 className="text-sm font-semibold text-foreground">Nota interna</h3>
+                <h3 className="font-sans text-sm font-semibold text-foreground">Nota interna</h3>
               </div>
               <Textarea
                 placeholder="Registre uma observação sobre este lead…"
@@ -549,7 +554,7 @@ export function DealDetail({
         open={wonOpen}
         onClose={() => setWonOpen(false)}
         onConfirm={markWon}
-        title="Marcar como ganho? 🎉"
+        title="Marcar como venda realizada?"
         description={`A negociação "${deal.title}" será marcada como GANHA no valor de ${formatCurrency(deal.value)}.`}
         confirmLabel="Confirmar ganho"
         loading={busy}
@@ -607,18 +612,6 @@ export function DealDetail({
       />
     </div>
   );
-}
-
-const STATUS_PILL: Record<Deal["status"], { label: string; className: string }> = {
-  open: { label: "Em aberto", className: "border-primary/40 bg-primary/10 text-primary" },
-  won: { label: "Venda realizada", className: "border-success/40 bg-success/12 text-success-text" },
-  lost: { label: "Perdida", className: "border-destructive/40 bg-destructive/10 text-destructive-text" },
-  archived: { label: "Arquivada", className: "border-border bg-muted text-muted-foreground" },
-};
-
-function DealStatusPill({ status }: { status: Deal["status"] }) {
-  const pill = STATUS_PILL[status] ?? STATUS_PILL.open;
-  return <span className={cn("rounded-full border px-2.5 py-1 font-semibold", pill.className)}>{pill.label}</span>;
 }
 
 /** Um dado do lead na aba "Dados": ícone + rótulo pequeno, valor abaixo. */

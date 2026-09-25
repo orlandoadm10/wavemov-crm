@@ -81,7 +81,7 @@ export default async function IaPage() {
         </p>
       )}
       {loadError && (
-        <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
+        <p role="alert" className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           Não foi possível carregar tudo desta tela. Se as migrations 0026–0029 ainda não foram aplicadas,
           aplique-as e recarregue.
         </p>

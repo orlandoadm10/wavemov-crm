@@ -13,7 +13,7 @@ export function CreateOrganizationForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="animate-fade-up w-full max-w-md rounded-2xl border border-line bg-card p-8 shadow-(--shadow-card)">
+      <div className="animate-fade-up w-full max-w-md rounded-2xl border border-line bg-card p-8 shadow-panel">
         <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-600 text-white">
           <Waves className="h-6 w-6" />
         </span>

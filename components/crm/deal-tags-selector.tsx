@@ -134,7 +134,7 @@ export function DealTagsSelector({
   }
 
   return (
-    <div className={compact ? "mt-3" : "rounded-2xl border border-line bg-card p-4 shadow-(--shadow-card)"}>
+    <div className={compact ? "mt-3" : "rounded-2xl border border-line bg-card p-4 shadow-panel"}>
       <div className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-ink-faint uppercase">
           <Tags className="h-3.5 w-3.5" />

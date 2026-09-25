@@ -22,7 +22,7 @@ export function PeriodFilter() {
     <div
       role="group"
       aria-label="Período"
-      className="inline-flex items-center gap-1 rounded-lg border border-line bg-card p-1"
+      className="inline-flex items-center gap-1 rounded-xl border border-border bg-card p-1"
     >
       {PERIOD_KEYS.map((key) => (
         <button
@@ -31,11 +31,11 @@ export function PeriodFilter() {
           onClick={() => select(key)}
           aria-pressed={key === active}
           className={cn(
-            "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600",
+            "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
             key === active
-              ? "bg-primary-600 text-white"
-              : "text-primary-600 hover:bg-primary-50"
+              ? "bg-primary text-primary-foreground"
+              : "text-primary hover:bg-secondary"
           )}
         >
           {PERIOD_LABELS[key]}

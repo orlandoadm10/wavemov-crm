@@ -8,7 +8,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | Rota | Arquivo | O que faz |
 |---|---|---|
 | `/dashboard` | `app/(dashboard)/dashboard/page.tsx` | Métricas do funil: criadas/ganhas/perdidas, ticket, conversão, séries mensais, etapas, responsáveis, motivos de perda, UTMs |
-| `/negociacoes` | `app/(dashboard)/negociacoes/page.tsx` | Kanban com drag-and-drop, badges e filtro por tag, filtros de funil/status/responsável, **ordenação e filtros de data** (0031), busca no servidor |
+| `/negociacoes` | `app/(dashboard)/negociacoes/page.tsx` | Pipeline: **Kanban ou Lista** (`?visao=lista`), filtros compactos com chips removíveis (funil, responsável, situação, tag, datas, ordenação), faixa de indicadores (quadro + mês), **painel lateral** da oportunidade ao clicar, "Mover para…" no cartão, busca no servidor |
 | `/negociacoes/[id]` | `app/(dashboard)/negociacoes/[id]/page.tsx` | Detalhe do lead: tags, stepper, tarefas, notas, **edição do contato vinculado** e histórico segmentado entre atividades e conversas |
 | `/tags` | `app/(dashboard)/tags/page.tsx` | **Catálogo de tags de negociação**, restrito a `org_admin`/admin global. No menu lateral (Vendas → Tags) e pelo botão ao lado dos filtros de `/negociacoes` |
 | `/funis` | `app/(dashboard)/funis/page.tsx` | **Editor de etapas do funil** — fluxo com volume e retenção + CRUD de etapas |

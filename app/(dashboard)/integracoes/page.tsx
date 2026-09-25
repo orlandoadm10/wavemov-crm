@@ -77,7 +77,7 @@ export default async function IntegracoesPage() {
       <PageHeader eyebrow="Inteligência" title="Integrações" subtitle="Conecte o CRM ao n8n, a sistemas externos e a agentes via MCP" />
 
       {error && (
-        <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
+        <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           Não foi possível carregar os tokens. Se a migration 0029 ainda não foi aplicada, aplique-a e recarregue.
         </p>
       )}

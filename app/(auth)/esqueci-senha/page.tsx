@@ -12,7 +12,7 @@ function ForgotPasswordForm() {
   const invalidLink = useSearchParams().get("link") === "invalido";
 
   return (
-    <div className="animate-fade-up rounded-2xl border border-line bg-card p-8 shadow-(--shadow-card)">
+    <div className="animate-fade-up rounded-2xl border border-line bg-card p-8 shadow-panel">
       <h1 className="text-xl font-bold text-ink">Esqueci minha senha</h1>
       <p className="mt-1 text-sm text-ink-faint">
         Informe o e-mail da sua conta. Enviaremos um link para você criar uma senha nova.

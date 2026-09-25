@@ -156,7 +156,7 @@ export function DistributionClient({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-line bg-card p-3 shadow-panel">
         <p className="text-xs leading-relaxed text-ink-soft">
           As regras são avaliadas <b>de cima para baixo</b>; a primeira que casar com o lead
           vence. A <b>regra padrão</b> é sempre a última e recebe tudo que nenhuma outra pegou.
