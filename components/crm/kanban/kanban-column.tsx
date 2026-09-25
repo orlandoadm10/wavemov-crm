@@ -35,6 +35,7 @@ export function KanbanColumn({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const total = deals.reduce((s, d) => s + (Number(d.value) || 0), 0);
+  const values = deals.map((d) => Number(d.value) || 0);
 
   return (
     <section
@@ -65,7 +66,22 @@ export function KanbanColumn({
             </button>
           )}
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">{formatCurrency(total)}</p>
+        <details className="group relative mt-0.5 w-fit text-xs text-muted-foreground">
+          <summary className="cursor-pointer list-none tabular-nums underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" aria-label={`Detalhes de ${stage.name}: ${formatCurrency(total)} no total`}>
+            {formatCurrency(total)}
+          </summary>
+          <div className="absolute left-0 top-full z-30 mt-1 w-56 rounded-xl border bg-card p-3 text-foreground shadow-lg">
+            <p className="mb-2 font-semibold">{stage.name}</p>
+            {deals.length ? (
+              <dl className="space-y-1 text-muted-foreground">
+                <div className="flex justify-between gap-2"><dt>Ticket médio</dt><dd className="text-foreground">{formatCurrency(total / deals.length)}</dd></div>
+                <div className="flex justify-between gap-2"><dt>Maior venda</dt><dd className="text-foreground">{formatCurrency(Math.max(...values))}</dd></div>
+                <div className="flex justify-between gap-2"><dt>Menor venda</dt><dd className="text-foreground">{formatCurrency(Math.min(...values))}</dd></div>
+                <div className="flex justify-between gap-2"><dt>Negociações</dt><dd className="text-foreground">{deals.length}</dd></div>
+              </dl>
+            ) : <p className="text-muted-foreground">Nenhuma negociação nesta etapa.</p>}
+          </div>
+        </details>
       </header>
 
       <div ref={setNodeRef} className="flex-1 space-y-2 overflow-y-auto p-2.5">
@@ -76,8 +92,8 @@ export function KanbanColumn({
             stages={stages}
             onMove={onMove}
             onOpen={onOpen}
-            selected={deal.id === selectedId}
-          />
+              selected={deal.id === selectedId}
+            />
         ))}
         {deals.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[color-mix(in_oklab,var(--stage)_35%,transparent)] px-3 py-6 text-center">
