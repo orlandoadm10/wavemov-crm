@@ -3081,6 +3081,146 @@ console.log("\n== 0031. Filtros e ordenação do Kanban ==");
   else ok("0031: sem tabela temporária e sem begin/commit");
 }
 
+console.log("\n== 0032. Fontes de lead ==");
+{
+  // Empresas próprias: testes anteriores apagam a Empresa B.
+  const ORG_A = "32323232-3232-4232-8232-32323232320a";
+  const ORG_B = "32323232-3232-4232-8232-32323232320b";
+  await db.query(`insert into public.organizations (id, name) values ($1, 'Fontes A'), ($2, 'Fontes B')`, [ORG_A, ORG_B]);
+  await db.query(
+    `insert into public.organization_members (organization_id, profile_id, role) values ($1, $2, 'org_admin'), ($1, $3, 'seller'), ($4, $5, 'org_admin')`,
+    [ORG_A, pAdminA, pSellerA, ORG_B, pAdminB]
+  );
+  const formA = await umaLinha(
+    `insert into public.forms (organization_id, name, slug) values ($1, 'Destino A', 'destino-a-0032') returning id`,
+    [ORG_A]
+  );
+  const formB = await umaLinha(
+    `insert into public.forms (organization_id, name, slug) values ($1, 'Destino B', 'destino-b-0032') returning id`,
+    [ORG_B]
+  );
+
+  // A FK composta recusa fonte da empresa A apontando para formulário da B —
+  // inclusive para o service_role, que contorna o RLS.
+  await esperaErro(
+    "0032: fonte da empresa A não aponta para formulário da B",
+    () =>
+      db.query(
+        `insert into public.lead_sources (organization_id, form_id, name, provider) values ($1, $2, 'Cruzada', 'webhook')`,
+        [ORG_A, formB.id]
+      ),
+    /lead_sources_form_same_org_fkey|foreign key/
+  );
+
+  const fonteA = await comoUsuario(adminA, () =>
+    umaLinha(
+      `insert into public.lead_sources (organization_id, form_id, name, provider) values ($1, $2, 'Typeform A', 'typeform') returning id`,
+      [ORG_A, formA.id]
+    )
+  );
+  if (fonteA?.id) ok("0032: org_admin cria fonte na própria empresa");
+  else fail("0032: org_admin não criou a fonte");
+
+  await esperaErro(
+    "0032: provedor desconhecido é recusado",
+    () =>
+      db.query(
+        `insert into public.lead_sources (organization_id, form_id, name, provider) values ($1, $2, 'RD', 'rdstation')`,
+        [ORG_A, formA.id]
+      ),
+    /lead_sources_provider_check/
+  );
+
+  await esperaErro(
+    "0032: vendedor não cria fonte",
+    () =>
+      comoUsuario(sellerA, () =>
+        db.query(
+          `insert into public.lead_sources (organization_id, form_id, name, provider) values ($1, $2, 'Do vendedor', 'webhook')`,
+          [ORG_A, formA.id]
+        )
+      ),
+    /row-level security/
+  );
+
+  const doVendedor = await comoUsuario(sellerA, () => db.query(`select id from public.lead_sources`));
+  if (doVendedor.rows.length === 0) ok("0032: vendedor não lê fontes");
+  else fail("0032: vendedor leu fontes", JSON.stringify(doVendedor.rows));
+
+  const deB = await comoUsuario(adminB, () => db.query(`select id from public.lead_sources where id = $1`, [fonteA.id]));
+  if (deB.rows.length === 0) ok("0032: admin da empresa B não vê fonte da A");
+  else fail("0032: vazamento de fonte entre empresas");
+
+  const alteradoPorB = await comoUsuario(adminB, () =>
+    db.query(`update public.lead_sources set is_active = false where id = $1 returning id`, [fonteA.id])
+  );
+  if (alteradoPorB.rows.length === 0) ok("0032: admin da empresa B não pausa fonte da A");
+  else fail("0032: admin B alterou fonte da A");
+
+  // Token: gerado pelo default, legível só pelo service_role.
+  const segredo = await umaLinha(
+    `insert into public.lead_source_secrets (lead_source_id, organization_id) values ($1, $2) returning token`,
+    [fonteA.id, ORG_A]
+  );
+  if (/^wmv_/.test(segredo.token)) ok("0032: token gerado com o prefixo de segredo");
+  else fail("0032: token com formato inesperado", segredo.token);
+
+  await esperaErro(
+    "0032: nem o org_admin lê o token pelo PostgREST",
+    () => comoUsuario(adminA, () => db.query(`select token from public.lead_source_secrets`)),
+    /permission denied/
+  );
+
+  // Entregas: gravadas pelo service_role, lidas só por org_admin da empresa.
+  await db.query(
+    `insert into public.lead_source_events (organization_id, lead_source_id, status, fields) values ($1, $2, 'failed', '[{"key":"a","label":"A","value":"1"}]')`,
+    [ORG_A, fonteA.id]
+  );
+  const eventosAdmin = await comoUsuario(adminA, () => db.query(`select id from public.lead_source_events`));
+  const eventosB = await comoUsuario(adminB, () => db.query(`select id from public.lead_source_events`));
+  const eventosVendedor = await comoUsuario(sellerA, () => db.query(`select id from public.lead_source_events`));
+  if (eventosAdmin.rows.length === 1 && eventosB.rows.length === 0 && eventosVendedor.rows.length === 0)
+    ok("0032: entregas visíveis só ao org_admin da própria empresa");
+  else fail("0032: visibilidade das entregas", JSON.stringify([eventosAdmin.rows, eventosB.rows, eventosVendedor.rows]));
+
+  await esperaErro(
+    "0032: ninguém grava entrega pelo PostgREST",
+    () =>
+      comoUsuario(adminA, () =>
+        db.query(`insert into public.lead_source_events (organization_id, lead_source_id, status) values ($1, $2, 'processed')`, [
+          ORG_A,
+          fonteA.id,
+        ])
+      ),
+    /permission denied|row-level security/
+  );
+
+  // Excluir o formulário de destino leva a fonte, o token e as entregas.
+  await db.query(`delete from public.forms where id = $1`, [formA.id]);
+  const restos = await umaLinha(
+    `select (select count(*) from public.lead_sources where id = $1) as fontes,
+            (select count(*) from public.lead_source_secrets where lead_source_id = $1) as segredos,
+            (select count(*) from public.lead_source_events where lead_source_id = $1) as eventos`,
+    [fonteA.id]
+  );
+  if (Number(restos.fontes) + Number(restos.segredos) + Number(restos.eventos) === 0)
+    ok("0032: excluir o destino apaga fonte, token e entregas");
+  else fail("0032: sobrou dado da fonte após excluir o destino", JSON.stringify(restos));
+
+  try {
+    await db.exec(readFileSync(path.join(MIG, "0032_fontes_de_lead.sql"), "utf8"));
+    ok("0032 roda duas vezes sem erro");
+  } catch (e) {
+    fail("0032 não é idempotente", e.message.split("\n")[0]);
+  }
+  const sql32 = readFileSync(path.join(MIG, "0032_fontes_de_lead.sql"), "utf8");
+  if (/create\s+temp(orary)?\s+table/i.test(sql32) || /^\s*(begin|commit)\s*;/im.test(sql32))
+    fail("0032: usa tabela temporária ou begin/commit");
+  else ok("0032: sem tabela temporária e sem begin/commit");
+  if (/\b(drop\s+table|truncate|drop\s+schema)\b/i.test(sql32)) fail("0032: contém instrução destrutiva");
+  else ok("0032: sem DROP TABLE/TRUNCATE/DROP SCHEMA");
+}
+
 console.log(`\n${falhas === 0 ? "TODOS OS TESTES PASSARAM" : `${falhas} FALHA(S)`}`);
 await db.close();
 process.exit(falhas === 0 ? 0 : 1);

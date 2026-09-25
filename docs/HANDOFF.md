@@ -5,7 +5,7 @@ Leia este arquivo primeiro. As regras canônicas de trabalho estão em
 `docs/FUNCIONALIDADES.md` para contratos funcionais e `docs/CHANGELOG.md` para
 o histórico detalhado.
 
-**Atualizado em:** 23/09/2026 (fim do dia)
+**Atualizado em:** 25/09/2026 (fontes de lead publicadas; design Jidianos etapa 1 em `feat/design-jidianos-base`)
 
 **Versão:** `0.2.0`
 
@@ -73,6 +73,65 @@ Contratos da transição:
   landing) clareia no modo escuro, porque o alias mistura o azul com o
   `foreground`. Na migração da tela, troque por `bg-sidebar` ou
   `bg-gradient-brand`.
+
+## Fontes de lead (Fase 1) — 25/09/2026, publicada
+
+Pedido do P.O.: o cliente precisa ligar Facebook Lead Ads, Typeform e outras
+origens HTTP **sem montar automação** e sem depender só do n8n/Make. Fase 1
+entregue neste ramo: `/fontes` (Captação → Fontes de lead),
+`POST /api/inbound/<token>` e a migration **`0032_fontes_de_lead.sql`,
+aplicada em produção pelo cliente em 25/09** (objetos, RLS, grants e FK
+composta conferidos por Claude; a linha do ledger faltava — de novo — e foi
+registrada por Claude no mesmo dia). **Publicado em 25/09** (PR #21, `eafbd78`, deploy `Ready`); smoke sem escrita em produção: token inexistente 404 nos dois métodos, `/fontes` sem sessão → login. Contrato completo em `docs/FUNCIONALIDADES.md`,
+"Fontes de lead"; decisões no `CHANGELOG` de 25/09.
+
+
+Contratos a preservar:
+
+- **A fonte não tem regra de lead própria.** Tradução e mapeamento acabam em
+  `claimIngestSubmission` + `registerFormLead`, as mesmas de
+  `/api/ingest/leads`. Mudou a regra de lead? Muda lá, uma vez.
+- **O corpo nunca escolhe empresa, funil ou etapa** — só o token, pela fonte,
+  pelo formulário. A FK composta `lead_sources (form_id, organization_id)` é a
+  segunda trava; não a troque por FK simples.
+- **Falha de configuração responde 200**, e a entrega fica guardada para
+  reprocessar. Trocar para 4xx faz o Typeform reentregar por horas sem chance
+  de sucesso e, depois, desativar o webhook.
+- **O token só é lido depois da guarda de papel** (`/fontes/[id]` e as
+  actions). Mesma regra do segredo da 0014.
+
+Validações abertas (escrevem na base; precisam do cliente): conexão Typeform
+real com "Send test request" e com resposta real; webhook genérico por JSON e
+por urlencoded (Elementor); reentrega do mesmo `token` do Typeform → "Já
+estava no CRM" sem card novo; pausar → 404; URL nova → antiga 404; falha por
+formulário de destino desativado → reprocessar depois de reativar.
+
+**Fase 2 — Facebook/Instagram Lead Ads nativo.** Contexto do P.O. (25/09):
+cada empresa tem a PRÓPRIA página; a JID alcança todas pela sua BM. Decisão:
+**os dois caminhos** — (a) o admin global (equipe JID) liga a página de cada
+empresa por um usuário do sistema da BM, cujo token fica em variável de
+ambiente e nunca em tabela de empresa; a lista de páginas da BM só aparece
+para admin global, porque ela contém as páginas de TODOS os clientes; (b)
+opcionalmente, o `org_admin` do cliente conecta com o próprio login do
+Facebook (a lista vem só das páginas dele). Em ambos, `page_id` é único na base
+inteira — uma página, uma empresa — e a recusa não diz qual empresa a tem. A
+empresa do lead sai só do `page_id` do evento. Pré-requisito por cliente: se a
+página restringir o "Gerenciador de acesso a leads", liberar o app/usuário do
+sistema da JID ali. O app da Meta da JID (o mesmo
+do WhatsApp Cloud API, `META_APP_SECRET`) **já é verificado**. Falta: pedir
+`leads_retrieval`, `pages_show_list`, `pages_read_engagement` e
+`pages_manage_metadata` na revisão do app; login com o Facebook em
+`/fontes` para escolher página e formulários; inscrever a página
+(`POST /{page-id}/subscribed_apps?subscribed_fields=leadgen`); tratar
+`object: "page"` / `field: "leadgen"` em `/api/webhooks/meta` (hoje só
+WhatsApp) buscando o lead em `GET /{leadgen_id}` com o token da página; e
+varredura periódica por `/{form_id}/leads` no cron, porque a Meta perde
+webhooks. O provedor `meta_lead_ads` já existe no `check` da 0032 e aparece
+na galeria como "em breve". **A revisão da Meta leva semanas — convém pedir já.**
+
+**Fase 3.** Typeform por login com cadastro automático do webhook
+(`PUT /forms/{id}/webhooks/{tag}`), assinatura `Typeform-Signature`, limite de
+requisições por fonte e alerta quando a última entrega falhar.
 
 ## Sobreposições de camadas — varredura de 24/09/2026
 

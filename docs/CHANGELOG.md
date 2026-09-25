@@ -50,6 +50,53 @@ claro (4,2) e botão primário e destrutivo no escuro (3,5 / 4,2).
 navegador de `/login` e `/` (fontes, cores e o modo escuro forçado por
 JavaScript).
 
+## 2026-09-25 — Fontes de lead: Typeform e webhook sem n8n (0032)
+
+**Problema.** Toda origem externa dependia de um fluxo no n8n:
+`/api/ingest/leads` exige um corpo no contrato do CRM
+(`form_external_id`/`event_id`/`data`) e o segredo no cabeçalho
+`x-webhook-secret` — o Typeform não deixa configurar cabeçalho, e a Meta nem
+manda os dados do lead no webhook. Nomes de campo fora de
+`name/email/phone/telefone/whatsapp` eram descartados, a credencial era única
+por empresa (trocar derrubava todos os fluxos) e não havia registro das
+entregas: quem não é técnico não tinha como saber por que um lead não entrou.
+
+**Entregue (Fase 1).** `/fontes` e `/fontes/[id]`: conexão nativa com Typeform
+e com qualquer ferramenta que dispare webhook, URL própria por conexão,
+tradutores por origem, sugestão automática de nome/e-mail/telefone, tela de
+campos recebidos, teste ao vivo, histórico de entregas com motivo da falha e
+reprocessamento. Tudo termina em `registerFormLead` — sem regra de lead nova.
+Detalhe em `docs/FUNCIONALIDADES.md`, "Fontes de lead".
+
+**Decisões.**
+
+- **Segredo no caminho**, não no cabeçalho: é o único lugar que toda origem
+  consegue carregar. O risco de log fica contido por ser um token por conexão,
+  trocável e pausável sem afetar as demais — o oposto da credencial única da
+  0014.
+- **A fonte aponta para um formulário.** Funil, etapa, responsável,
+  deduplicação, distribuição, saúde e relatórios continuam vindo dele. FK
+  composta `(form_id, organization_id)` impede no banco uma fonte de uma
+  empresa apontando para formulário de outra.
+- **Formulário criado pela conexão não tem campo obrigatório**: numa
+  integração, obrigatório ausente é lead perdido.
+- **Falha de configuração responde 200** e fica guardada para reprocessar;
+  só falha do CRM responde 500 (a origem reentrega). Reentrega de algo já
+  processado não gera linha nova no histórico.
+- `lead_source_events` guarda os campos **já traduzidos**, não o corpo cru, e
+  apaga entregas com mais de 30 dias a cada nova entrega da conexão.
+
+**Fora desta entrega.** Facebook/Instagram Lead Ads nativo (Fase 2: login com
+o Facebook, inscrição da página em `leadgen`, busca na Graph API e varredura
+pelo cron — o app da Meta da JID já é verificado); conexão do Typeform por
+login com cadastro automático do webhook, assinatura `Typeform-Signature`,
+limite de requisições e alerta de conexão falhando (Fase 3).
+
+**Validação.** `npm run test:unit` (208, com 23 novos de tradução, mapeamento
+e estado), `npm run test:db` (15 asserções novas da 0032: isolamento A/B,
+papéis, sigilo do token, cascata e idempotência), `npx tsc --noEmit` e
+`npm run build`. **Sem smoke em produção**: a 0032 ainda não foi aplicada.
+
 ## 2026-09-24 — Kanban: painel "Filtros" cortado sob o menu lateral
 
 No desktop, o painel de filtros de data abria ancorado à direita do botão e

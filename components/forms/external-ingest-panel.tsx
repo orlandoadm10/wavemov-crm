@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Check, Copy, Eye, EyeOff, KeyRound, Plug, ShieldAlert } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -96,6 +97,13 @@ export function ExternalIngestPanel({
       />
 
       <div className="space-y-4 p-5">
+        <p className="rounded-lg bg-primary-50 px-4 py-3 text-xs leading-relaxed text-primary-800">
+          Vai ligar Typeform, o formulário do site ou outra ferramenta? Use{" "}
+          <Link href="/fontes" className="font-semibold underline hover:text-primary-900">
+            Fontes de lead
+          </Link>
+          : a conexão é direta, sem fluxo no n8n. Este painel continua valendo para os fluxos que já existem.
+        </p>
         <div className="flex gap-3 rounded-lg bg-slate-50 p-4 ring-1 ring-line">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
           <p className="text-xs leading-relaxed text-ink-soft">

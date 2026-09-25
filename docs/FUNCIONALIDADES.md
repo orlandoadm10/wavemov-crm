@@ -26,6 +26,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 | `/relatorios/vendedores` | `app/(dashboard)/relatorios/vendedores/page.tsx` | **Rendimento por vendedor** — distribuição, conversão, tarefas e notas |
 | `/relatorios/tags` | `app/(dashboard)/relatorios/tags/page.tsx` | **Métricas de tags** — totais, evolução e distribuição por responsável |
 | `/formularios` | `app/(dashboard)/formularios/page.tsx` | Construtor de formulários de captura + **painel de ingestão externa (n8n)**, restrito a `org_admin` |
+| `/fontes` e `/fontes/[id]` | `app/(dashboard)/fontes/` | **Fontes de lead** (0032): conexão nativa com Typeform e qualquer webhook, URL por conexão, teste ao vivo, campos recebidos, histórico de entregas e reprocessamento. Só `org_admin`/admin global. No menu lateral (Captação) |
 | `/perfil` | `app/(dashboard)/perfil/page.tsx` | Dados do usuário e completude do perfil |
 | `/admin` | `app/(dashboard)/admin/page.tsx` | Visão global (somente admin global) |
 | `/onboarding/{empresa,funil,equipe,whatsapp,ia,concluir}` | `app/onboarding/(etapas)/` | **Assistente de configuração inicial** (0030) — só `org_admin`/admin global. Ver "Configuração inicial" abaixo |
@@ -49,6 +50,7 @@ Estado real do produto. Recurso planejado fica em "Próximos passos" no
 |---|---|---|
 | `POST /api/webhooks/uazapi` | segredo da instância (0010) | Mensagens da UAZAPI → contato, conversa, lead, mensagem; depois IA e automações |
 | `GET/POST /api/webhooks/meta` | verify token = segredo da instância; `X-Hub-Signature-256` com `META_APP_SECRET` | API oficial da Meta: verificação, mensagens e status de entrega |
+| `GET/POST /api/inbound/:token` | token da fonte no caminho (0032); fonte pausada = 404 | Entregas do Typeform, sites e ferramentas com webhook → lead no formulário de destino. JSON, urlencoded e multipart |
 | `/api/v1/contacts`, `/pipelines`, `/deals`, `/deals/:id`, `/messages`, `/tools/:nome` | `Authorization: Bearer jid_…` escopo `api` (0029) | REST para n8n e sistemas externos — mesmas ferramentas do MCP e da IA |
 | `POST /api/mcp` | `Bearer jid_…` escopo `mcp` | Servidor MCP (Streamable HTTP, sem estado): `initialize`, `tools/list`, `tools/call` |
 | `GET/POST /api/cron/automations` | `Bearer $CRON_SECRET` | Drena a fila de eventos de todas as empresas e roda a régua de follow-up |
@@ -254,6 +256,58 @@ enxergar os números deles.
   aberto não é fracasso, e dividir por ele puniria quem acabou de receber.
 - Quem está fora do rodízio aparece com o selo "Fora" — é a explicação de
   "fulano não está recebendo nada".
+
+### Fontes de lead — `/fontes` e `/fontes/[id]` (0032)
+
+Conecta Typeform, o formulário do site e qualquer ferramenta que dispare
+webhook **sem fluxo no n8n**. Pensado para quem não é técnico: escolher a
+origem, o funil e colar uma URL.
+
+**Fluxo na tela**
+
+1. Galeria com três origens: Typeform, "Site ou outro sistema" (webhook
+   genérico) e Facebook/Instagram Lead Ads (**em breve** — Fase 2).
+2. Passo 1 (modal): nome da conexão e destino — funil, etapa e responsável
+   (cria um formulário de destino com Nome, E-mail e WhatsApp, **nenhum
+   obrigatório**) ou um formulário existente.
+3. Passo 2 (`/fontes/[id]`): URL para copiar, passo a passo da ferramenta e
+   aviso "Aguardando a primeira entrega…". A página se atualiza sozinha a cada
+   4 s até a primeira entrega (desiste depois de 15 min).
+4. **Campos recebidos**: a lista vem das entregas reais. Cada campo mostra um
+   exemplo e para onde vai — "Automático" por padrão, um campo do formulário
+   ou "Só nas informações do lead".
+5. **Últimas entregas** (30 mais recentes; histórico de 30 dias): Lead criado,
+   Anexado ao lead existente, Já estava no CRM ou Falhou — com o motivo em
+   português, os campos recebidos e **Reprocessar**.
+6. **Configurações**: renomear, pausar, gerar URL nova (a antiga para na hora)
+   e excluir (o formulário e os leads ficam).
+
+**Regras**
+
+- A URL `/api/inbound/<token>` é a autenticação. O token é por conexão e fica
+  em `lead_source_secrets`, legível só pelo `service_role`. O corpo nunca
+  escolhe empresa, funil ou etapa.
+- Tradutores em `lib/features/lead-sources/domain/inbound-payload.ts`: o
+  Typeform é lido por `form_response.answers` + `definition.fields` (chave =
+  `ref`, senão `id`; hidden fields viram campos, para UTM); o genérico achata
+  qualquer JSON ou formulário em `caminho.do.campo`.
+- **Sugestão automática** (`field-mapping.ts`): nome, e-mail e telefone pelas
+  grafias comuns e pelo formato do valor; "nome da empresa", `campaign_name`,
+  `form_name` e `ad_name` **não** viram nome do lead. Mapeamento explícito
+  vence e pode juntar campos (nome + sobrenome). O que não vai para um campo
+  do formulário entra em `metadata.respostas` (card "Informações do Lead") e
+  UTMs como chaves próprias.
+- Depois da tradução o caminho é o de `/api/ingest/leads`: filtra pelos campos
+  do formulário, reserva o evento (idempotência por formulário + evento) e
+  chama `registerFormLead` — mesmo contato, deduplicação e distribuição. A
+  chave do evento é o id da origem (`token` do Typeform, `event_id`/`id` do
+  webhook) ou o SHA-256 dos campos.
+- Respostas: 200 para entregue, duplicada ou recusada por configuração (fica
+  registrada para reprocessar — reentregar não ajudaria); 500 só quando o CRM
+  falha ao gravar; 404 igual para token inexistente e conexão pausada; 400
+  corpo ilegível; 413 acima de 256 KB.
+- `deals.source` = `"<Origem>: <nome da conexão>"`. Para a distribuição, a
+  origem é `external_ingest` (rótulo "Integração (fonte de lead ou n8n)").
 
 ### Ingestão externa de leads (n8n) — `/formularios`
 
@@ -740,6 +794,7 @@ Migrations em `supabase/migrations/`, aplicadas na ordem numérica:
 | `0027_canais_e_atendimento_por_ia.sql` | Meta Cloud API em `whatsapp_instances`; modo IA/humano, handoff e follow-up em `whatsapp_conversations`; `sender_type`/`delivery_status` em mensagens; `pipeline_stages.requires_human`; `deals.ai_qualification`; trigger do estado da última mensagem |
 | `0028_eventos_e_automacoes.sql` | `crm_events` (fila), `automation_rules`, `automation_runs`, triggers de eventos em `deals` e `whatsapp_messages`, `claim_crm_events`/`requeue_stale_crm_events` (só service_role) |
 | `0029_tokens_de_api.sql` | `api_tokens` (SHA-256, escopos `api`/`mcp`, revogação sem delete) |
+| `0032_fontes_de_lead.sql` | `lead_sources` (FK composta com `forms`), `lead_source_secrets` (token, só service_role) e `lead_source_events` (entregas, 30 dias) |
 | `0005_security.sql` | Endurecimento (tokens fora do alcance do cliente) |
 | `0006_api_grants.sql` | Grants da API |
 | `0007_reload_postgrest_schema.sql` | Recarrega o cache de schema do PostgREST |
@@ -903,6 +958,11 @@ tokens de API são configurados só por `org_admin`/admin global.** `seller` e
 `viewer` só acompanha. Trechos de conhecimento, turnos da IA, fila de eventos e
 execuções são escritos apenas pelo servidor (sem policy de escrita e com
 `revoke` para `authenticated`).
+
+Desde a `0032`: **fontes de lead são criadas, lidas e alteradas só por
+`org_admin`/admin global.** As entregas (`lead_source_events`) só são lidas por
+eles e só são gravadas pelo servidor; o token não é legível por ninguém pelo
+PostgREST.
 
 ---
 
