@@ -1,67 +1,366 @@
 @import "tailwindcss";
 
 /* ============================================================
-   CRM JID Mídia — Design System
-   Azul primário, superfícies claras, cards brancos, sombras suaves
+   CRM JID Mídia — design Jidianos (DESIGN_GUIDE.md)
+
+   Tokens semânticos em oklch, com modo claro (padrão) e escuro (`.dark` no
+   <html>). Portados de `docs/referencias/css-jidianos.css` — só o que o CRM
+   usa; TV, Hall da Fama, propostas e dashboards operacionais ficaram lá.
+
+   Os nomes do guia v1 (`ink`, `line`, `primary-50…900`) seguem valendo e
+   APONTAM para os tokens novos: é o que muda o CRM inteiro de uma vez sem
+   reescrever 147 telas. Código novo usa os tokens semânticos.
    ============================================================ */
 
-@theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+/* `.dark` no próprio <html> também conta — o `&:is(.dark *)` do Jidianos não
+   pegava o elemento que carrega a classe. */
+@custom-variant dark (&:where(.dark, .dark *));
 
-  /* Marca */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+@theme inline {
+  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-grotesk), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 
-  /* Superfícies */
-  --color-surface: #f5f7fb;
-  --color-card: #ffffff;
-  --color-line: #e6eaf2;
+  /* Semânticos (seção 3 do guia) */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  /* Texto sobre fundo claro do próprio estado (badge, aviso inline). O tom
+     puro do estado é claro demais para texto de 11–12px — o âmbar sobre
+     branco nem chega perto de 4.5:1. Misturado ao `foreground`, escurece no
+     modo claro e clareia no escuro, com o mesmo token. */
+  --color-success-text: color-mix(in oklab, var(--success) 72%, var(--foreground));
+  --color-warning-text: color-mix(in oklab, var(--warning) 52%, var(--foreground));
+  --color-destructive-text: color-mix(in oklab, var(--destructive) 82%, var(--foreground));
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
-  /* Texto */
-  --color-ink: #0f172a;
-  --color-ink-soft: #475569;
-  --color-ink-faint: #94a3b8;
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Aliases do guia v1 → tokens novos. Escala da marca derivada do `primary`
+     misturado ao cartão: no escuro, `primary-50` vira um azul fechado em vez
+     de um azul-bebê estourado. */
+  --color-primary-50: color-mix(in oklab, var(--primary) 8%, var(--card));
+  --color-primary-100: color-mix(in oklab, var(--primary) 15%, var(--card));
+  --color-primary-200: color-mix(in oklab, var(--primary) 26%, var(--card));
+  --color-primary-300: color-mix(in oklab, var(--primary) 45%, var(--card));
+  --color-primary-400: color-mix(in oklab, var(--primary) 70%, var(--card));
+  --color-primary-500: color-mix(in oklab, var(--primary) 88%, var(--card));
+  --color-primary-600: var(--primary);
+  --color-primary-700: color-mix(in oklab, var(--primary) 84%, var(--foreground));
+  --color-primary-800: color-mix(in oklab, var(--primary) 68%, var(--foreground));
+  --color-primary-900: color-mix(in oklab, var(--primary) 52%, var(--foreground));
+
+  --color-ink: var(--foreground);
+  --color-ink-soft: var(--muted-foreground);
+  --color-ink-faint: color-mix(in oklab, var(--muted-foreground) 72%, var(--card));
+  --color-line: var(--border);
 
   --radius-card: 1rem;
 
-  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px rgb(15 23 42 / 0.05);
-  --shadow-pop: 0 4px 12px rgb(15 23 42 / 0.08), 0 12px 32px rgb(15 23 42 / 0.12);
+  /* Sombra azul, baixa, com destaque interno — nunca preta e pesada. Os
+     nomes antigos (`card`/`pop`) apontam para `panel`/`lift`. */
+  --shadow-panel: 0 1px 0 var(--ink-hi) inset, 0 18px 40px -26px var(--ink-shadow);
+  --shadow-lift: 0 1px 0 var(--ink-hi) inset, 0 28px 60px -30px var(--ink-shadow-strong);
+  --shadow-glow: 0 0 0 1px color-mix(in oklab, var(--primary) 35%, transparent),
+    0 26px 60px -26px color-mix(in oklab, var(--primary) 45%, transparent);
+  --shadow-card: var(--shadow-panel);
+  --shadow-pop: var(--shadow-lift);
 }
 
-html {
-  scroll-behavior: smooth;
+/* Modo claro — padrão. */
+:root {
+  --radius: 0.9rem;
+
+  --background: oklch(0.972 0.014 252);
+  --foreground: oklch(0.22 0.05 262);
+  --surface: oklch(1 0 0);
+  --surface-foreground: oklch(0.22 0.05 262);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.05 262);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.05 262);
+
+  --primary: oklch(0.53 0.23 262);
+  --primary-foreground: oklch(0.99 0.002 258);
+  --secondary: oklch(0.918 0.05 254);
+  --secondary-foreground: oklch(0.32 0.11 262);
+  --muted: oklch(0.93 0.04 253);
+  --muted-foreground: oklch(0.48 0.07 258);
+  --accent: oklch(0.86 0.085 256);
+  --accent-foreground: oklch(0.28 0.13 262);
+
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.56 0.13 165);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.72 0.15 70);
+  --warning-foreground: oklch(0.22 0.05 70);
+
+  --border: oklch(0.53 0.23 262 / 18%);
+  --input: oklch(0.53 0.23 262 / 24%);
+  --ring: oklch(0.55 0.21 262);
+
+  --chart-1: oklch(0.55 0.21 262);
+  --chart-2: oklch(0.64 0.16 245);
+  --chart-3: oklch(0.74 0.12 228);
+  --chart-4: oklch(0.5 0.18 278);
+  --chart-5: oklch(0.82 0.07 252);
+
+  --sidebar: oklch(0.42 0.19 262);
+  --sidebar-foreground: oklch(0.99 0.002 262);
+  --sidebar-primary: oklch(0.66 0.18 262);
+  --sidebar-primary-foreground: oklch(0.99 0.002 262);
+  --sidebar-accent: oklch(1 0 0 / 13%);
+  --sidebar-accent-foreground: oklch(0.99 0.002 262);
+  --sidebar-border: oklch(1 0 0 / 15%);
+  --sidebar-ring: oklch(0.66 0.18 262 / 60%);
+
+  --panel-1: oklch(1 0 0);
+  --panel-2: oklch(0.945 0.04 252);
+  --app-1: oklch(0.982 0.012 252);
+  --app-2: oklch(0.93 0.038 252);
+  --app-glow-1: oklch(0.53 0.23 262 / 0.22);
+  --app-glow-2: oklch(0.6 0.18 240 / 0.18);
+  --ink-hi: oklch(1 0 0 / 0.9);
+  --ink-shadow: oklch(0.28 0.12 262 / 0.26);
+  --ink-shadow-strong: oklch(0.28 0.12 262 / 0.34);
+  --chrome-border: oklch(0.53 0.23 262 / 0.24);
+  --chrome-fg: oklch(0.22 0.05 262);
+  --chrome-hover: oklch(0.53 0.23 262 / 0.16);
+
+  color-scheme: light;
 }
 
-body {
-  background-color: var(--color-surface);
-  color: var(--color-ink);
-  font-feature-settings: "cv02", "cv03", "cv04";
-  -webkit-font-smoothing: antialiased;
+/* Modo escuro — azul-grafite. */
+:root.dark,
+.dark {
+  --background: oklch(0.145 0.024 262);
+  --foreground: oklch(0.975 0.004 258);
+  --surface: oklch(0.185 0.028 262);
+  --surface-foreground: oklch(0.975 0.004 258);
+  --card: oklch(0.195 0.028 262);
+  --card-foreground: oklch(0.975 0.004 258);
+  --popover: oklch(0.2 0.03 262);
+  --popover-foreground: oklch(0.975 0.004 258);
+
+  --primary: oklch(0.63 0.185 258);
+  --primary-foreground: oklch(0.99 0.002 258);
+  --secondary: oklch(0.245 0.032 262);
+  --secondary-foreground: oklch(0.95 0.006 258);
+  --muted: oklch(0.235 0.03 262);
+  --muted-foreground: oklch(0.72 0.022 258);
+  --accent: oklch(0.28 0.05 260);
+  --accent-foreground: oklch(0.97 0.005 258);
+
+  --destructive: oklch(0.6 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.68 0.14 165);
+  --success-foreground: oklch(0.15 0.02 165);
+  --warning: oklch(0.78 0.14 75);
+  --warning-foreground: oklch(0.2 0.04 75);
+
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.63 0.185 258);
+
+  --chart-1: oklch(0.63 0.185 258);
+  --chart-2: oklch(0.72 0.14 240);
+  --chart-3: oklch(0.8 0.1 225);
+  --chart-4: oklch(0.58 0.16 275);
+  --chart-5: oklch(0.86 0.06 250);
+
+  --sidebar: oklch(0.22 0.1 265);
+  --sidebar-foreground: oklch(0.99 0.002 265);
+  --sidebar-primary: oklch(0.6 0.18 265);
+  --sidebar-primary-foreground: oklch(0.99 0.002 265);
+  --sidebar-accent: oklch(1 0 0 / 10%);
+  --sidebar-accent-foreground: oklch(0.99 0.002 265);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.6 0.18 265 / 50%);
+
+  --panel-1: oklch(0.215 0.03 262);
+  --panel-2: oklch(0.175 0.026 262);
+  --app-1: oklch(0.165 0.028 262);
+  --app-2: oklch(0.13 0.022 262);
+  --app-glow-1: oklch(0.63 0.185 258 / 0.22);
+  --app-glow-2: oklch(0.55 0.16 270 / 0.16);
+  --ink-hi: oklch(1 0 0 / 0.06);
+  --ink-shadow: oklch(0 0 0 / 0.7);
+  --ink-shadow-strong: oklch(0 0 0 / 0.8);
+  --chrome-border: oklch(1 0 0 / 0.1);
+  --chrome-fg: oklch(0.99 0.002 258);
+  --chrome-hover: oklch(1 0 0 / 0.1);
+
+  color-scheme: dark;
 }
 
-/* Scrollbar discreta */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
 }
-*::-webkit-scrollbar {
-  height: 8px;
-  width: 8px;
+
+/* Fundo das telas autenticadas: azul-claro com brilho (azul-noite no escuro). */
+@utility bg-app {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(1000px 560px at 80% -12%, var(--app-glow-1), transparent 66%),
+    radial-gradient(820px 500px at 2% 104%, var(--app-glow-2), transparent 64%),
+    linear-gradient(180deg, var(--app-1) 0%, var(--app-2) 100%);
+  background-attachment: fixed;
 }
-*::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 8px;
+
+@utility bg-gradient-panel {
+  background-image: linear-gradient(160deg, var(--panel-1) 0%, var(--panel-2) 100%);
 }
-*::-webkit-scrollbar-track {
-  background: transparent;
+
+@utility bg-gradient-brand {
+  background-image: linear-gradient(
+    135deg,
+    oklch(0.42 0.15 262) 0%,
+    oklch(0.55 0.18 258) 55%,
+    oklch(0.68 0.16 248) 100%
+  );
+}
+
+/* Fundo das conversas do atendimento. */
+@utility padrao-conversa {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(color-mix(in oklab, var(--foreground) 5%, transparent) 1px, transparent 1px),
+    radial-gradient(color-mix(in oklab, var(--primary) 8%, transparent) 1px, transparent 1px);
+  background-position:
+    0 0,
+    14px 14px;
+  background-size:
+    28px 28px,
+    28px 28px;
+}
+
+/* Cabeçalho translúcido: acompanha o tema. */
+@utility text-chrome {
+  color: var(--chrome-fg);
+}
+@utility text-chrome-soft {
+  color: color-mix(in oklab, var(--chrome-fg) 70%, transparent);
+}
+@utility border-chrome {
+  border-color: var(--chrome-border);
+}
+@utility bg-chrome-soft {
+  background-color: var(--chrome-hover);
+}
+
+/* Em `@layer base`, e não soltas como no CSS do Jidianos: regra fora de layer
+   vence QUALQUER utilitário, e `.grid > *` / `svg { max-width }` passariam por
+   cima de um `min-w-[…]` ou `max-w-none` escrito na tela, sem aviso. */
+@layer base {
+  /* Só campos editáveis mostram o cursor de texto. */
+  :where(:not(input, textarea, select, [contenteditable], [contenteditable] *)) {
+    caret-color: transparent;
+  }
+  input,
+  textarea,
+  [contenteditable="true"] {
+    caret-color: var(--color-primary);
+  }
+
+  /* Barras de rolagem discretas, no tom da marca. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-primary) 45%, transparent) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    background-color: color-mix(in oklab, var(--color-primary) 38%, transparent);
+    transition: background-color 150ms ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--color-primary) 65%, transparent);
+  }
+
+  /* Item de grade não estica o layout além da tela. */
+  .grid > * {
+    min-width: 0;
+  }
+  img,
+  svg,
+  video,
+  canvas,
+  table {
+    max-width: 100%;
+  }
+}
+
+/* Fora de layer DE PROPÓSITO: precisa vencer o `text-sm` dos campos. Abaixo
+   de 16px o Safari do iPhone dá zoom ao focar e desalinha a tela. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Animações utilitárias */
@@ -91,7 +390,12 @@ body {
 
 .skeleton {
   border-radius: 0.5rem;
-  background: linear-gradient(90deg, #eef1f6 25%, #f7f9fc 50%, #eef1f6 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 25%,
+    color-mix(in oklab, var(--color-muted) 45%, var(--color-card)) 50%,
+    var(--color-muted) 75%
+  );
   background-size: 800px 100%;
   animation: shimmer 1.4s infinite linear;
 }

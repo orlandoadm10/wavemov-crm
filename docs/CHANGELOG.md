@@ -2,6 +2,54 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-25 — Design Jidianos, etapa 1: base visual
+
+O P.O. adotou o design do Jidianos (plataforma interna da JID) para a próxima
+versão. `DESIGN_GUIDE.md` passa a ser o guia novo, com uma seção 0 que adapta o
+guia ao CRM: adota-se a linguagem visual inteira, mantêm-se o menu e as
+funcionalidades do CRM, e a marca continua "CRM JID Mídia". O guia antigo foi
+para `docs/DESIGN_GUIDE_v1.md`; o CSS de origem, para
+`docs/referencias/css-jidianos.css` (só consulta).
+
+**Entregue.**
+
+- `app/globals.css`: tokens semânticos em oklch, modo claro e escuro (`.dark`),
+  sombras azuis `panel`/`lift`/`glow`, fundo `bg-app`, `padrao-conversa`,
+  barras de rolagem e ajustes de celular do Jidianos. TV, Hall da Fama,
+  propostas e dashboards operacionais ficaram de fora.
+- Fontes: Plus Jakarta Sans (interface) e Space Grotesk (`h1`–`h3` e
+  `font-display`), no lugar da Inter.
+- **Os nomes do guia v1 viraram aliases dos tokens novos** (`ink`, `line`,
+  `primary-50…900`, `shadow-card/pop`): o CRM inteiro troca de cara sem
+  reescrever as telas.
+- `components/ui/`: botões e campos de 36 px, campos com raio de 6 px e anel
+  de 1 px, badges compactos com raio de 6 px, modal centralizado com margem de
+  16 px no celular, fundo preto a 80% e rodapé invertido; sem nenhuma cor fixa.
+- Tokens `success-text`, `warning-text` e `destructive-text`: o tom puro do
+  estado não tem contraste para texto de 11–12 px.
+
+**Decisões.**
+
+- As regras globais do CSS do Jidianos (`.grid > *`, `svg { max-width }`,
+  cursor, rolagem) entraram em `@layer base`. Soltas, venceriam qualquer
+  utilitário escrito nas telas. Só os 16 px dos campos no celular ficaram fora,
+  de propósito.
+- `bg-surface` mudou de significado (era o fundo cinza da página; no Jidianos
+  é o branco dos painéis). Os 7 usos antigos passaram para `bg-background`.
+- **Modo escuro existe nos tokens, mas não é oferecido ao usuário**: as telas
+  ainda têm cerca de 90 `bg-white`, mais de 100 `slate-*` e mais de 330
+  `rose/emerald/amber-*` fixos, e ficariam quebradas. A alternância entra
+  quando a varredura das telas terminar.
+
+**Contraste medido** (WCAG, calculado a partir do oklch): texto e badges ≥ 4,5
+nos dois temas. Abaixo de 4,5, com os valores do próprio guia: `ink-faint`
+sobre cartão (3,6 claro / 4,2 escuro — era 2,6 no v1), botão de sucesso no
+claro (4,2) e botão primário e destrutivo no escuro (3,5 / 4,2).
+
+**Validação.** `tsc`, `npm run test:unit`, `npm run build` e conferência no
+navegador de `/login` e `/` (fontes, cores e o modo escuro forçado por
+JavaScript).
+
 ## 2026-09-25 — Fontes de lead: Typeform e webhook sem n8n (0032)
 
 **Problema.** Toda origem externa dependia de um fluxo no n8n:

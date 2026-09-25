@@ -19,8 +19,8 @@ export function DesktopOnly({
 }) {
   return (
     <>
-      <div className="flex flex-col items-center rounded-2xl border border-line bg-white px-6 py-10 text-center shadow-(--shadow-card) lg:hidden">
-        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+      <div className="flex flex-col items-center rounded-2xl border border-border bg-card px-6 py-10 text-center shadow-panel lg:hidden">
+        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-primary">
           <Monitor className="h-6 w-6" />
         </span>
         <p className="text-sm font-semibold text-ink">{title}</p>

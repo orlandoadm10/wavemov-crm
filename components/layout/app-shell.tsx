@@ -51,7 +51,7 @@ export function AppShell({
   }, [mobileOpen]);
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="bg-app flex min-h-screen w-full">
       {/* `sticky`, não `fixed`: a barra ocupa lugar na linha e o conteúdo fica
           com exatamente o que sobra — não há margem compensatória para
           discordar da largura dela. */}
@@ -73,15 +73,15 @@ export function AppShell({
           <button
             type="button"
             aria-label="Fechar menu"
-            className="absolute inset-0 bg-slate-900/40"
+            className="absolute inset-0 bg-black/60"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="animate-fade-up absolute inset-y-0 left-0 w-72 max-w-[calc(100vw-3rem)] bg-white shadow-(--shadow-pop)">
+          <div className="animate-fade-up absolute inset-y-0 left-0 w-72 max-w-[calc(100vw-3rem)] bg-card shadow-(--shadow-pop)">
             <button
               type="button"
               aria-label="Fechar menu"
               onClick={() => setMobileOpen(false)}
-              className="absolute top-3 right-3 rounded-lg p-1.5 text-ink-soft hover:bg-slate-100"
+              className="absolute top-3 right-3 rounded-lg p-1.5 text-ink-soft hover:bg-muted"
             >
               <X className="h-5 w-5" />
             </button>
@@ -97,10 +97,10 @@ export function AppShell({
       {/* `min-w-0` deixa a coluna encolher: sem ele, uma tabela larga empurra
           a página inteira para o lado em vez de rolar dentro da própria caixa. */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-line bg-white/90 px-4 backdrop-blur">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-chrome bg-card/75 px-4 backdrop-blur-md">
           <button
             type="button"
-            className="rounded-lg p-2 text-ink-soft hover:bg-slate-100 lg:hidden"
+            className="rounded-lg p-2 text-ink-soft hover:bg-muted lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Abrir menu"
             aria-expanded={mobileOpen}

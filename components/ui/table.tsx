@@ -10,7 +10,7 @@ export function DataTable({
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn("overflow-x-auto rounded-2xl border border-line bg-card shadow-(--shadow-card)", className)}>
+    <div className={cn("overflow-x-auto rounded-2xl border border-border bg-card shadow-panel", className)}>
       <table className="w-full min-w-[640px] text-left text-sm">{children}</table>
     </div>
   );
@@ -19,7 +19,7 @@ export function DataTable({
 export function THead({ children }: { children: React.ReactNode }) {
   return (
     <thead>
-      <tr className="border-b border-line bg-slate-50/80 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+      <tr className="border-b border-border bg-muted/60 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
         {children}
       </tr>
     </thead>
@@ -47,7 +47,7 @@ export function Tr({
     <tr
       onClick={onClick}
       className={cn(
-        "transition-colors hover:bg-primary-50/40",
+        "transition-colors duration-150 hover:bg-secondary/50",
         onClick && "cursor-pointer",
         className
       )}
@@ -63,7 +63,7 @@ export function Td({ className, children }: { className?: string; children?: Rea
 
 export function TableFooter({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-t border-line px-5 py-3 text-xs text-ink-faint">
+    <div className="flex items-center justify-between gap-4 border-t border-border px-5 py-3 text-xs text-muted-foreground">
       {children}
     </div>
   );

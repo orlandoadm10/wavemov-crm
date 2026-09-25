@@ -5,7 +5,7 @@ Leia este arquivo primeiro. As regras canônicas de trabalho estão em
 `docs/FUNCIONALIDADES.md` para contratos funcionais e `docs/CHANGELOG.md` para
 o histórico detalhado.
 
-**Atualizado em:** 25/09/2026 (fontes de lead, ramo `feat/fontes-de-lead`)
+**Atualizado em:** 25/09/2026 (fontes de lead publicadas; design Jidianos etapa 1 em `feat/design-jidianos-base`)
 
 **Versão:** `0.2.0`
 
@@ -43,7 +43,38 @@ a `0020` ganhou prova em Postgres real, além do pglite.
 Isso importa: com o `.env.local` apontando para a nuvem, `npm run dev` escreve
 **nos dados reais do cliente**. Confira o arquivo antes de subir o app.
 
-## Fontes de lead (Fase 1) — 25/09/2026, ramo `feat/fontes-de-lead`
+## Design Jidianos — 25/09/2026, ramo `feat/design-jidianos-base`
+
+`DESIGN_GUIDE.md` é o guia novo (Jidianos). Leia a **seção 0** antes de tudo:
+ela diz o que se adota (a linguagem visual inteira) e o que não (menu,
+telas e rótulos do Jidianos). O guia antigo está em `docs/DESIGN_GUIDE_v1.md`.
+
+Plano aprovado pelo P.O., uma entrega por etapa:
+
+1. **Base** — feita neste ramo: tokens claro/escuro, fontes, fundo, sombras e
+   `components/ui/`. Detalhe no `CHANGELOG` de 25/09.
+2. **Estrutura** — sidebar azul recolhível (256/72 px), cabeçalho translúcido,
+   barras roláveis no celular.
+3. **Telas**, da mais usada à menos: Kanban (colunas de 290 px / 85vw com a cor
+   da etapa, cartão, "Mover para…"), **gaveta do lead** no lugar da página
+   `/negociacoes/[id]`, visão em lista, Atendimento, restante.
+4. **Varredura** dos critérios da seção 22, com `scrollWidth === 390`.
+
+Contratos da transição:
+
+- **Código novo usa os tokens semânticos** (`bg-card`, `text-foreground`,
+  `text-muted-foreground`, `border-border`, `bg-primary`…). Os nomes v1
+  (`ink`, `line`, `primary-50…900`) são aliases e somem ao fim da etapa 3.
+- **Não ofereça a alternância de tema antes da etapa 4.** Cada tela migrada
+  sai sem `bg-white`/`slate-*`/`rose-*`/`emerald-*`/`amber-*` fixos; é isso
+  que a libera. Para conferir uma tela no escuro durante a migração:
+  `document.documentElement.classList.add('dark')` no console.
+- **`primary-700…900` como FUNDO escuro** (painel da tela de login, blocos da
+  landing) clareia no modo escuro, porque o alias mistura o azul com o
+  `foreground`. Na migração da tela, troque por `bg-sidebar` ou
+  `bg-gradient-brand`.
+
+## Fontes de lead (Fase 1) — 25/09/2026, publicada
 
 Pedido do P.O.: o cliente precisa ligar Facebook Lead Ads, Typeform e outras
 origens HTTP **sem montar automação** e sem depender só do n8n/Make. Fase 1
@@ -51,10 +82,9 @@ entregue neste ramo: `/fontes` (Captação → Fontes de lead),
 `POST /api/inbound/<token>` e a migration **`0032_fontes_de_lead.sql`,
 aplicada em produção pelo cliente em 25/09** (objetos, RLS, grants e FK
 composta conferidos por Claude; a linha do ledger faltava — de novo — e foi
-registrada por Claude no mesmo dia). O código ainda depende do merge. Contrato completo em `docs/FUNCIONALIDADES.md`,
+registrada por Claude no mesmo dia). **Publicado em 25/09** (PR #21, `eafbd78`, deploy `Ready`); smoke sem escrita em produção: token inexistente 404 nos dois métodos, `/fontes` sem sessão → login. Contrato completo em `docs/FUNCIONALIDADES.md`,
 "Fontes de lead"; decisões no `CHANGELOG` de 25/09.
 
-Para publicar: só o merge — a `0032` já está no banco.
 
 Contratos a preservar:
 

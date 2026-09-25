@@ -52,7 +52,7 @@ export function Dropdown({
             onClick={() => setOpen(false)}
             style={position ?? { top: 0, left: 0, visibility: "hidden" }}
             className={cn(
-              "fixed z-40 min-w-44 overflow-y-auto rounded-xl border border-line bg-white p-1.5 shadow-(--shadow-pop)",
+              "fixed z-40 max-w-[min(360px,92vw)] min-w-44 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-lift",
               position && "animate-fade-up"
             )}
           >
@@ -81,8 +81,8 @@ export function DropdownItem({
       className={cn(
         "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors",
         danger
-          ? "text-rose-600 hover:bg-rose-50"
-          : "text-ink-soft hover:bg-slate-50 hover:text-ink"
+          ? "text-destructive-text hover:bg-destructive/10"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
       )}
     >
       {icon}

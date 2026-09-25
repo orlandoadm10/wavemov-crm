@@ -113,9 +113,9 @@ export function Modal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       <div
-        className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/80"
         onClick={onClose}
       />
       <div
@@ -126,17 +126,18 @@ export function Modal({
         aria-describedby={subtitle ? descriptionId : ariaDescriptionId}
         tabIndex={-1}
         className={cn(
-          "animate-fade-up relative flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-(--shadow-pop) outline-none sm:rounded-2xl sm:pb-0",
+          // Celular: calc(100% - 2rem) pela margem do contêiner; 90dvh (seção 18).
+          "animate-fade-up relative flex max-h-[90dvh] w-full flex-col rounded-2xl border border-border bg-popover text-popover-foreground shadow-lift outline-none",
           sizes[size]
         )}
       >
-        <div className="flex shrink-0 items-start justify-between border-b border-line px-6 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
           <div>
-            <h2 id={titleId} className="text-base font-semibold text-ink">
+            <h2 id={titleId} className="text-base font-semibold text-foreground">
               {title}
             </h2>
             {subtitle && (
-              <p id={descriptionId} className="mt-0.5 text-xs text-ink-faint">
+              <p id={descriptionId} className="mt-0.5 text-xs text-muted-foreground">
                 {subtitle}
               </p>
             )}
@@ -144,13 +145,13 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-ink-faint transition-colors hover:bg-slate-100 hover:text-ink"
+            className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Fechar modal"
           >
             <X className="h-4.5 w-4.5" />
           </button>
         </div>
-        <div className="min-h-0 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
       </div>
     </div>,
     document.body
@@ -187,11 +188,12 @@ export function ConfirmDialog({
       size="sm"
     >
       {description && (
-        <p id={confirmDescriptionId} className="text-sm text-ink-soft">
+        <p id={confirmDescriptionId} className="text-sm text-muted-foreground">
           {description}
         </p>
       )}
-      <div className="mt-5 flex justify-end gap-2">
+      {/* Rodapé empilhado e invertido no celular (seção 18). */}
+      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button variant="outline" onClick={onClose}>
           Cancelar
         </Button>

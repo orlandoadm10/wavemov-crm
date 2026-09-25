@@ -25,7 +25,7 @@ export default async function OnboardingStepsLayout({ children }: { children: Re
   const exitHref = session.organization.onboarded_at === null ? "/onboarding/concluir" : "/dashboard";
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface">
+    <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b border-line bg-white">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
