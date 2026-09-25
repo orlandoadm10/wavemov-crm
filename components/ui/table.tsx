@@ -1,14 +1,28 @@
 import { cn } from "@/lib/utils";
+import { TINT_STRIP, TINT_SURFACE, type Tint } from "./tinted";
 
 // Tabela responsiva padrão do CRM: header cinza, linhas com hover,
 // vira scroll horizontal no mobile.
 export function DataTable({
   className,
+  tint,
   children,
 }: {
   className?: string;
+  /** Tabela de análise (print 6): painel tingido com faixa no topo. */
+  tint?: Tint;
   children: React.ReactNode;
 }) {
+  if (tint) {
+    return (
+      <div className={cn("overflow-hidden rounded-2xl border bg-linear-to-br shadow-panel", TINT_SURFACE[tint], className)}>
+        <div className={cn("h-1", TINT_STRIP[tint])} />
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left text-sm">{children}</table>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={cn("overflow-x-auto rounded-2xl border border-border bg-card shadow-panel", className)}>
       <table className="w-full min-w-[640px] text-left text-sm">{children}</table>

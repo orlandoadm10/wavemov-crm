@@ -34,7 +34,7 @@ export function ResetMemberPasswordModal({
     >
       {state?.success ? (
         <div className="space-y-4">
-          <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <p role="status" className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text">
             {state.success}
           </p>
           <div className="flex justify-end">
@@ -54,7 +54,7 @@ export function ResetMemberPasswordModal({
             A pessoa passa a entrar com esta senha na hora. Ela pode trocá-la depois em Meu perfil.
           </p>
           {state?.error && (
-            <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
               {state.error}
             </p>
           )}

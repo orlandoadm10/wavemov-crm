@@ -50,7 +50,7 @@ export default function Home() {
   return (
     // `landing` delimita o reset de `prefers-reduced-motion`, que não pode
     // alcançar o spinner e o skeleton das telas autenticadas.
-    <div className="landing min-h-screen bg-white">
+    <div className="landing min-h-screen bg-card">
       {/* Sem JS, revela na hora — a animação `reveal-failsafe` de
           `globals.css` cobre o resto (hidratação que falha, chunk que não
           chega), mas só depois do atraso dela. */}

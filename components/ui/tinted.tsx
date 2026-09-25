@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
  */
 export type Tint = "sky" | "emerald" | "rose" | "violet" | "amber" | "orange" | "cyan" | "blue" | "fuchsia";
 
-const SURFACE: Record<Tint, string> = {
+export const TINT_SURFACE: Record<Tint, string> = {
   sky: "border-sky-300/60 from-sky-50 to-sky-100/70 dark:border-sky-400/25 dark:from-sky-400/12 dark:to-sky-400/5",
   emerald: "border-emerald-300/60 from-emerald-50 to-teal-100/60 dark:border-emerald-400/25 dark:from-emerald-400/12 dark:to-emerald-400/5",
   rose: "border-rose-300/60 from-rose-50 to-pink-100/60 dark:border-rose-400/25 dark:from-rose-400/12 dark:to-rose-400/5",
@@ -43,7 +43,7 @@ const ICON: Record<Tint, string> = {
   fuchsia: "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-400/15 dark:text-fuchsia-300",
 };
 
-const STRIP: Record<Tint, string> = {
+export const TINT_STRIP: Record<Tint, string> = {
   sky: "bg-sky-500",
   emerald: "bg-emerald-500",
   rose: "bg-rose-500",
@@ -59,29 +59,35 @@ const STRIP: Record<Tint, string> = {
 export function TintStat({
   tint,
   label,
+  sublabel,
   value,
   hint,
   icon,
+  className,
 }: {
   tint: Tint;
   label: string;
+  sublabel?: string;
   value: React.ReactNode;
   hint?: React.ReactNode;
-  icon: React.ReactNode;
+  /** Sem ícone, o círculo mostra só um ponto na cor da métrica. */
+  icon?: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className={cn("rounded-2xl border bg-linear-to-br p-4 shadow-panel", SURFACE[tint])}>
+    <div className={cn("rounded-2xl border bg-linear-to-br p-4 shadow-panel", TINT_SURFACE[tint], className)}>
       <div className="flex items-start justify-between gap-3">
         <p className={cn("text-[11px] font-semibold tracking-wide uppercase", TINT_TEXT[tint])}>{label}</p>
         <span
           aria-hidden
           className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full [&_svg]:h-3.5 [&_svg]:w-3.5", ICON[tint])}
         >
-          {icon}
+          {icon ?? <span className="h-2 w-2 rounded-full bg-current" />}
         </span>
       </div>
+      {sublabel && <p className="-mt-0.5 text-[11px] text-muted-foreground">{sublabel}</p>}
       <p className="font-display mt-2 text-2xl font-bold tracking-tight text-foreground tabular-nums">{value}</p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
     </div>
   );
 }
@@ -103,8 +109,8 @@ export function TintPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-2xl border bg-linear-to-br shadow-panel", SURFACE[tint], className)}>
-      <div className={cn("h-1", STRIP[tint])} />
+    <section className={cn("overflow-hidden rounded-2xl border bg-linear-to-br shadow-panel", TINT_SURFACE[tint], className)}>
+      <div className={cn("h-1", TINT_STRIP[tint])} />
       <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-5">
         <h2 className={cn("flex items-center gap-2 font-sans text-sm font-semibold", TINT_TEXT[tint])}>
           {icon && <span className="[&_svg]:h-4 [&_svg]:w-4">{icon}</span>}

@@ -48,7 +48,7 @@ export function SourceConnectionCard({
         {url ? (
           <CopyField label="URL da conexão" value={url} />
         ) : (
-          <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
             Esta conexão está sem URL. Use &quot;Gerar URL nova&quot; em Configurações.
           </p>
         )}
@@ -62,7 +62,7 @@ export function SourceConnectionCard({
           <div
             role="status"
             aria-live="polite"
-            className="flex flex-wrap items-center gap-3 rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800"
+            className="flex flex-wrap items-center gap-3 rounded-lg bg-warning/10 px-3 py-2.5 text-sm text-warning-text"
           >
             {gaveUp ? (
               <>
@@ -74,8 +74,8 @@ export function SourceConnectionCard({
             ) : (
               <>
                 <span className="relative flex h-2.5 w-2.5" aria-hidden>
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-warning" />
                 </span>
                 <span className="flex-1">
                   Aguardando a primeira entrega… esta tela atualiza sozinha quando o teste chegar.

@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, null);
 
   return (
-    <div className="animate-fade-up rounded-2xl border border-line bg-white p-8 shadow-(--shadow-card)">
+    <div className="animate-fade-up rounded-2xl border border-line bg-card p-8 shadow-(--shadow-card)">
       <h1 className="text-xl font-bold text-ink">Entrar</h1>
       <p className="mt-1 text-sm text-ink-faint">
         Acesse sua conta para gerenciar suas negociações.
@@ -42,7 +42,7 @@ export default function LoginPage() {
         </div>
 
         {state?.error && (
-          <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
             {state.error}
           </p>
         )}

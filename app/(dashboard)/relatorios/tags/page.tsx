@@ -116,7 +116,7 @@ export default async function TagsReportPage({ searchParams }: { searchParams: S
       />
 
       {(totalsError || evolutionError || responsibleResult.error) && (
-        <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p role="alert" className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           Não foi possível carregar todas as métricas de tags. Tente novamente.
         </p>
       )}
@@ -136,7 +136,7 @@ export default async function TagsReportPage({ searchParams }: { searchParams: S
         />
       ) : (
         <>
-          <form className="mb-4 flex flex-wrap items-end gap-2 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card)">
+          <form className="mb-4 flex flex-wrap items-end gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
             {periodo && <input type="hidden" name="periodo" value={periodo} />}
             <label className="min-w-56 flex-1 text-xs font-medium text-ink-soft">
               Tag analisada
@@ -149,18 +149,18 @@ export default async function TagsReportPage({ searchParams }: { searchParams: S
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Negociações com a tag" value={selectedTag?.deals_total ?? 0} tone="blue" icon={<Tags className="h-5 w-5 text-primary-500" />} />
-            <StatCard label="Em andamento" value={selectedTag?.deals_open ?? 0} tone="amber" icon={<TrendingUp className="h-5 w-5 text-amber-500" />} />
-            <StatCard label="Ganhas" value={selectedTag?.deals_won ?? 0} tone="green" icon={<BarChart3 className="h-5 w-5 text-emerald-500" />} />
-            <StatCard label="Valor ganho" value={formatCurrency(selectedTag?.value_won ?? 0)} tone="green" icon={<BarChart3 className="h-5 w-5 text-emerald-500" />} />
+            <StatCard label="Em andamento" value={selectedTag?.deals_open ?? 0} tone="amber" icon={<TrendingUp className="h-5 w-5 text-warning-text" />} />
+            <StatCard label="Ganhas" value={selectedTag?.deals_won ?? 0} tone="green" icon={<BarChart3 className="h-5 w-5 text-success-text" />} />
+            <StatCard label="Valor ganho" value={formatCurrency(selectedTag?.value_won ?? 0)} tone="green" icon={<BarChart3 className="h-5 w-5 text-success-text" />} />
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader title="Evolução no período" subtitle={selectedTag?.name ?? "Tag selecionada"} />
+            <Card tint="sky">
+              <CardHeader tint="sky" title="Evolução no período" subtitle={selectedTag?.name ?? "Tag selecionada"} />
               <div className="p-4"><DailyLeadsChart data={evolution} height={260} /></div>
             </Card>
-            <Card>
-              <CardHeader title="Distribuição por responsável" subtitle={selectedTag?.name ?? "Tag selecionada"} />
+            <Card tint="violet">
+              <CardHeader tint="violet" title="Distribuição por responsável" subtitle={selectedTag?.name ?? "Tag selecionada"} />
               <div className="p-4">
                 {canViewTeam ? (
                   <HorizontalCountChart data={responsible} />
@@ -173,11 +173,11 @@ export default async function TagsReportPage({ searchParams }: { searchParams: S
             </Card>
           </div>
 
-          <Card className="mt-4 overflow-hidden">
-            <CardHeader title="Quantidade por tag" subtitle="Uma negociação com várias tags aparece em cada uma delas; não some as linhas como total de leads." />
+          <Card tint="emerald" className="mt-4 overflow-hidden">
+            <CardHeader tint="emerald" title="Quantidade por tag" subtitle="Uma negociação com várias tags aparece em cada uma delas; não some as linhas como total de leads." />
             <div className="overflow-x-auto">
               <table className="min-w-[760px] w-full text-sm">
-                <thead className="bg-slate-50/80 text-left text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+                <thead className="bg-muted/50 text-left text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
                   <tr><th className="px-5 py-3">Tag</th><th className="px-5 py-3">Categoria</th><th className="px-5 py-3 text-right">Total</th><th className="px-5 py-3 text-right">Abertas</th><th className="px-5 py-3 text-right">Ganhas</th><th className="px-5 py-3 text-right">Perdidas</th><th className="px-5 py-3 text-right">Valor ganho</th></tr>
                 </thead>
                 <tbody className="divide-y divide-line">

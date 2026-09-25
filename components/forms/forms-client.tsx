@@ -285,17 +285,17 @@ export function FormsClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card)">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
           <Input
-            className="pl-9"
+            className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
             placeholder="Buscar formulário…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button onClick={openCreate}>
+        <Button className="h-10 rounded-xl" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           Novo formulário
         </Button>
@@ -305,7 +305,7 @@ export function FormsClient({
           da lista (ativar/desativar), que acontecem com o modal fechado e
           antes só falhavam em silêncio. */}
       {error && !modalOpen && (
-        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           {error}
         </p>
       )}
@@ -330,7 +330,7 @@ export function FormsClient({
             return (
               <div
                 key={form.id}
-                className="flex flex-col rounded-2xl border border-line bg-white p-5 shadow-(--shadow-card) transition-shadow hover:shadow-(--shadow-pop)"
+                className="flex flex-col rounded-2xl border border-line bg-card p-5 shadow-(--shadow-card) transition-shadow hover:shadow-(--shadow-pop)"
               >
                 <div className="mb-3 flex items-center justify-between">
                   <button onClick={() => toggleActive(form)}>
@@ -463,7 +463,7 @@ export function FormsClient({
             </Field>
             <p id="external-id-hint" className="-mt-2 text-xs text-ink-faint">
               Preencha para receber leads deste formulário por um fluxo do n8n. É o valor
-              que vai em <code className="rounded bg-slate-100 px-1">form_external_id</code>.
+              que vai em <code className="rounded bg-muted px-1">form_external_id</code>.
               Cole o id da origem <b>exatamente como ele é</b> — maiúsculas e minúsculas
               contam, e trocar a caixa faz o n8n receber 404. Letras, números, hífen ou
               sublinhado. Deixe vazio se o formulário só for usado pela página pública.
@@ -487,9 +487,9 @@ export function FormsClient({
                 <Plus className="h-3.5 w-3.5" /> Campo
               </Button>
             </div>
-            <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-line bg-slate-50/60 p-3">
+            <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-line bg-muted/50 p-3">
               {fields.map((f, i) => (
-                <div key={i} className="rounded-xl border border-line bg-white p-3">
+                <div key={i} className="rounded-xl border border-line bg-card p-3">
                   <div className="flex items-center gap-2">
                     <Input
                       className="h-8 flex-1 text-xs"
@@ -525,19 +525,19 @@ export function FormsClient({
                     <div className="flex items-center gap-0.5">
                       <button
                         onClick={() => moveField(i, -1)}
-                        className="rounded p-1 text-ink-faint hover:bg-slate-100"
+                        className="rounded p-1 text-ink-faint hover:bg-muted"
                       >
                         <ArrowUp className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => moveField(i, 1)}
-                        className="rounded p-1 text-ink-faint hover:bg-slate-100"
+                        className="rounded p-1 text-ink-faint hover:bg-muted"
                       >
                         <ArrowDown className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => setFields((prev) => prev.filter((_, j) => j !== i))}
-                        className="rounded p-1 text-ink-faint hover:bg-rose-50 hover:text-rose-600"
+                        className="rounded p-1 text-ink-faint hover:bg-destructive/10 hover:text-destructive-text"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -562,7 +562,7 @@ export function FormsClient({
         </div>
 
         {error && (
-          <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+          <p className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{error}</p>
         )}
 
         <div className="mt-5 flex justify-end gap-2">

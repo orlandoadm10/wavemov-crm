@@ -2,6 +2,47 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-25 — Design Jidianos nas demais telas
+
+Pedido do P.O.: aplicar o design dos prints em todas as telas restantes, sem
+mudar funcionalidade.
+
+**Entregue.**
+
+- **Cores fixas → tokens, no app inteiro** (427 trocas em 81 arquivos, por
+  script com mapa por família: cinzas → `muted`/`foreground`/`border`,
+  vermelho → `destructive`, verde → `success`, âmbar → `warning`, azul →
+  `primary`, branco → `card`). Ficaram de fora, de propósito: a landing
+  pública, os tons por métrica do Dashboard e dos badges (com `dark:`
+  próprio), o branco translúcido sobre o azul da sidebar e sobreposições
+  pretas. Acentos violeta/ciano ganharam variante `dark:`.
+- **Indicadores:** `StatCard` passou a ser o indicador tingido do print 5 —
+  relatórios, resumo da empresa e IA herdam sem mudar a tela. Os componentes
+  tingidos moraram para `components/ui/tinted.tsx`.
+- **Painéis de análise:** `Card`, `CardHeader` e `DataTable` ganham `tint`
+  (fundo tingido, faixa colorida no topo, título na cor). Aplicado aos
+  relatórios (entrada, vendedores, carteira, tags, último lead), ao resumo da
+  empresa e às tabelas de relatório. Formulários e configurações seguem no
+  cartão branco do guia.
+- **Atendimento:** fundo `padrao-conversa`, balão enviado em `primary` com
+  texto secundário legível nos dois temas, filtros em pílulas, conversa
+  selecionada com barra azul, busca no padrão do print 3.
+- **Listas** (Contatos, Empresas, Pessoas, Tarefas, Formulários, Admin,
+  Carteira, relatório de entrada): busca com borda azul de 2 px, seletores e
+  botão principal de 40 px com raio de 12 px.
+- **Login/cadastro e faixa de próxima tarefa:** `bg-gradient-brand` no lugar de
+  `primary-700/900` (que clareava no escuro).
+- Gráficos antigos (`DailyLeadsChart`, `HorizontalCountChart`…) com os
+  neutros novos de eixo e grade.
+
+**Validação.** `tsc`, `npm run test:unit` (212), `npm run build`, `git diff
+--check` e conferência visual de relatório, Contatos, Tarefas e conversa com
+página temporária (removida). Telas reais não conferidas logado.
+
+**Modo escuro:** com a varredura, o app está pronto para ele; a alternância
+ainda não está na tela — é a próxima entrega (etapa 4), que inclui conferir
+cada tela no escuro.
+
 ## 2026-09-25 — Design Jidianos, etapas 2 e 3: telas nos prints de referência
 
 O P.O. enviou 11 prints do Jidianos (`docs/printdesign1..11.jpeg` na pasta

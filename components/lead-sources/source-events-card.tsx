@@ -71,9 +71,9 @@ export function SourceEventsCard({ events }: { events: SourceEventView[] }) {
                   </Button>
                 )}
               </div>
-              {event.error && <p className="text-xs text-rose-700">{event.error}</p>}
+              {event.error && <p className="text-xs text-destructive-text">{event.error}</p>}
               {feedback?.eventId === event.id && (
-                <p role={feedback.error ? "alert" : "status"} className={feedback.error ? "text-xs text-rose-700" : "text-xs text-emerald-700"}>
+                <p role={feedback.error ? "alert" : "status"} className={feedback.error ? "text-xs text-destructive-text" : "text-xs text-success-text"}>
                   {feedback.error ?? feedback.success}
                 </p>
               )}
@@ -82,7 +82,7 @@ export function SourceEventsCard({ events }: { events: SourceEventView[] }) {
                   <summary className="cursor-pointer text-ink-faint hover:text-primary-700">
                     Ver os {event.fields.length} campos recebidos
                   </summary>
-                  <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 rounded-lg bg-slate-50 p-3 ring-1 ring-line sm:grid-cols-[minmax(0,14rem)_1fr]">
+                  <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 rounded-lg bg-muted/50 p-3 ring-1 ring-line sm:grid-cols-[minmax(0,14rem)_1fr]">
                     {event.fields.map((field) => (
                       <div key={field.key} className="contents">
                         <dt className="truncate text-ink-faint" title={field.key}>{field.label}</dt>

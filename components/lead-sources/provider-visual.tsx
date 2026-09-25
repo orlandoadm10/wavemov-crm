@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 import { ClipboardList, Megaphone, Webhook, type LucideIcon } from "lucide-react";
 
 const VISUAL: Record<LeadSourceProvider, { icon: LucideIcon; className: string }> = {
-  typeform: { icon: ClipboardList, className: "bg-violet-50 text-violet-700" },
-  webhook: { icon: Webhook, className: "bg-cyan-50 text-cyan-700" },
+  typeform: { icon: ClipboardList, className: "bg-violet-50 dark:bg-violet-400/15 text-violet-700 dark:text-violet-200" },
+  webhook: { icon: Webhook, className: "bg-cyan-50 dark:bg-cyan-400/15 text-cyan-700 dark:text-cyan-200" },
   meta_lead_ads: { icon: Megaphone, className: "bg-primary-50 text-primary-700" },
 };
 

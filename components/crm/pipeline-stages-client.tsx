@@ -540,7 +540,7 @@ export function PipelineStagesClient({
             </p>
           </div>
           {pipelines.length >= 10 && (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 ring-1 ring-inset ring-amber-100">
+            <p className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning-text ring-1 ring-inset ring-warning/20">
               Esta empresa já tem {pipelines.length} funis. Muitos funis costumam ser etapas
               disfarçadas: confira se o caso não cabe numa etapa do funil existente.
             </p>
@@ -642,7 +642,7 @@ export function PipelineStagesClient({
           </p>
         ) : null}
         {deleteError && (
-          <p role="alert" className="mt-3 text-xs text-rose-600">
+          <p role="alert" className="mt-3 text-xs text-destructive-text">
             {deleteError}
           </p>
         )}
@@ -734,7 +734,7 @@ export function PipelineStagesClient({
             )}
             {canDelete && (
               <Button variant="outline" aria-label="Excluir funil" onClick={openDelete}>
-                <Trash2 className="h-4 w-4 text-rose-500" />
+                <Trash2 className="h-4 w-4 text-destructive-text" />
                 Excluir
               </Button>
             )}
@@ -757,7 +757,7 @@ export function PipelineStagesClient({
       )}
 
       {error && (
-        <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p role="alert" className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           {error}
         </p>
       )}
@@ -796,7 +796,7 @@ export function PipelineStagesClient({
                     </span>
                     <span className="text-xs text-ink-faint">negócios</span>
                   </p>
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100">
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-muted">
                     <div
                       className="h-1.5 rounded-full"
                       style={{
@@ -828,7 +828,7 @@ export function PipelineStagesClient({
 
       {/* Editor das etapas */}
       <Card className="mt-4 overflow-hidden">
-        <div className="hidden grid-cols-[64px_1fr_220px_140px_56px] gap-4 border-b border-line bg-slate-50/80 px-5 py-3.5 text-[11px] font-semibold tracking-wide text-ink-faint uppercase lg:grid">
+        <div className="hidden grid-cols-[64px_1fr_220px_140px_56px] gap-4 border-b border-line bg-muted/50 px-5 py-3.5 text-[11px] font-semibold tracking-wide text-ink-faint uppercase lg:grid">
           <span>Ordem</span>
           <span>Etapa</span>
           <span>ID</span>
@@ -854,7 +854,7 @@ export function PipelineStagesClient({
                       aria-label={`Mover ${stage.name} para cima`}
                       disabled={index === 0 || busy}
                       onClick={() => move(index, -1)}
-                      className="rounded p-0.5 text-ink-faint hover:bg-slate-100 hover:text-ink disabled:opacity-30"
+                      className="rounded p-0.5 text-ink-faint hover:bg-muted hover:text-ink disabled:opacity-30"
                     >
                       <ArrowUp className="h-3.5 w-3.5" />
                     </button>
@@ -863,7 +863,7 @@ export function PipelineStagesClient({
                       aria-label={`Mover ${stage.name} para baixo`}
                       disabled={index === stages.length - 1 || busy}
                       onClick={() => move(index, 1)}
-                      className="rounded p-0.5 text-ink-faint hover:bg-slate-100 hover:text-ink disabled:opacity-30"
+                      className="rounded p-0.5 text-ink-faint hover:bg-muted hover:text-ink disabled:opacity-30"
                     >
                       <ArrowDown className="h-3.5 w-3.5" />
                     </button>
@@ -885,7 +885,7 @@ export function PipelineStagesClient({
                   }}
                 />
                 {savedId === stage.id && (
-                  <Check className="h-4 w-4 shrink-0 text-emerald-500" aria-label="Salvo" />
+                  <Check className="h-4 w-4 shrink-0 text-success-text" aria-label="Salvo" />
                 )}
               </div>
 
@@ -898,7 +898,7 @@ export function PipelineStagesClient({
               >
                 <span className="truncate font-mono">{stage.id}</span>
                 {copiedId === stage.id ? (
-                  <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <Check className="h-3.5 w-3.5 shrink-0 text-success-text" />
                 ) : (
                   <Copy className="h-3.5 w-3.5 shrink-0" />
                 )}
@@ -915,8 +915,8 @@ export function PipelineStagesClient({
                       className={cn(
                         "rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset transition-colors",
                         stage.is_won_stage
-                          ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
-                          : "bg-white text-ink-faint ring-line hover:text-emerald-700"
+                          ? "bg-success/10 text-success-text ring-success/20"
+                          : "bg-card text-ink-faint ring-line hover:text-success-text"
                       )}
                     >
                       Ganho
@@ -928,8 +928,8 @@ export function PipelineStagesClient({
                       className={cn(
                         "rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset transition-colors",
                         stage.is_lost_stage
-                          ? "bg-rose-50 text-rose-700 ring-rose-100"
-                          : "bg-white text-ink-faint ring-line hover:text-rose-700"
+                          ? "bg-destructive/10 text-destructive-text ring-destructive/20"
+                          : "bg-card text-ink-faint ring-line hover:text-destructive-text"
                       )}
                     >
                       Perdido
@@ -942,8 +942,8 @@ export function PipelineStagesClient({
                       className={cn(
                         "rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset transition-colors",
                         stage.requires_human
-                          ? "bg-violet-50 text-violet-700 ring-violet-100"
-                          : "bg-white text-ink-faint ring-line hover:text-violet-700"
+                          ? "bg-violet-50 dark:bg-violet-400/15 text-violet-700 dark:text-violet-200 ring-violet-100 dark:ring-violet-300/25"
+                          : "bg-card text-ink-faint ring-line hover:text-violet-700"
                       )}
                     >
                       Só humano
@@ -964,7 +964,7 @@ export function PipelineStagesClient({
                     aria-label={`Excluir etapa ${stage.name}`}
                     disabled={busy}
                     onClick={() => removeStage(stage)}
-                    className="rounded-lg p-2 text-ink-faint transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+                    className="rounded-lg p-2 text-ink-faint transition-colors hover:bg-destructive/10 hover:text-destructive-text disabled:opacity-40"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

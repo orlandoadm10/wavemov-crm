@@ -106,18 +106,18 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
       {/* Busca e filtros. Celular: busca + botão numa linha, os três filtros
           em grade logo abaixo — antes eles disputavam a mesma linha e a busca
           ficava com 40px. */}
-      <div className="space-y-2 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card) lg:flex lg:items-center lg:gap-2 lg:space-y-0">
+      <div className="space-y-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card) lg:flex lg:items-center lg:gap-2 lg:space-y-0">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="relative min-w-0 flex-1">
-            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
             <Input
-              className="pl-9"
+              className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
               placeholder="Pesquisar tarefa…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button className="shrink-0 lg:hidden" onClick={() => setModalOpen(true)} aria-label="Criar tarefa">
+          <Button className="h-10 shrink-0 rounded-xl lg:hidden" onClick={() => setModalOpen(true)} aria-label="Criar tarefa">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Criar Tarefa</span>
           </Button>
@@ -125,7 +125,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
         <div className="grid grid-cols-3 gap-2 lg:flex lg:w-auto">
           <Select
             aria-label="Situação"
-            className="min-w-0 lg:w-auto lg:min-w-32"
+            className="h-10 rounded-xl bg-card min-w-0 lg:w-auto lg:min-w-32"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -136,7 +136,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
           </Select>
           <Select
             aria-label="Prioridade"
-            className="min-w-0 lg:w-auto lg:min-w-32"
+            className="h-10 rounded-xl bg-card min-w-0 lg:w-auto lg:min-w-32"
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
           >
@@ -147,7 +147,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
           </Select>
           <Select
             aria-label="Responsável"
-            className="min-w-0 lg:w-auto lg:min-w-36"
+            className="h-10 rounded-xl bg-card min-w-0 lg:w-auto lg:min-w-36"
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
           >
@@ -159,26 +159,26 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
             ))}
           </Select>
         </div>
-        <Button className="hidden shrink-0 lg:inline-flex" onClick={() => setModalOpen(true)}>
+        <Button className="hidden h-10 shrink-0 rounded-xl lg:inline-flex" onClick={() => setModalOpen(true)}>
           <Plus className="h-4 w-4" />
           Criar Tarefa
         </Button>
       </div>
 
       {/* Banner próxima tarefa */}
-      <div className="flex items-center justify-between gap-3 rounded-2xl bg-primary-700 px-4 py-3 text-white shadow-(--shadow-card) sm:px-5 sm:py-4">
+      <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-brand px-4 py-3 text-white shadow-panel sm:px-5 sm:py-4">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
-          <CheckCircle2 className="h-5 w-5 shrink-0 text-primary-200" />
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-white/80" />
           <span className="shrink-0 text-sm font-semibold">Próxima tarefa:</span>
           {nextTask ? (
             <span className="max-w-full truncate rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
               {nextTask.title} · {formatDateTime(nextTask.due_at)}
             </span>
           ) : (
-            <span className="text-sm text-primary-200">Nenhuma tarefa agendada 🎉</span>
+            <span className="text-sm text-white/80">Nenhuma tarefa agendada 🎉</span>
           )}
         </div>
-        <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-primary-700">
+        <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-primary">
           Tarefas: {filtered.length}
         </span>
       </div>
@@ -204,7 +204,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
               <li
                 key={task.id}
                 className={cn(
-                  "flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 shadow-(--shadow-card) transition-shadow hover:shadow-(--shadow-pop)",
+                  "flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3 shadow-(--shadow-card) transition-shadow hover:shadow-(--shadow-pop)",
                   task.status === "done" && "opacity-60"
                 )}
               >
@@ -213,8 +213,8 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
                   className={cn(
                     "flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
                     task.status === "done"
-                      ? "border-emerald-500 bg-emerald-500 text-white"
-                      : "border-slate-300 hover:border-primary-500"
+                      ? "border-success bg-success text-white"
+                      : "border-border hover:border-primary-500"
                   )}
                   aria-label="Alternar conclusão"
                 >
@@ -242,7 +242,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
                 <div className="order-last flex w-full flex-wrap items-center gap-1.5 pl-8 sm:order-none sm:w-auto sm:gap-2 sm:pl-0">
                   {task.deal_id && (
                     <Link href={`/negociacoes/${task.deal_id}`}>
-                      <Badge tone="green" className="hover:bg-emerald-100">🔗 Lead</Badge>
+                      <Badge tone="green" className="hover:bg-success/15">🔗 Lead</Badge>
                     </Link>
                   )}
                   {task.due_at && (
@@ -265,7 +265,7 @@ export function TasksClient({ organizationId, profileId, tasks, members, deals, 
                   </button>
                   <button
                     onClick={() => setDeleting(task)}
-                    className="rounded-lg p-2 text-ink-faint transition-colors hover:bg-rose-50 hover:text-rose-600"
+                    className="rounded-lg p-2 text-ink-faint transition-colors hover:bg-destructive/10 hover:text-destructive-text"
                     aria-label="Excluir"
                   >
                     <Trash2 className="h-4 w-4" />

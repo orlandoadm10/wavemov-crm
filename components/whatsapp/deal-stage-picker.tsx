@@ -354,11 +354,11 @@ export function DealStagePicker({
             Salvando…
           </span>
         ) : done ? (
-          <span className="text-emerald-700">{done}</span>
+          <span className="text-success-text">{done}</span>
         ) : null}
       </p>
       {error && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-destructive-text">
           {error}
         </p>
       )}

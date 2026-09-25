@@ -56,7 +56,7 @@ export default async function OnboardingFinishPage() {
                 <div className="flex min-w-0 items-center gap-3">
                   <span
                     aria-hidden
-                    className={cn("h-2.5 w-2.5 shrink-0 rounded-full", done ? "bg-emerald-500" : "bg-slate-300")}
+                    className={cn("h-2.5 w-2.5 shrink-0 rounded-full", done ? "bg-success" : "bg-muted-foreground/40")}
                   />
                   <div className="min-w-0">
                     <p className={cn("text-sm font-medium", done ? "text-ink" : "text-ink-soft")}>{step.label}</p>
@@ -64,7 +64,7 @@ export default async function OnboardingFinishPage() {
                   </div>
                 </div>
                 <span className="flex shrink-0 items-center gap-3 text-xs">
-                  <span className={done ? "text-emerald-700" : "text-ink-faint"}>
+                  <span className={done ? "text-success-text" : "text-ink-faint"}>
                     {done ? "Pronto" : skipped ? "Você pulou" : "Ainda não"}
                   </span>
                   {!done && (
@@ -89,7 +89,7 @@ export default async function OnboardingFinishPage() {
         </div>
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {WHAT_ELSE.map(({ href, icon: Icon, title, text }) => (
-            <li key={href} className="rounded-xl border border-line bg-white p-4">
+            <li key={href} className="rounded-xl border border-line bg-card p-4">
               <p className="flex items-center gap-2 text-sm font-semibold text-ink">
                 <Icon aria-hidden className="h-4 w-4 text-primary-600" />
                 {title}

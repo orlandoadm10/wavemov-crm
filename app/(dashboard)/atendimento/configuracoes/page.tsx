@@ -63,7 +63,7 @@ export default async function ConfiguracoesWhatsAppPage() {
         actions={
           <Link
             href="/atendimento"
-            className="rounded-lg border border-line bg-white px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:text-primary-700"
+            className="rounded-lg border border-line bg-card px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:text-primary-700"
           >
             ← Voltar ao atendimento
           </Link>

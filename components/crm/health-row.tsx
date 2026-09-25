@@ -13,10 +13,10 @@ import type { ReactNode } from "react";
 export type HealthTone = "green" | "amber" | "red" | "slate";
 
 const TONE_DOT: Record<HealthTone, string> = {
-  green: "bg-emerald-500",
-  amber: "bg-amber-500",
-  red: "bg-rose-500",
-  slate: "bg-slate-300",
+  green: "bg-success",
+  amber: "bg-warning",
+  red: "bg-destructive",
+  slate: "bg-muted-foreground/40",
 };
 
 export function HealthRow({
@@ -38,7 +38,7 @@ export function HealthRow({
   return (
     <li className="flex items-center gap-3 px-5 py-3.5">
       <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone]}`} aria-hidden="true" />
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-ink-faint">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/50 text-ink-faint">
         {icon}
       </span>
       <div className="min-w-0 flex-1">

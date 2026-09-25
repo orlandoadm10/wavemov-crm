@@ -121,11 +121,11 @@ export function LeadPortfolioTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card)">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
           <Input
-            className="pl-9"
+            className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
             placeholder="Buscar por lead ou contato…"
             aria-label="Buscar por lead ou contato"
             value={termo}
@@ -133,7 +133,7 @@ export function LeadPortfolioTable({
           />
         </div>
         <Select
-          className="w-auto min-w-48"
+          className="h-10 rounded-xl bg-card w-auto min-w-48"
           aria-label="Filtrar por tempo sem tratativa"
           value={janela}
           onChange={(e) => setParams({ janela: e.target.value })}
@@ -148,7 +148,7 @@ export function LeadPortfolioTable({
             ali a tabela vira cartões e não existe cabeçalho para clicar. Sem
             ele, ordenar deixaria de existir no celular. */}
         <Select
-          className="w-auto min-w-44"
+          className="h-10 rounded-xl bg-card w-auto min-w-44"
           aria-label="Ordenar a carteira"
           value={ordem}
           onChange={(e) => setParams({ ordem: e.target.value })}
@@ -163,7 +163,7 @@ export function LeadPortfolioTable({
         // afirmação, e uma consulta que falhou não a sustenta.
         <div
           role="alert"
-          className="flex items-center gap-3 rounded-2xl border border-line bg-rose-50 p-4 text-sm text-rose-800"
+          className="flex items-center gap-3 rounded-2xl border border-line bg-destructive/10 p-4 text-sm text-destructive-text"
         >
           <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
@@ -216,7 +216,7 @@ export function LeadPortfolioTable({
                 <li key={l.deal_id}>
                   <Link
                     href={`/negociacoes/${l.deal_id}`}
-                    className="block rounded-2xl border border-line bg-white p-4 shadow-(--shadow-card) transition-colors hover:border-primary-200"
+                    className="block rounded-2xl border border-line bg-card p-4 shadow-(--shadow-card) transition-colors hover:border-primary-200"
                   >
                     <div className="flex items-start gap-3">
                       {tom === "slate" ? (
@@ -279,7 +279,7 @@ export function LeadPortfolioTable({
           </ul>
 
           <div className="hidden md:block">
-          <DataTable>
+          <DataTable tint="cyan">
             <THead>
               {/* "Parado há" é a primeira coluna porque é a que ordena: o olho
                   precisa conferir o ranking sem atravessar a tabela. */}

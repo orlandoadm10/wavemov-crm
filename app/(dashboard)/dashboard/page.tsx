@@ -4,7 +4,7 @@ import { IngestionAlertBanner } from "@/components/crm/ingestion-alert-banner";
 import { CampaignSales } from "@/components/dashboard/campaign-sales";
 import { LossReasons, SellerRanking } from "@/components/dashboard/seller-and-loss";
 import { StageFunnel } from "@/components/dashboard/stage-funnel";
-import { TintPanel, TintStat } from "@/components/dashboard/tinted";
+import { TintPanel, TintStat } from "@/components/ui/tinted";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   campaignStats,

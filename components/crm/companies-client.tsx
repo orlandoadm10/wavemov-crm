@@ -134,14 +134,14 @@ export function CompaniesClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card)">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
         <Badge tone="blue" className="px-3 py-1.5">
           Todas empresas · {organizations.length}
         </Badge>
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
           <Input
-            className="pl-9"
+            className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
             placeholder="Buscar empresa…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -149,7 +149,7 @@ export function CompaniesClient({
         </div>
         {segments.length > 0 && (
           <Select
-            className="w-auto min-w-36"
+            className="h-10 rounded-xl bg-card w-auto min-w-36"
             value={segmentFilter}
             onChange={(e) => setSegmentFilter(e.target.value)}
           >
@@ -161,13 +161,13 @@ export function CompaniesClient({
             ))}
           </Select>
         )}
-        <Select className="w-auto min-w-40" value={sort} onChange={(e) => setSort(e.target.value)}>
+        <Select className="h-10 rounded-xl bg-card w-auto min-w-40" value={sort} onChange={(e) => setSort(e.target.value)}>
           <option value="recente">Modificada recente</option>
           <option value="nome">Nome (A-Z)</option>
           <option value="leads">Mais leads</option>
         </Select>
         {isGlobalAdmin && (
-          <Button onClick={() => setModalOpen(true)}>
+          <Button className="h-10 rounded-xl" onClick={() => setModalOpen(true)}>
             <Plus className="h-4 w-4" />
             Empresa
           </Button>
@@ -223,7 +223,7 @@ export function CompaniesClient({
                   <div className="flex justify-end">
                     <Dropdown
                       trigger={
-                        <button className="rounded-lg p-2 text-ink-faint hover:bg-slate-100 hover:text-ink">
+                        <button className="rounded-lg p-2 text-ink-faint hover:bg-muted hover:text-ink">
                           <MoreVertical className="h-4 w-4" />
                         </button>
                       }
@@ -282,13 +282,13 @@ export function CompaniesClient({
             <Input placeholder="https://…" {...register("logo_url")} />
           </Field>
           {editing && (
-            <div className="flex items-center justify-between rounded-xl border border-line bg-slate-50/60 px-4 py-3">
+            <div className="flex items-center justify-between rounded-xl border border-line bg-muted/50 px-4 py-3">
               <span className="text-sm font-medium text-ink-soft">Empresa ativa</span>
               <Switch checked={editing.is_active} onChange={() => toggleActive(editing)} />
             </div>
           )}
           {error && (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{error}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={closeModal}>

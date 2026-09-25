@@ -127,7 +127,7 @@ export default async function UltimoLeadPage() {
       <ReportNav />
 
       {/* Cabeçalho do lead */}
-      <Card className="p-5">
+      <Card tint="sky" className="p-5">
         <div className="flex flex-wrap items-start gap-5">
           <Avatar name={lead.contact?.name ?? lead.title} src={lead.contact?.avatar_url} size="xl" />
 
@@ -177,7 +177,7 @@ export default async function UltimoLeadPage() {
                 icon={<Star className="h-4 w-4 text-primary-500" />}
                 label="Valor"
                 value={
-                  <span className="font-semibold text-emerald-600">
+                  <span className="font-semibold text-success-text">
                     {formatCurrency(lead.value)}
                   </span>
                 }
@@ -233,8 +233,8 @@ export default async function UltimoLeadPage() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         {/* Respostas do formulário */}
-        <Card>
-          <CardHeader title="Informações do lead" subtitle="Dados de contato e respostas" />
+        <Card tint="violet">
+          <CardHeader tint="violet" title="Informações do lead" subtitle="Dados de contato e respostas" />
           <ul className="divide-y divide-line">
             {lead.contact?.email && (
               <InfoRow icon={<Mail className="h-4 w-4" />} label="E-mail" value={lead.contact.email} />
@@ -261,8 +261,8 @@ export default async function UltimoLeadPage() {
         </Card>
 
         {/* Origem e entrada */}
-        <Card>
-          <CardHeader title="Origem e entrada" subtitle="De onde este lead veio" />
+        <Card tint="emerald">
+          <CardHeader tint="emerald" title="Origem e entrada" subtitle="De onde este lead veio" />
           <ul className="divide-y divide-line">
             <InfoRow label="Empresa" value={session.organization.name} />
             <InfoRow label="Formulário" value={submission?.form?.name ?? "—"} />
@@ -277,8 +277,8 @@ export default async function UltimoLeadPage() {
         </Card>
 
         {/* Timeline */}
-        <Card>
-          <CardHeader
+        <Card tint="rose">
+          <CardHeader tint="rose"
             title="Timeline do lead"
             subtitle={`${activities.length} atividade(s) recente(s)`}
             action={
@@ -320,7 +320,7 @@ export default async function UltimoLeadPage() {
 
           A tabela de seis linhas que ficava aqui virou a carteira paginada em
           `/relatorios/carteira?ordem=recentes`. */}
-      <Card className="mt-4">
+      <Card tint="amber" className="mt-4">
         <div className="flex flex-wrap items-center justify-between gap-3 p-5">
           <div>
             <p className="text-sm font-semibold text-ink">Ver a carteira completa</p>

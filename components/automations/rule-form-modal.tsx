@@ -134,7 +134,7 @@ export function RuleFormModal({
           </div>
         </section>
 
-        <section className="rounded-2xl border border-line bg-slate-50/60 p-4">
+        <section className="rounded-2xl border border-line bg-muted/50 p-4">
           <h3 className="mb-3 text-sm font-semibold text-ink">1. Quando</h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Gatilho" className="sm:col-span-3">
@@ -214,7 +214,7 @@ export function RuleFormModal({
           </div>
         </section>
 
-        <section className="rounded-2xl border border-line bg-slate-50/60 p-4">
+        <section className="rounded-2xl border border-line bg-muted/50 p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-ink">2. Se (opcional)</h3>
             <Button
@@ -263,7 +263,7 @@ export function RuleFormModal({
           )}
         </section>
 
-        <section className="rounded-2xl border border-line bg-slate-50/60 p-4">
+        <section className="rounded-2xl border border-line bg-muted/50 p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-ink">3. Então</h3>
             <Button
@@ -278,7 +278,7 @@ export function RuleFormModal({
           </div>
           <div className="space-y-3">
             {draft.actions.map((action, i) => (
-              <div key={i} className="rounded-xl border border-line bg-white p-3">
+              <div key={i} className="rounded-xl border border-line bg-card p-3">
                 <div className="mb-3 flex items-center gap-2">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary-700">
                     {i + 1}
@@ -328,7 +328,7 @@ export function RuleFormModal({
           </div>
         </section>
 
-        {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{error}</p>}
 
         <div className="flex justify-end gap-2 border-t border-line pt-4">
           <Button type="button" variant="outline" onClick={onClose}>

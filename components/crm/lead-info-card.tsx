@@ -107,7 +107,7 @@ export function LeadInfoCard({
         autoFocus
       />
       <p className="text-xs text-ink-faint">
-        Uma linha por informação, no formato <code className="rounded bg-slate-100 px-1">pergunta: resposta</code>.
+        Uma linha por informação, no formato <code className="rounded bg-muted px-1">pergunta: resposta</code>.
         Toda alteração fica registrada no histórico do lead.
       </p>
       <div className="flex gap-2">
@@ -120,7 +120,7 @@ export function LeadInfoCard({
       </div>
     </div>
   ) : info.answers.length > 0 ? (
-    <dl className="rounded-xl bg-slate-50/70 px-4 py-3 ring-1 ring-line">
+    <dl className="rounded-xl bg-muted/50 px-4 py-3 ring-1 ring-line">
       {info.answers.map((answer, index) => (
         <div key={`${answer.question}-${index}`} className="flex flex-wrap gap-x-2 py-0.5 text-sm">
           {answer.question && <dt className="text-ink-soft">{answer.question}:</dt>}
@@ -129,7 +129,7 @@ export function LeadInfoCard({
       ))}
     </dl>
   ) : (
-    <p className="rounded-xl bg-slate-50/70 px-4 py-3 text-sm text-ink-faint ring-1 ring-line">
+    <p className="rounded-xl bg-muted/50 px-4 py-3 text-sm text-ink-faint ring-1 ring-line">
       Nenhuma informação registrada para este lead.
     </p>
   );
@@ -139,8 +139,8 @@ export function LeadInfoCard({
       role={message.type === "error" ? "alert" : undefined}
       className={
         message.type === "ok"
-          ? "mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700"
-          : "mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700"
+          ? "mt-3 rounded-lg bg-success/10 px-3 py-2 text-xs text-success-text"
+          : "mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive-text"
       }
     >
       {message.text}
@@ -150,7 +150,7 @@ export function LeadInfoCard({
   const lapis = editavel && !editing && (
     <button
       onClick={abrirEdicao}
-      className="-m-1 flex h-9 w-9 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-slate-100 hover:text-primary-700"
+      className="-m-1 flex h-9 w-9 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-muted hover:text-primary-700"
       aria-label="Editar informações do lead"
     >
       <Pencil className="h-4 w-4" />

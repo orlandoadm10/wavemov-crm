@@ -43,10 +43,10 @@ export function AgentsPanel({ agents, defaultModel }: { agents: AiAgent[]; defau
       </div>
 
       {feedback?.error && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{feedback.error}</p>
+        <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{feedback.error}</p>
       )}
       {feedback?.success && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{feedback.success}</p>
+        <p className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text">{feedback.success}</p>
       )}
 
       {agents.length === 0 ? (
@@ -66,7 +66,7 @@ export function AgentsPanel({ agents, defaultModel }: { agents: AiAgent[]; defau
             <Card key={agent.id} className="flex flex-col p-5 transition-shadow hover:shadow-(--shadow-pop)">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-400/15 text-violet-700 dark:text-violet-200">
                     <Bot className="h-5 w-5" />
                   </span>
                   <div className="min-w-0">
@@ -93,7 +93,7 @@ export function AgentsPanel({ agents, defaultModel }: { agents: AiAgent[]; defau
                 <Button variant="outline" size="sm" onClick={() => setEditing(agent)}>
                   <Pencil className="h-3.5 w-3.5" /> Editar
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setRemoving(agent)} className="hover:bg-rose-50 hover:text-rose-600">
+                <Button variant="ghost" size="sm" onClick={() => setRemoving(agent)} className="hover:bg-destructive/10 hover:text-destructive-text">
                   <Trash2 className="h-3.5 w-3.5" /> Excluir
                 </Button>
               </div>

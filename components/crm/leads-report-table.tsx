@@ -41,8 +41,9 @@ export function LeadsReportTable({
   }, [rows, query, form]);
 
   return (
-    <Card className="overflow-hidden">
+    <Card tint="violet" className="overflow-hidden">
       <CardHeader
+        tint="violet"
         title={
           <span className="flex items-center gap-2">
             <UserRound className="h-4 w-4 text-primary-500" />
@@ -53,9 +54,9 @@ export function LeadsReportTable({
         action={
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
-              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
               <Input
-                className="h-9 w-56 pl-9 text-xs"
+                className="h-10 w-56 rounded-xl border-2 border-primary/70 bg-card pl-9 text-xs focus:border-primary focus:ring-0"
                 placeholder="Buscar lead, formulário ou responsável…"
                 aria-label="Buscar leads"
                 value={query}
@@ -92,7 +93,7 @@ export function LeadsReportTable({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
-              <tr className="border-b border-line bg-slate-50/80 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+              <tr className="border-b border-line bg-muted/50 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
                 <th className="px-5 py-3.5 whitespace-nowrap">Data/Hora</th>
                 <th className="px-5 py-3.5 whitespace-nowrap">Lead</th>
                 <th className="px-5 py-3.5 whitespace-nowrap">WhatsApp</th>
@@ -121,7 +122,7 @@ export function LeadsReportTable({
                   <td className="px-5 py-3.5 whitespace-nowrap">
                     {r.whatsapp ? (
                       <span className="flex items-center gap-1.5 text-ink-soft">
-                        <MessageCircle className="h-3.5 w-3.5 text-emerald-500" />
+                        <MessageCircle className="h-3.5 w-3.5 text-success-text" />
                         +{r.whatsapp}
                       </span>
                     ) : (
@@ -141,7 +142,7 @@ export function LeadsReportTable({
                   <td className="px-5 py-3.5 whitespace-nowrap">
                     {r.stageName ? (
                       <span
-                        className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-ink-soft"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-ink-soft"
                         style={
                           r.stageColor
                             ? { background: `${r.stageColor}14`, color: r.stageColor }

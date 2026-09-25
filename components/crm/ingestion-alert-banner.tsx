@@ -49,7 +49,7 @@ export function IngestionAlertBanner({
     <div
       role="status"
       className={`mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-4 py-3 text-sm ${
-        grave ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-800"
+        grave ? "bg-destructive/10 text-destructive-text" : "bg-warning/10 text-warning-text"
       }`}
     >
       <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />

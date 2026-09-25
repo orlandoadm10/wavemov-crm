@@ -117,14 +117,14 @@ export default async function CarteiraPage({ searchParams }: { searchParams: Sea
           sublabel="o lead falou depois da última tratativa"
           value={aguardando}
           tone={aguardando > 0 ? "red" : "green"}
-          icon={<MessageCircleWarning className="h-5 w-5 text-rose-500" />}
+          icon={<MessageCircleWarning className="h-5 w-5 text-destructive-text" />}
         />
         <StatCard
           label={`Parados há ${ATRASO_CRITICO_DIAS}+ dias`}
           sublabel="dias corridos, sem tratativa da equipe"
           value={criticos}
           tone={criticos > 0 ? "amber" : "green"}
-          icon={<Clock className="h-5 w-5 text-amber-500" />}
+          icon={<Clock className="h-5 w-5 text-warning-text" />}
         />
         <StatCard
           label="Negociações abertas"
@@ -138,7 +138,7 @@ export default async function CarteiraPage({ searchParams }: { searchParams: Sea
           value={`${comRegistro} de ${abertas}`}
           hint={`${cobertura}% da carteira`}
           tone="slate"
-          icon={<NotebookPen className="h-5 w-5 text-slate-400" />}
+          icon={<NotebookPen className="h-5 w-5 text-ink-faint" />}
         />
       </div>
 
@@ -148,7 +148,7 @@ export default async function CarteiraPage({ searchParams }: { searchParams: Sea
       {abertas > 0 && cobertura < 10 && (
         <p
           role="status"
-          className="mt-4 flex items-start gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          className="mt-4 flex items-start gap-3 rounded-2xl bg-warning/10 px-4 py-3 text-sm text-warning-text"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>

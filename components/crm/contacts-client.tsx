@@ -119,11 +119,11 @@ export function ContactsClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card)">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
           <Input
-            className="pl-9"
+            className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
             placeholder="Buscar contato por nome, e-mail ou telefone…"
             aria-label="Buscar contato por nome, e-mail ou telefone"
             value={termo}
@@ -131,7 +131,7 @@ export function ContactsClient({
           />
         </div>
         <Select
-          className="w-auto min-w-44"
+          className="h-10 rounded-xl bg-card w-auto min-w-44"
           aria-label="Filtrar por status da negociação"
           value={status}
           onChange={(e) => setParams({ status: e.target.value })}
@@ -142,7 +142,7 @@ export function ContactsClient({
           <option value="lost">Com negociação perdida</option>
         </Select>
         {canEdit && (
-          <Button onClick={() => setModalOpen(true)}>
+          <Button className="h-10 rounded-xl" onClick={() => setModalOpen(true)}>
             <Plus className="h-4 w-4" />
             Novo
           </Button>
@@ -154,7 +154,7 @@ export function ContactsClient({
         // empresa não tem contatos — e o dado não sustenta essa afirmação.
         <div
           role="alert"
-          className="flex items-center gap-3 rounded-2xl border border-line bg-rose-50 p-4 text-sm text-rose-800"
+          className="flex items-center gap-3 rounded-2xl border border-line bg-destructive/10 p-4 text-sm text-destructive-text"
         >
           <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
@@ -177,7 +177,7 @@ export function ContactsClient({
                 Limpar filtros
               </Button>
             ) : canEdit ? (
-              <Button onClick={() => setModalOpen(true)}>
+              <Button className="h-10 rounded-xl" onClick={() => setModalOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Criar contato
               </Button>
@@ -233,7 +233,7 @@ export function ContactsClient({
                       <div className="flex justify-end">
                         <Dropdown
                           trigger={
-                            <button className="rounded-lg p-2 text-ink-faint hover:bg-slate-100 hover:text-ink">
+                            <button className="rounded-lg p-2 text-ink-faint hover:bg-muted hover:text-ink">
                               <MoreVertical className="h-4 w-4" />
                             </button>
                           }

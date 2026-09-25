@@ -53,7 +53,7 @@ export default async function OnboardingAiPage() {
           ))}
         </ul>
         {!hasProviderKey && (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <p className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning-text">
             A chave do provedor de IA ainda não foi configurada neste ambiente. O agente pode ser
             montado agora, mas só responde depois que a chave for cadastrada.
           </p>

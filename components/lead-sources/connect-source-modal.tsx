@@ -195,7 +195,7 @@ export function ConnectSourceModal({
         )}
 
         {error && (
-          <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
             {error}
           </p>
         )}

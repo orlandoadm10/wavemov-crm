@@ -149,7 +149,7 @@ export function AgentFormModal({
             {AI_TOOL_NAMES.map((name) => (
               <label
                 key={name}
-                className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-line px-3 py-2 text-sm text-ink-soft hover:bg-slate-50"
+                className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-line px-3 py-2 text-sm text-ink-soft hover:bg-muted/50"
               >
                 <input
                   type="checkbox"
@@ -267,7 +267,7 @@ export function AgentFormModal({
           </div>
         </section>
 
-        {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{error}</p>}
 
         <div className="flex justify-end gap-2 border-t border-line pt-4">
           <Button type="button" variant="outline" onClick={onClose}>

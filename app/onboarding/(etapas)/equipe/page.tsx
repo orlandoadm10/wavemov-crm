@@ -31,7 +31,7 @@ export default async function OnboardingTeamPage() {
       />
       <ul className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {ROLES.map((r) => (
-          <li key={r.name} className="rounded-xl border border-line bg-white p-3">
+          <li key={r.name} className="rounded-xl border border-line bg-card p-3">
             <p className="text-sm font-semibold text-ink">{r.name}</p>
             <p className="mt-1 text-xs text-ink-faint">{r.text}</p>
           </li>

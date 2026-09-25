@@ -113,10 +113,10 @@ export function MetaCloudSettings({
         )}
 
         {feedback?.error && (
-          <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 sm:col-span-2">{feedback.error}</p>
+          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text sm:col-span-2">{feedback.error}</p>
         )}
         {feedback?.success && (
-          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 sm:col-span-2">{feedback.success}</p>
+          <p className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text sm:col-span-2">{feedback.success}</p>
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2">

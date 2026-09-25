@@ -22,7 +22,7 @@ export function PeriodFilter() {
     <div
       role="group"
       aria-label="Período"
-      className="inline-flex items-center gap-1 rounded-lg border border-line bg-white p-1"
+      className="inline-flex items-center gap-1 rounded-lg border border-line bg-card p-1"
     >
       {PERIOD_KEYS.map((key) => (
         <button

@@ -61,21 +61,21 @@ export function PeopleClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white p-3 shadow-(--shadow-card)">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-(--shadow-card)">
         <span className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink">
           Todos usuários <span className="text-primary-600">{members.length}</span>
         </span>
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
           <Input
-            className="pl-9"
+            className="h-10 rounded-xl border-2 border-primary/70 bg-card pl-9 focus:border-primary focus:ring-0"
             placeholder="Buscar pessoa…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         {canManage && (
-          <Button onClick={() => setModalOpen(true)}>
+          <Button className="h-10 rounded-xl" onClick={() => setModalOpen(true)}>
             <Plus className="h-4 w-4" />
             Pessoa
           </Button>
@@ -210,10 +210,10 @@ export function PeopleClient({
           </div>
 
           {state?.error && (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{state.error}</p>
+            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{state.error}</p>
           )}
           {state?.success && (
-            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <p className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text">
               {state.success}
             </p>
           )}

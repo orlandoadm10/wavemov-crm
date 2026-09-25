@@ -177,7 +177,7 @@ function ContactForm({
       {whatsAppChanged && (
         <p
             role="status"
-            className="flex gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            className="flex gap-2 rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning-text">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             As conversas atuais continuam vinculadas, mas mensagens do número antigo passam a
@@ -186,7 +186,7 @@ function ContactForm({
         </p>
       )}
       {error && (
-        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           {error}
         </p>
       )}

@@ -134,7 +134,7 @@ export function DealTagsSelector({
   }
 
   return (
-    <div className={compact ? "mt-3" : "rounded-2xl border border-line bg-white p-4 shadow-(--shadow-card)"}>
+    <div className={compact ? "mt-3" : "rounded-2xl border border-line bg-card p-4 shadow-(--shadow-card)"}>
       <div className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-ink-faint uppercase">
           <Tags className="h-3.5 w-3.5" />
@@ -159,7 +159,7 @@ export function DealTagsSelector({
         )}
       </div>
       {loadError && (
-        <p role="alert" className="mt-2 text-xs text-rose-700">{loadError}</p>
+        <p role="alert" className="mt-2 text-xs text-destructive-text">{loadError}</p>
       )}
 
       <Modal open={open} onClose={() => setOpen(false)} title="Selecionar tags" size="sm">
@@ -175,7 +175,7 @@ export function DealTagsSelector({
             {activeTags.map((tag) => (
               <label
                 key={tag.id}
-                className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl border border-line px-3 py-2 hover:bg-slate-50"
+                className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl border border-line px-3 py-2 hover:bg-muted/50"
               >
                 <input
                   type="checkbox"
@@ -202,7 +202,7 @@ export function DealTagsSelector({
                 {inactiveSelected.map((tag) => (
                   <label
                     key={tag.id}
-                    className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl border border-dashed border-line px-3 py-2 hover:bg-slate-50"
+                    className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl border border-dashed border-line px-3 py-2 hover:bg-muted/50"
                   >
                     <input
                       type="checkbox"
@@ -219,7 +219,7 @@ export function DealTagsSelector({
           </div>
         )}
         {error && (
-          <p role="alert" className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
             {error}
           </p>
         )}
