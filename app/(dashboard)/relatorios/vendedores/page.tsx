@@ -297,7 +297,7 @@ export default async function RendimentoPorVendedorPage({
               "Todo lead do período tem dono"
             )
           }
-          icon={<Users className="h-5 w-5 text-rose-500" />}
+          icon={<Users className="h-5 w-5 text-destructive-text" />}
         />
         <StatCard
           label="De plantão"
@@ -305,7 +305,7 @@ export default async function RendimentoPorVendedorPage({
           value={noRodizio}
           tone={noRodizio === 0 ? "red" : "slate"}
           hint={foraDoPlantao > 0 ? `${foraDoPlantao} na fila, fora do plantão` : undefined}
-          icon={<Scale className="h-5 w-5 text-slate-400" />}
+          icon={<Scale className="h-5 w-5 text-ink-faint" />}
         />
         <StatCard
           label="Conversão da equipe"
@@ -313,12 +313,12 @@ export default async function RendimentoPorVendedorPage({
           value={totalFechados > 0 ? `${Math.round((totalGanhos / totalFechados) * 100)}%` : "—"}
           tone="green"
           hint={`${totalGanhos} ganho(s) de ${totalFechados} fechado(s)`}
-          icon={<Target className="h-5 w-5 text-emerald-500" />}
+          icon={<Target className="h-5 w-5 text-success-text" />}
         />
       </div>
 
       {truncado && (
-        <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <p role="alert" className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning-text">
           O período tem mais dados do que esta tela consegue somar de uma vez. Os números
           abaixo estão <b>incompletos</b> — escolha um período menor para conferir a
           distribuição com precisão.

@@ -126,8 +126,8 @@ export function FieldMappingCard({
           role={feedback.error ? "alert" : "status"}
           className={
             feedback.error
-              ? "m-5 mt-0 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
-              : "m-5 mt-0 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+              ? "m-5 mt-0 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text"
+              : "m-5 mt-0 rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text"
           }
         >
           {feedback.error ?? feedback.success}

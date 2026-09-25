@@ -35,7 +35,7 @@ export function PublicForm({ slug, fields }: { slug: string; fields: FormField[]
   if (done) {
     return (
       <div className="mt-8 flex flex-col items-center py-6 text-center">
-        <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
+        <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-success-text">
           <CheckCircle2 className="h-8 w-8" />
         </span>
         <h2 className="text-lg font-bold text-ink">Recebido com sucesso! 🎉</h2>
@@ -89,7 +89,7 @@ export function PublicForm({ slug, fields }: { slug: string; fields: FormField[]
       ))}
 
       {error && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+        <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{error}</p>
       )}
 
       <Button type="submit" className="w-full" size="lg" loading={submitting}>

@@ -18,6 +18,9 @@ import {
 } from "recharts";
 
 const BLUE = "#2563eb";
+/** Neutros que funcionam nos dois temas — atributo SVG não resolve `var()`. */
+const AXIS = "#7c8aa5";
+const GRID = "rgba(124, 138, 165, 0.25)";
 const PALETTE = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4", "#64748b", "#ec4899"];
 
 const tooltipStyle = {
@@ -52,9 +55,9 @@ export function LeadsPerMonthChart({
   return (
     <ResponsiveContainer width="100%" height={240}>
       <LineChart data={data} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#eef1f6" vertical={false} />
-        <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="month" tick={{ fontSize: 11, fill: AXIS }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11, fill: AXIS }} axisLine={false} tickLine={false} allowDecimals={false} />
         <Tooltip contentStyle={tooltipStyle} />
         <Line
           type="monotone"
@@ -81,10 +84,10 @@ export function SalesPerMonthChart({
   return (
     <ResponsiveContainer width="100%" height={240}>
       <BarChart data={data} margin={{ top: 8, right: 12, left: -6, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#eef1f6" vertical={false} />
-        <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="month" tick={{ fontSize: 11, fill: AXIS }} axisLine={false} tickLine={false} />
         <YAxis
-          tick={{ fontSize: 11, fill: "#94a3b8" }}
+          tick={{ fontSize: 11, fill: AXIS }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
@@ -116,16 +119,16 @@ export function DailyLeadsChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#eef1f6" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
         <XAxis
           dataKey="label"
-          tick={{ fontSize: 11, fill: "#94a3b8" }}
+          tick={{ fontSize: 11, fill: AXIS }}
           axisLine={false}
           tickLine={false}
           interval={step - 1}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: "#94a3b8" }}
+          tick={{ fontSize: 11, fill: AXIS }}
           axisLine={false}
           tickLine={false}
           allowDecimals={false}
@@ -215,13 +218,13 @@ function HorizontalCountChartContent({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#eef1f6" horizontal={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />
         <XAxis type="number" hide />
         <YAxis
           type="category"
           dataKey="name"
           width={120}
-          tick={{ fontSize: 11, fill: "#475569" }}
+          tick={{ fontSize: 11, fill: AXIS }}
           axisLine={false}
           tickLine={false}
         />
@@ -239,9 +242,6 @@ function HorizontalCountChartContent({
 // Dashboard no design Jidianos (prints 9 e 11)
 // ------------------------------------------------------------
 
-/** Neutros que funcionam nos dois temas — atributo SVG não resolve `var()`. */
-const AXIS = "#7c8aa5";
-const GRID = "rgba(124, 138, 165, 0.25)";
 /** Paleta das barras por item (print 9). */
 const VIVID = ["#0ea5e9", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#f97316", "#6366f1"];
 

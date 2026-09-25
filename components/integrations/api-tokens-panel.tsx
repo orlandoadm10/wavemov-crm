@@ -82,9 +82,9 @@ export function ApiTokensPanel({ tokens }: { tokens: ApiToken[] }) {
         }
       />
       <div className="p-5">
-        {feedback?.error && <p className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{feedback.error}</p>}
+        {feedback?.error && <p className="mb-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{feedback.error}</p>}
         {feedback?.success && (
-          <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{feedback.success}</p>
+          <p className="mb-3 rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text">{feedback.success}</p>
         )}
         {tokens.length === 0 ? (
           <p className="flex items-center gap-2 text-sm text-ink-faint">
@@ -92,7 +92,7 @@ export function ApiTokensPanel({ tokens }: { tokens: ApiToken[] }) {
           </p>
         ) : (
           <DataTable className="shadow-none">
-            <thead className="bg-slate-50/80 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+            <thead className="bg-muted/50 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
               <tr>
                 <th className="px-5 py-3.5">Nome</th>
                 <th className="px-5 py-3.5">Prefixo</th>
@@ -123,7 +123,7 @@ export function ApiTokensPanel({ tokens }: { tokens: ApiToken[] }) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="hover:bg-rose-50 hover:text-rose-600"
+                          className="hover:bg-destructive/10 hover:text-destructive-text"
                           onClick={() => setRevoking(token)}
                         >
                           Revogar
@@ -141,7 +141,7 @@ export function ApiTokensPanel({ tokens }: { tokens: ApiToken[] }) {
       <Modal open={open} onClose={() => setOpen(false)} size="md" title="Criar token de API" subtitle="Para n8n, sistemas externos e clientes MCP">
         {created ? (
           <div className="space-y-4">
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            <p className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning-text">
               Copie o token agora. Por segurança ele não será exibido de novo.
             </p>
             <CopyField label="Token" value={created} />
@@ -171,7 +171,7 @@ export function ApiTokensPanel({ tokens }: { tokens: ApiToken[] }) {
                 </Select>
               </Field>
             </div>
-            {formError && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{formError}</p>}
+            {formError && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{formError}</p>}
             <div className="flex justify-end gap-2 border-t border-line pt-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancelar

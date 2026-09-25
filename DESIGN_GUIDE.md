@@ -33,6 +33,13 @@ um produto multiempresa usado pelas empresas clientes, então:
 `bg-destructive`, `bg-sidebar`…) e as fontes `font-sans` (Plus Jakarta Sans) e
 `font-display` (Space Grotesk, aplicada a `h1`–`h3`).
 
+**Componentes do padrão Jidianos.** `StatCard` é o indicador tingido (print
+5). `Card`, `CardHeader` e `DataTable` aceitam `tint` (sky, violet, emerald,
+rose, amber, cyan, fuchsia…) para painéis de análise com faixa no topo
+(prints 6–11); sem `tint`, o cartão branco — padrão de formulários e
+configurações. Filtros de barra de ferramentas: 40 px, raio de 12 px, busca
+com borda azul de 2 px; filtro fora do padrão fica âmbar.
+
 **Transição.** As classes do guia v1 continuam funcionando e já apontam para os
 tokens novos: `text-ink` → `foreground`, `text-ink-soft` / `text-ink-faint` →
 tons de `muted-foreground`, `border-line` → `border`, `primary-50…900` → mistura

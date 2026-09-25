@@ -84,9 +84,9 @@ export function AutomationsClient({
         </Button>
       </div>
 
-      {feedback?.error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{feedback.error}</p>}
+      {feedback?.error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{feedback.error}</p>}
       {feedback?.success && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{feedback.success}</p>
+        <p className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text">{feedback.success}</p>
       )}
 
       {rules.length === 0 ? (
@@ -135,7 +135,7 @@ export function AutomationsClient({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="hover:bg-rose-50 hover:text-rose-600"
+                    className="hover:bg-destructive/10 hover:text-destructive-text"
                     onClick={() => setRemoving(rule)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -153,12 +153,12 @@ export function AutomationsClient({
           <History className="h-4 w-4 text-ink-faint" /> Últimas execuções
         </h2>
         {runs.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-line bg-white/60 px-6 py-8 text-center text-sm text-ink-faint">
+          <p className="rounded-2xl border border-dashed border-line bg-card/60 px-6 py-8 text-center text-sm text-ink-faint">
             As execuções aparecem aqui assim que uma automação disparar.
           </p>
         ) : (
           <DataTable>
-            <thead className="bg-slate-50/80 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+            <thead className="bg-muted/50 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
               <tr>
                 <th className="px-5 py-3.5">Quando</th>
                 <th className="px-5 py-3.5">Automação</th>
@@ -188,7 +188,7 @@ export function AutomationsClient({
                   </td>
                   <td className="max-w-sm px-5 py-3.5 text-xs text-ink-soft">
                     {(r.results ?? []).map((res, i) => (
-                      <p key={i} className={res.status === "failed" ? "text-rose-600" : undefined}>
+                      <p key={i} className={res.status === "failed" ? "text-destructive-text" : undefined}>
                         {ACTION_LABELS[res.type as ActionType] ?? res.type}: {res.status === "success" ? "ok" : res.error ?? res.status}
                       </p>
                     ))}

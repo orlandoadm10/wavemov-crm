@@ -26,7 +26,7 @@ export function SellerPerformanceTable({ rows }: { rows: SellerRow[] }) {
   const maiorRecebido = Math.max(...rows.map((r) => r.received), 1);
 
   return (
-    <DataTable>
+    <DataTable tint="sky">
       <THead>
         <Th>Pessoa</Th>
         <Th className="text-center">Fila</Th>
@@ -75,7 +75,7 @@ export function SellerPerformanceTable({ rows }: { rows: SellerRow[] }) {
                 {/* Barra comparativa: a distribuição se lê de relance. */}
                 <span
                   aria-hidden
-                  className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100"
+                  className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
                 >
                   <span
                     className="block h-full rounded-full bg-primary-500"
@@ -86,7 +86,7 @@ export function SellerPerformanceTable({ rows }: { rows: SellerRow[] }) {
             </Td>
 
             <Td className="text-center text-ink-soft">{row.open}</Td>
-            <Td className="text-center font-semibold text-emerald-600">{row.won}</Td>
+            <Td className="text-center font-semibold text-success-text">{row.won}</Td>
             <Td className="text-center text-ink-soft">{row.lost}</Td>
 
             <Td className="text-center">
@@ -99,10 +99,10 @@ export function SellerPerformanceTable({ rows }: { rows: SellerRow[] }) {
                   className={cn(
                     "font-semibold",
                     row.conversion >= 0.5
-                      ? "text-emerald-600"
+                      ? "text-success-text"
                       : row.conversion >= 0.25
-                        ? "text-amber-600"
-                        : "text-rose-600"
+                        ? "text-warning-text"
+                        : "text-destructive-text"
                   )}
                 >
                   {Math.round(row.conversion * 100)}%
@@ -120,7 +120,7 @@ export function SellerPerformanceTable({ rows }: { rows: SellerRow[] }) {
                 {row.tasksPending}
                 {row.tasksOverdue > 0 && (
                   <span
-                    className="inline-flex items-center gap-0.5 text-xs font-semibold text-rose-600"
+                    className="inline-flex items-center gap-0.5 text-xs font-semibold text-destructive-text"
                     title={`${row.tasksOverdue} tarefa(s) vencida(s)`}
                   >
                     <AlertTriangle className="h-3.5 w-3.5" />

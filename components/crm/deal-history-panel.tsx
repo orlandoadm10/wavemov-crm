@@ -76,7 +76,7 @@ export function DealHistoryPanel({
         <div
           role="tablist"
           aria-label="Histórico do lead"
-          className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:flex"
+          className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1 sm:flex"
         >
           <button
             ref={(element) => {
@@ -93,7 +93,7 @@ export function DealHistoryPanel({
             className={cn(
               "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
               activeTab === "activities"
-                ? "bg-white text-primary-700 shadow-sm"
+                ? "bg-card text-primary-700 shadow-sm"
                 : "text-ink-faint hover:text-ink-soft"
             )}
           >
@@ -115,7 +115,7 @@ export function DealHistoryPanel({
             className={cn(
               "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
               activeTab === "conversations"
-                ? "bg-white text-primary-700 shadow-sm"
+                ? "bg-card text-primary-700 shadow-sm"
                 : "text-ink-faint hover:text-ink-soft"
             )}
           >
@@ -162,7 +162,7 @@ export function DealHistoryPanel({
 function HistorySectionError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="px-5 py-10 text-center">
-      <p role="alert" className="text-sm text-rose-600">
+      <p role="alert" className="text-sm text-destructive-text">
         {message}
       </p>
       <Button className="mt-3" variant="outline" onClick={onRetry}>

@@ -96,9 +96,9 @@ export function ProfileClient({ profile }: { profile: Profile }) {
             <span className="font-semibold text-ink">Perfil completo</span>
             <span className="text-lg font-bold text-ink">{completeness}%</span>
           </div>
-          <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
+          <div className="mt-2 h-3 overflow-hidden rounded-full bg-muted">
             <div
-              className="flex h-full items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white transition-all"
+              className="flex h-full items-center justify-center rounded-full bg-success text-[9px] font-bold text-white transition-all"
               style={{ width: `${completeness}%` }}
             >
               {completeness >= 25 ? `${completeness}%` : ""}
@@ -139,8 +139,8 @@ export function ProfileClient({ profile }: { profile: Profile }) {
             <p
               className={
                 message.type === "ok"
-                  ? "rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
-                  : "rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                  ? "rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text"
+                  : "rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text"
               }
             >
               {message.text}

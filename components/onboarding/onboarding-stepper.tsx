@@ -37,9 +37,9 @@ export function OnboardingStepper({ progress }: { progress: OnboardingProgress }
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold transition-colors",
                     active && "border-primary-600 bg-primary-600 text-white",
-                    !active && decision === "done" && "border-emerald-200 bg-emerald-50 text-emerald-700",
-                    !active && decision === "skipped" && "border-line bg-slate-100 text-ink-faint",
-                    !active && !decision && "border-line bg-white text-ink-faint group-hover:border-primary-300"
+                    !active && decision === "done" && "border-success/35 bg-success/10 text-success-text",
+                    !active && decision === "skipped" && "border-line bg-muted text-ink-faint",
+                    !active && !decision && "border-line bg-card text-ink-faint group-hover:border-primary-300"
                   )}
                 >
                   {!active && decision === "done" ? (

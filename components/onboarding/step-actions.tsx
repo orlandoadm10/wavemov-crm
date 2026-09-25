@@ -29,7 +29,7 @@ export function StepActions({
     <form action={formAction} className="space-y-3">
       <input type="hidden" name="step" value={step} />
       {state?.error && (
-        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           {state.error}
         </p>
       )}
@@ -71,7 +71,7 @@ export function SkipStepButton({ step, label }: { step: OnboardingStepSlug; labe
         {label}
       </button>
       {state?.error && (
-        <p role="alert" className="mt-2 text-sm text-rose-700">
+        <p role="alert" className="mt-2 text-sm text-destructive-text">
           {state.error}
         </p>
       )}

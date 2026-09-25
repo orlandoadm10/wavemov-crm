@@ -27,7 +27,7 @@ export function AiRunsTable({ runs }: { runs: AiRunRow[] }) {
 
   return (
     <DataTable>
-      <thead className="bg-slate-50/80 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+      <thead className="bg-muted/50 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
         <tr>
           <th className="px-5 py-3.5">Quando</th>
           <th className="px-5 py-3.5">Conversa</th>
@@ -56,7 +56,7 @@ export function AiRunsTable({ runs }: { runs: AiRunRow[] }) {
                 ) : (
                   <ul className="space-y-0.5 text-xs text-ink-soft">
                     {run.tool_calls.map((call, i) => (
-                      <li key={i} className={call.ok ? undefined : "text-rose-600"}>
+                      <li key={i} className={call.ok ? undefined : "text-destructive-text"}>
                         {call.summary ?? call.name}
                       </li>
                     ))}

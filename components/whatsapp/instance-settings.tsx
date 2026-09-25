@@ -189,8 +189,8 @@ export function InstanceSettings({
             <p
               className={
                 message.type === "ok"
-                  ? "rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
-                  : "rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                  ? "rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text"
+                  : "rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text"
               }
             >
               {message.text}
@@ -218,7 +218,7 @@ export function InstanceSettings({
               Testar conexão
             </Button>
             <Button variant="outline" onClick={() => callAction("connect")} loading={busy === "connect"}>
-              <Plug className="h-4 w-4 text-emerald-600" />
+              <Plug className="h-4 w-4 text-success-text" />
               Conectar
             </Button>
             <Button variant="outline" onClick={generateQr} loading={busy === "qr"}>
@@ -226,12 +226,12 @@ export function InstanceSettings({
               Gerar QR Code
             </Button>
             <Button variant="outline" onClick={() => callAction("restart")} loading={busy === "restart"}>
-              <RefreshCw className="h-4 w-4 text-amber-600" />
+              <RefreshCw className="h-4 w-4 text-warning-text" />
               Reiniciar
             </Button>
             <Button
               variant="outline"
-              className="col-span-2 text-rose-600 hover:border-rose-200"
+              className="col-span-2 text-destructive-text hover:border-destructive/35"
               onClick={() => callAction("disconnect")}
               loading={busy === "disconnect"}
             >
@@ -250,7 +250,7 @@ export function InstanceSettings({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={qr} alt="QR Code" className="h-52 w-52 rounded-xl border border-line" />
               ) : (
-                <p className="max-w-full rounded-xl bg-slate-50 p-3 font-mono text-[10px] break-all text-ink-soft">
+                <p className="max-w-full rounded-xl bg-muted/50 p-3 font-mono text-[10px] break-all text-ink-soft">
                   {qr}
                 </p>
               )}
@@ -266,7 +266,7 @@ export function InstanceSettings({
           />
           <div className="space-y-4 p-5">
             {!canManageWebhook ? (
-              <div className="flex gap-3 rounded-lg bg-slate-50 p-4 ring-1 ring-line">
+              <div className="flex gap-3 rounded-lg bg-muted/50 p-4 ring-1 ring-line">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
                 <p className="text-xs leading-relaxed text-ink-soft">
                   A URL do webhook carrega o <b>segredo que autentica as mensagens
@@ -277,9 +277,9 @@ export function InstanceSettings({
               </div>
             ) : !webhookUrl ? (
               <>
-                <div className="flex gap-3 rounded-lg bg-amber-50 p-4">
-                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                  <p className="text-xs leading-relaxed text-amber-800">
+                <div className="flex gap-3 rounded-lg bg-warning/10 p-4">
+                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
+                  <p className="text-xs leading-relaxed text-warning-text">
                     Esta empresa ainda não tem segredo próprio de webhook. Gere um
                     para receber mensagens com uma URL exclusiva desta conta.
                   </p>
@@ -292,11 +292,11 @@ export function InstanceSettings({
             ) : (
               <>
                 <div className="flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-ink-soft ring-1 ring-line">
+                  <code className="min-w-0 flex-1 truncate rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-ink-soft ring-1 ring-line">
                     {webhookUrl}
                   </code>
                   <Button variant="outline" size="icon" onClick={copyWebhook} aria-label="Copiar">
-                    {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                    {copied ? <Check className="h-4 w-4 text-success-text" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
                 <ol className="list-decimal space-y-1.5 pl-4 text-xs text-ink-soft">
@@ -304,7 +304,7 @@ export function InstanceSettings({
                   <li>Cole a URL acima no campo de webhook de <b>mensagens recebidas</b>.</li>
                   <li>
                     O segredo já vem na URL e vale <b>só para esta instância</b> — não
-                    precisa configurar nada no <code className="rounded bg-slate-100 px-1">.env</code>.
+                    precisa configurar nada no <code className="rounded bg-muted px-1">.env</code>.
                     Trate a URL como senha.
                   </li>
                   <li>Envie uma mensagem de teste para o número conectado — a conversa aparece em Atendimento.</li>
@@ -312,8 +312,8 @@ export function InstanceSettings({
 
                 <div className="border-t border-line pt-4">
                   {confirmRotate ? (
-                    <div className="rounded-lg bg-rose-50 p-3">
-                      <p className="text-xs leading-relaxed text-rose-700">
+                    <div className="rounded-lg bg-destructive/10 p-3">
+                      <p className="text-xs leading-relaxed text-destructive-text">
                         Gerar um segredo novo <b>invalida a URL atual na hora</b>. As
                         mensagens param de chegar até você colar a URL nova no painel
                         da UAZAPI. Continuar?
@@ -346,8 +346,8 @@ export function InstanceSettings({
               <p
                 className={
                   webhookMessage.type === "ok"
-                    ? "rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
-                    : "rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                    ? "rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text"
+                    : "rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text"
                 }
               >
                 {webhookMessage.text}

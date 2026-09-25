@@ -77,7 +77,7 @@ export default async function IntegracoesPage() {
       <PageHeader eyebrow="Inteligência" title="Integrações" subtitle="Conecte o CRM ao n8n, a sistemas externos e a agentes via MCP" />
 
       {error && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           Não foi possível carregar os tokens. Se a migration 0029 ainda não foi aplicada, aplique-a e recarregue.
         </p>
       )}
@@ -102,7 +102,7 @@ export default async function IntegracoesPage() {
                 </li>
               ))}
             </ul>
-            <div className="rounded-xl border border-line bg-slate-50 p-3">
+            <div className="rounded-xl border border-line bg-muted/50 p-3">
               <p className="mb-2 text-[13px] font-medium text-ink-soft">Teste rápido no n8n (nó HTTP Request)</p>
               <dl className="space-y-1 text-xs text-ink">
                 <div className="flex gap-2"><dt className="w-24 shrink-0 text-ink-faint">Method</dt><dd>GET</dd></div>
@@ -131,7 +131,7 @@ export default async function IntegracoesPage() {
             <CopyField label="Endpoint MCP (Streamable HTTP)" value={`${appUrl}/api/mcp`} />
             <div>
               <p className="mb-1.5 text-[13px] font-medium text-ink-soft">Configuração do cliente</p>
-              <pre className="overflow-x-auto rounded-xl border border-line bg-slate-50 p-3 text-xs text-ink">{mcpConfig}</pre>
+              <pre className="overflow-x-auto rounded-xl border border-line bg-muted/50 p-3 text-xs text-ink">{mcpConfig}</pre>
             </div>
             <p className="text-xs text-ink-faint">
               Ferramentas expostas: buscar contatos, listar funis e negociações, criar lead, ler contexto, atualizar

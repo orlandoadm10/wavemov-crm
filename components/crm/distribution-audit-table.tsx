@@ -131,7 +131,7 @@ export function DistributionAuditTable({
                     <Td className="text-sm text-ink">{entry.rule_name ?? "—"}</Td>
                     <Td className="text-sm font-medium text-ink">
                       {entry.assigned_to_name ?? (
-                        <span className="text-rose-600">Ninguém</span>
+                        <span className="text-destructive-text">Ninguém</span>
                       )}
                     </Td>
                     <Td>

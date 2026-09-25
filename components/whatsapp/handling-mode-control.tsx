@@ -40,7 +40,7 @@ export function HandlingModeControl({
 
   if (!canManage) {
     return (
-      <span className="hidden items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 sm:inline-flex">
+      <span className="hidden items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground sm:inline-flex">
         {isAi ? <Bot className="h-3.5 w-3.5" /> : <UserRound className="h-3.5 w-3.5" />}
         {isAi ? "IA atendendo" : "Equipe"}
       </span>
@@ -62,7 +62,7 @@ export function HandlingModeControl({
       {error && (
         <p
           role="alert"
-          className="absolute top-full right-0 z-10 mt-1.5 w-64 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 shadow-(--shadow-pop)"
+          className="absolute top-full right-0 z-10 mt-1.5 w-64 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive-text shadow-(--shadow-pop)"
         >
           {error}
         </p>
@@ -80,7 +80,7 @@ export function HandoffNotice({
 }) {
   if (mode === "ai") {
     return (
-      <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs text-violet-700">
+      <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-violet-50 dark:bg-violet-400/15 px-3 py-1.5 text-xs text-violet-700 dark:text-violet-200">
         <Bot className="h-3.5 w-3.5 shrink-0" aria-hidden />
         A IA está respondendo esta conversa. Ao enviar uma mensagem, você assume o atendimento.
       </p>
@@ -88,7 +88,7 @@ export function HandoffNotice({
   }
   if (!reason) return null;
   return (
-    <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
+    <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-warning/10 px-3 py-1.5 text-xs text-warning-text">
       <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden />
       Atendimento humano — {reason}
     </p>

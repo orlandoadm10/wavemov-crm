@@ -31,7 +31,7 @@ export function MessageThread({
   return messages.map((message) =>
     message.message_type === "system" ? (
       <div key={message.id} className="flex justify-center">
-        <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] text-amber-700 ring-1 ring-amber-100">
+        <span className="rounded-full bg-warning/10 px-3 py-1 text-[11px] text-warning-text ring-1 ring-warning/20">
           {message.content ?? "Evento interno"}
         </span>
       </div>
@@ -44,8 +44,8 @@ export function MessageThread({
           className={cn(
             "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm [overflow-wrap:anywhere] shadow-sm sm:max-w-[75%]",
             message.direction === "outbound"
-              ? "rounded-br-md bg-primary-600 text-white"
-              : "rounded-bl-md border border-line bg-white text-ink"
+              ? "rounded-br-md bg-primary text-primary-foreground"
+              : "rounded-bl-md border border-border bg-card text-foreground"
           )}
         >
           {message.media_url && (
@@ -55,7 +55,7 @@ export function MessageThread({
               rel="noreferrer"
               className={cn(
                 "mb-1 flex items-center gap-1 text-xs underline",
-                message.direction === "outbound" ? "text-primary-100" : "text-primary-600"
+                message.direction === "outbound" ? "text-white/85" : "text-primary"
               )}
             >
               <Paperclip className="h-3 w-3" />
@@ -66,7 +66,7 @@ export function MessageThread({
           <p
             className={cn(
               "mt-1 flex items-center justify-end gap-1 text-[10px]",
-              message.direction === "outbound" ? "text-primary-200" : "text-ink-faint"
+              message.direction === "outbound" ? "text-white/75" : "text-muted-foreground"
             )}
           >
             {message.sender_type === "ai" && (

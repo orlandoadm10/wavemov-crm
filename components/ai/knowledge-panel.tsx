@@ -118,14 +118,14 @@ export function KnowledgePanel({
       </div>
 
       {!embeddingsReady && (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+        <p className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning-text">
           A chave de embeddings não está configurada no servidor (<code>AI_EMBEDDING_API_KEY</code> ou{" "}
           <code>AI_API_KEY</code>). O material é salvo, mas a indexação falha até ela existir.
         </p>
       )}
-      {feedback?.error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{feedback.error}</p>}
+      {feedback?.error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{feedback.error}</p>}
       {feedback?.success && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{feedback.success}</p>
+        <p className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text">{feedback.success}</p>
       )}
 
       {documents.length === 0 ? (
@@ -141,7 +141,7 @@ export function KnowledgePanel({
         />
       ) : (
         <DataTable>
-          <thead className="bg-slate-50/80 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+          <thead className="bg-muted/50 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
             <tr>
               <th className="px-5 py-3.5">Material</th>
               <th className="px-5 py-3.5">Agente</th>
@@ -166,7 +166,7 @@ export function KnowledgePanel({
                   <Badge tone={STATUS[doc.status].tone} dot>
                     {STATUS[doc.status].label}
                   </Badge>
-                  {doc.error && <p className="mt-1 max-w-xs text-xs text-rose-600">{doc.error}</p>}
+                  {doc.error && <p className="mt-1 max-w-xs text-xs text-destructive-text">{doc.error}</p>}
                 </td>
                 <td className="px-5 py-3.5 whitespace-nowrap text-ink-soft">{formatDateTime(doc.updated_at)}</td>
                 <td className="px-5 py-3.5">
@@ -187,7 +187,7 @@ export function KnowledgePanel({
                       variant="ghost"
                       size="icon"
                       aria-label="Excluir"
-                      className="hover:bg-rose-50 hover:text-rose-600"
+                      className="hover:bg-destructive/10 hover:text-destructive-text"
                       onClick={() => setRemoving(doc)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -258,7 +258,7 @@ export function KnowledgePanel({
               />
             </Field>
           </div>
-          {formError && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{formError}</p>}
+          {formError && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">{formError}</p>}
           <div className="flex justify-end gap-2 border-t border-line pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar

@@ -75,13 +75,13 @@ export default async function IaPage() {
       />
 
       {!isLlmConfigured() && (
-        <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+        <p className="mb-4 rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning-text">
           A chave do modelo de IA ainda não foi configurada no servidor (variável <code>AI_API_KEY</code>).
           Os agentes podem ser configurados, mas só respondem depois disso.
         </p>
       )}
       {loadError && (
-        <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           Não foi possível carregar tudo desta tela. Se as migrations 0026–0029 ainda não foram aplicadas,
           aplique-as e recarregue.
         </p>

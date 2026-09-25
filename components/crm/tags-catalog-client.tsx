@@ -167,7 +167,7 @@ export function TagsCatalogClient({ organizationId, profileId, tags: serverTags,
       />
 
       {(loadError || error) && (
-        <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p role="alert" className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
           {loadError ?? error}
         </p>
       )}
@@ -217,7 +217,7 @@ export function TagsCatalogClient({ organizationId, profileId, tags: serverTags,
                     <Archive className="h-4 w-4" />
                   </Button>
                   <Button size="icon" variant="ghost" onClick={() => setDeleting(tag)} aria-label={`Excluir ${tag.name}`}>
-                    <Trash2 className="h-4 w-4 text-rose-600" />
+                    <Trash2 className="h-4 w-4 text-destructive-text" />
                   </Button>
                 </div>
               </div>
@@ -257,12 +257,12 @@ export function TagsCatalogClient({ organizationId, profileId, tags: serverTags,
               {TONES.map((tone) => <option key={tone.value} value={tone.value}>{tone.label}</option>)}
             </Select>
           </Field>
-          <div className="rounded-xl bg-slate-50 p-3">
+          <div className="rounded-xl bg-muted/50 p-3">
             <span className="mr-2 text-xs text-ink-faint">Prévia</span>
             <Badge tone={form.tone}>{form.name.trim() || "Nome da tag"}</Badge>
           </div>
         </div>
-        {error && <p role="alert" className="mt-3 text-sm text-rose-700">{error}</p>}
+        {error && <p role="alert" className="mt-3 text-sm text-destructive-text">{error}</p>}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
           <Button onClick={save} loading={saving} disabled={!form.name.trim()}>Salvar tag</Button>

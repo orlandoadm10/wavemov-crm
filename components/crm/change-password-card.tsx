@@ -34,12 +34,12 @@ export function ChangePasswordCard() {
         </div>
         <p className="text-xs text-ink-faint">Mínimo de {PASSWORD_MIN} caracteres.</p>
         {state?.error && (
-          <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
             {state.error}
           </p>
         )}
         {state?.success && (
-          <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <p role="status" className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text">
             {state.success}
           </p>
         )}

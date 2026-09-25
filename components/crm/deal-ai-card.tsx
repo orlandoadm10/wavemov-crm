@@ -27,7 +27,7 @@ export function DealAiCard({
       <CardHeader
         title={
           <span className="inline-flex items-center gap-2">
-            <Bot className="h-4 w-4 text-violet-600" /> Qualificação da IA
+            <Bot className="h-4 w-4 text-violet-600 dark:text-violet-300" /> Qualificação da IA
           </span>
         }
         subtitle="Dados coletados pelo agente durante a conversa"

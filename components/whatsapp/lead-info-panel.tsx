@@ -55,7 +55,7 @@ export function LeadInfoPanel({
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-line bg-white p-4 shadow-(--shadow-card)">
+      <div className="rounded-2xl border border-line bg-card p-4 shadow-(--shadow-card)">
         <Skeleton className="mb-3 h-3.5 w-32" />
         <Skeleton className="mb-2 h-3 w-full" />
         <Skeleton className="h-3 w-2/3" />
@@ -65,8 +65,8 @@ export function LeadInfoPanel({
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-line bg-white p-4 shadow-(--shadow-card)">
-        <p role="alert" className="text-xs text-rose-600">
+      <div className="rounded-2xl border border-line bg-card p-4 shadow-(--shadow-card)">
+        <p role="alert" className="text-xs text-destructive-text">
           {error}
         </p>
       </div>
@@ -81,7 +81,7 @@ export function LeadInfoPanel({
   if (!hasLeadInfo(parseLeadInfo(metadata)) && !podeEditar) return null;
 
   return (
-    <div className="rounded-2xl border border-line bg-white p-4 shadow-(--shadow-card)">
+    <div className="rounded-2xl border border-line bg-card p-4 shadow-(--shadow-card)">
       <LeadInfoCard
         dealId={dealId}
         metadata={metadata}

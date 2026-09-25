@@ -100,7 +100,7 @@ export function DealConversationHistory({ organizationId, conversations, active 
                 aria-current={conversation.id === selectedId ? "true" : undefined}
                 className={cn(
                   "w-full px-4 py-3 text-left transition-colors",
-                  conversation.id === selectedId ? "bg-primary-50/70" : "hover:bg-slate-50"
+                  conversation.id === selectedId ? "bg-primary-50/70" : "hover:bg-muted/50"
                 )}
               >
                 <p className="truncate text-sm font-semibold text-ink">
@@ -127,7 +127,7 @@ export function DealConversationHistory({ organizationId, conversations, active 
               <button
                 type="button"
                 onClick={() => setMobileThreadOpen(false)}
-                className="flex min-h-10 min-w-10 items-center justify-center rounded-lg text-ink-faint hover:bg-slate-100 md:hidden"
+                className="flex min-h-10 min-w-10 items-center justify-center rounded-lg text-ink-faint hover:bg-muted md:hidden"
                 aria-label="Voltar às conversas"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -152,7 +152,7 @@ export function DealConversationHistory({ organizationId, conversations, active 
 
             <div
               ref={scrollerRef}
-              className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50/60 p-4"
+              className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-muted/50 p-4"
             >
               {thread.hasMore && !thread.error && (
                 <div className="flex justify-center pb-2">
@@ -164,7 +164,7 @@ export function DealConversationHistory({ organizationId, conversations, active 
 
               {thread.error ? (
                 <div className="py-10 text-center">
-                  <p role="alert" className="text-sm text-rose-600">
+                  <p role="alert" className="text-sm text-destructive-text">
                     {thread.error}
                   </p>
                   <Button className="mt-3" variant="outline" onClick={retry}>

@@ -67,7 +67,7 @@ export function SourceSetupGuide({ provider }: { provider: LeadSourceProvider })
           </li>
         ))}
       </ol>
-      <p className="rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-ink-soft ring-1 ring-line">
+      <p className="rounded-lg bg-muted/50 px-3 py-2.5 text-xs leading-relaxed text-ink-soft ring-1 ring-line">
         {TIPS[provider]}
       </p>
       {provider === "webhook" && (
@@ -75,7 +75,7 @@ export function SourceSetupGuide({ provider }: { provider: LeadSourceProvider })
           <summary className="cursor-pointer font-medium text-ink-soft hover:text-primary-700">
             Exemplo para desenvolvedores
           </summary>
-          <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-50 p-3 leading-relaxed ring-1 ring-line">{`POST <URL acima>
+          <pre className="mt-2 overflow-x-auto rounded-lg bg-muted/50 p-3 leading-relaxed ring-1 ring-line">{`POST <URL acima>
 Content-Type: application/json
 
 {

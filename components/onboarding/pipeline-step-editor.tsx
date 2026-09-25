@@ -80,7 +80,7 @@ export function PipelineStepEditor({
                 "rounded-xl border p-3 text-left transition-colors",
                 templateId === t.id
                   ? "border-primary-300 bg-primary-50"
-                  : "border-line bg-white hover:border-primary-200"
+                  : "border-line bg-card hover:border-primary-200"
               )}
             >
               <span className="block text-sm font-semibold text-ink">
@@ -200,7 +200,7 @@ export function PipelineStepEditor({
         </div>
 
         {currentPipeline && (
-          <details className="rounded-lg border border-line bg-slate-50/70 p-3 text-xs text-ink-soft">
+          <details className="rounded-lg border border-line bg-muted/50 p-3 text-xs text-ink-soft">
             <summary className="cursor-pointer font-medium">Funil atual ({currentPipeline.name})</summary>
             <p className="mt-2">{currentPipeline.stages.map((s) => s.name).join(" → ")}</p>
             <p className="mt-1 text-ink-faint">Ao continuar, estas etapas são substituídas pelas de cima.</p>
@@ -208,10 +208,10 @@ export function PipelineStepEditor({
         )}
 
         {!validation.ok && (
-          <p className="text-xs text-amber-700">{validation.error}</p>
+          <p className="text-xs text-warning-text">{validation.error}</p>
         )}
         {state?.error && (
-          <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
             {state.error}
           </p>
         )}

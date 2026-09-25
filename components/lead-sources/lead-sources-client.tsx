@@ -64,7 +64,7 @@ export function LeadSourcesClient({
       <Card>
         <CardHeader title="Conexões desta empresa" subtitle={`${sources.length} conexão(ões)`} />
         {loadError ? (
-          <p role="alert" className="m-5 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <p role="alert" className="m-5 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text">
             Não foi possível carregar as conexões. Se a migration 0032 ainda não foi aplicada, aplique-a e recarregue.
           </p>
         ) : sources.length === 0 ? (

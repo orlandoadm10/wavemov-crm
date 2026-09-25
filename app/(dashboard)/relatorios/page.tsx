@@ -192,7 +192,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
           label="Leads ontem"
           value={yesterdayCount.count ?? 0}
           tone="green"
-          icon={<CalendarDays className="h-5 w-5 text-emerald-500" />}
+          icon={<CalendarDays className="h-5 w-5 text-success-text" />}
         />
         <StatCard
           label="Últimos 7 dias"
@@ -204,7 +204,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
           label="Últimos 30 dias"
           value={last30Count.count ?? 0}
           tone="slate"
-          icon={<CalendarClock className="h-5 w-5 text-slate-400" />}
+          icon={<CalendarClock className="h-5 w-5 text-ink-faint" />}
         />
       </div>
 
@@ -218,7 +218,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
             </span>
           }
           tone="amber"
-          icon={<UserRound className="h-5 w-5 text-amber-500" />}
+          icon={<UserRound className="h-5 w-5 text-warning-text" />}
         />
         <StatCard
           label="Tempo desde o último"
@@ -232,7 +232,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
             </span>
           }
           tone="slate"
-          icon={<Clock className="h-5 w-5 text-slate-400" />}
+          icon={<Clock className="h-5 w-5 text-ink-faint" />}
         />
         <StatCard
           label="Formulários ativos"
@@ -246,14 +246,14 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
           sublabel={`no período de ${period.label.toLowerCase()}`}
           value={perDay.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
           tone="green"
-          icon={<TrendingUp className="h-5 w-5 text-emerald-500" />}
+          icon={<TrendingUp className="h-5 w-5 text-success-text" />}
         />
       </div>
 
       {/* Gráfico + resumo */}
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader
+        <Card tint="sky" className="lg:col-span-2">
+          <CardHeader tint="sky"
             title={
               <span className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary-500" />
@@ -267,8 +267,8 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
           </div>
         </Card>
 
-        <Card>
-          <CardHeader
+        <Card tint="violet">
+          <CardHeader tint="violet"
             title={
               <span className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-primary-500" />
@@ -278,7 +278,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
           />
           <ul className="divide-y divide-line">
             <SummaryRow
-              icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+              icon={<CheckCircle2 className="h-4 w-4 text-success-text" />}
               label="Empresa recebendo leads"
               value={<Badge tone={total > 0 ? "green" : "slate"}>{total > 0 ? "Sim" : "Não"}</Badge>}
             />
@@ -318,11 +318,11 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
           />
         </div>
 
-        <Card>
-          <CardHeader
+        <Card tint="emerald">
+          <CardHeader tint="emerald"
             title={
               <span className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-amber-500" />
+                <Trophy className="h-4 w-4 text-warning-text" />
                 Top formulários
               </span>
             }
@@ -344,7 +344,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: S
                   <span className="text-sm font-bold text-ink">{f.total}</span>
                   <span className="text-xs text-ink-faint">leads</span>
                 </div>
-                <div className="mt-1.5 ml-7.5 h-1.5 rounded-full bg-slate-100">
+                <div className="mt-1.5 ml-7.5 h-1.5 rounded-full bg-muted">
                   <div
                     className="h-1.5 rounded-full bg-primary-600"
                     style={{ width: `${f.share}%` }}

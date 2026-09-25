@@ -104,7 +104,7 @@ export function ExternalIngestPanel({
           </Link>
           : a conexão é direta, sem fluxo no n8n. Este painel continua valendo para os fluxos que já existem.
         </p>
-        <div className="flex gap-3 rounded-lg bg-slate-50 p-4 ring-1 ring-line">
+        <div className="flex gap-3 rounded-lg bg-muted/50 p-4 ring-1 ring-line">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
           <p className="text-xs leading-relaxed text-ink-soft">
             A credencial abaixo vale para <b>toda esta empresa</b>: quem a tem cria contato
@@ -117,7 +117,7 @@ export function ExternalIngestPanel({
         <div>
           <p className="mb-1.5 text-[13px] font-medium text-ink-soft">Endpoint</p>
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-ink-soft ring-1 ring-line">
+            <code className="min-w-0 flex-1 truncate rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-ink-soft ring-1 ring-line">
               POST {endpoint}
             </code>
             <Button
@@ -127,7 +127,7 @@ export function ExternalIngestPanel({
               aria-label="Copiar endpoint"
             >
               {copied === "endpoint" ? (
-                <Check className="h-4 w-4 text-emerald-600" />
+                <Check className="h-4 w-4 text-success-text" />
               ) : (
                 <Copy className="h-4 w-4" />
               )}
@@ -135,16 +135,16 @@ export function ExternalIngestPanel({
           </div>
           <p className="mt-1.5 text-xs text-ink-faint">
             A URL é a mesma para todos os fluxos. O que muda é o cabeçalho{" "}
-            <code className="rounded bg-slate-100 px-1">x-webhook-secret</code> e o
+            <code className="rounded bg-muted px-1">x-webhook-secret</code> e o
             identificador no corpo.
           </p>
         </div>
 
         {!secret ? (
           <>
-            <div className="flex gap-3 rounded-lg bg-amber-50 p-4">
-              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-              <p className="text-xs leading-relaxed text-amber-800">
+            <div className="flex gap-3 rounded-lg bg-warning/10 p-4">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
+              <p className="text-xs leading-relaxed text-warning-text">
                 Esta empresa ainda não tem credencial de integração. Gere uma para começar
                 a receber leads pelo n8n.
               </p>
@@ -158,10 +158,10 @@ export function ExternalIngestPanel({
           <>
             <div>
               <p className="mb-1.5 text-[13px] font-medium text-ink-soft">
-                Cabeçalho <code className="rounded bg-slate-100 px-1">x-webhook-secret</code>
+                Cabeçalho <code className="rounded bg-muted px-1">x-webhook-secret</code>
               </p>
               <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-lg bg-slate-50 px-3 py-2.5 font-mono text-xs text-ink-soft ring-1 ring-line">
+                <code className="min-w-0 flex-1 truncate rounded-lg bg-muted/50 px-3 py-2.5 font-mono text-xs text-ink-soft ring-1 ring-line">
                   {revealed ? secret : "•".repeat(48)}
                 </code>
                 <Button
@@ -179,7 +179,7 @@ export function ExternalIngestPanel({
                   aria-label="Copiar credencial"
                 >
                   {copied === "secret" ? (
-                    <Check className="h-4 w-4 text-emerald-600" />
+                    <Check className="h-4 w-4 text-success-text" />
                   ) : (
                     <Copy className="h-4 w-4" />
                   )}
@@ -189,7 +189,7 @@ export function ExternalIngestPanel({
 
             <div>
               <p className="mb-1.5 text-[13px] font-medium text-ink-soft">Corpo da requisição</p>
-              <pre className="overflow-x-auto rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-ink-soft ring-1 ring-line">
+              <pre className="overflow-x-auto rounded-lg bg-muted/50 p-3 text-xs leading-relaxed text-ink-soft ring-1 ring-line">
                 {exampleBody}
               </pre>
               <ul className="mt-2 space-y-1 text-xs text-ink-faint">
@@ -200,7 +200,7 @@ export function ExternalIngestPanel({
                 <li>
                   <b>event_id</b> — identificador do evento na origem. É ele que evita lead
                   repetido quando o fluxo reentrega: a segunda chamada com o mesmo par
-                  formulário + evento responde <code className="rounded bg-slate-100 px-1">duplicate</code> e
+                  formulário + evento responde <code className="rounded bg-muted px-1">duplicate</code> e
                   não cria nada.
                 </li>
                 <li>
@@ -215,7 +215,7 @@ export function ExternalIngestPanel({
                 Formulários conectados
               </p>
               {connectedForms.length === 0 ? (
-                <p className="rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-ink-faint ring-1 ring-line">
+                <p className="rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-ink-faint ring-1 ring-line">
                   Nenhum formulário tem identificador de integração ainda. Edite um
                   formulário e preencha o campo <b>Identificador de integração</b> para
                   ligá-lo a um fluxo do n8n.
@@ -239,7 +239,7 @@ export function ExternalIngestPanel({
                         aria-label={`Copiar identificador de ${form.name}`}
                       >
                         {copied === form.id ? (
-                          <Check className="h-4 w-4 text-emerald-600" />
+                          <Check className="h-4 w-4 text-success-text" />
                         ) : (
                           <Copy className="h-4 w-4" />
                         )}
@@ -258,8 +258,8 @@ export function ExternalIngestPanel({
 
             <div className="border-t border-line pt-4">
               {confirmRotate ? (
-                <div className="rounded-lg bg-rose-50 p-3">
-                  <p className="text-xs leading-relaxed text-rose-700">
+                <div className="rounded-lg bg-destructive/10 p-3">
+                  <p className="text-xs leading-relaxed text-destructive-text">
                     Gerar uma credencial nova <b>invalida a atual na hora</b>. Todos os
                     fluxos n8n desta empresa param de entregar lead até você colar o valor
                     novo em cada um deles. Continuar?
@@ -293,8 +293,8 @@ export function ExternalIngestPanel({
             role={message.type === "error" ? "alert" : undefined}
             className={
               message.type === "ok"
-                ? "rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
-                : "rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                ? "rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text"
+                : "rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text"
             }
           >
             {message.text}

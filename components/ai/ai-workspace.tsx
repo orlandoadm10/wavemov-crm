@@ -36,7 +36,7 @@ export function AiWorkspace({
       <div
         role="tablist"
         aria-label="Seções da IA"
-        className="mb-4 flex flex-wrap gap-1 rounded-2xl border border-line bg-white p-1.5 shadow-(--shadow-card)"
+        className="mb-4 flex flex-wrap gap-1 rounded-2xl border border-line bg-card p-1.5 shadow-(--shadow-card)"
       >
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -46,7 +46,7 @@ export function AiWorkspace({
             onClick={() => setTab(id)}
             className={cn(
               "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              tab === id ? "bg-primary-50 text-primary-700" : "text-ink-soft hover:bg-slate-50 hover:text-ink"
+              tab === id ? "bg-primary-50 text-primary-700" : "text-ink-soft hover:bg-muted/50 hover:text-ink"
             )}
           >
             <Icon className={cn("h-4 w-4", tab === id ? "text-primary-600" : "text-ink-faint")} />

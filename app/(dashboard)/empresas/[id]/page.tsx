@@ -145,7 +145,7 @@ export default async function EmpresaPerfilPage({
             <PeriodFilter />
             <Link
               href="/empresas"
-              className="rounded-lg border border-line bg-white px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:text-primary-700"
+              className="rounded-lg border border-line bg-card px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:text-primary-700"
             >
               ← Empresas
             </Link>
@@ -154,7 +154,7 @@ export default async function EmpresaPerfilPage({
       />
 
       {/* Identificação */}
-      <Card className="p-5">
+      <Card tint="sky" className="p-5">
         <div className="flex flex-wrap items-center gap-4">
           <Avatar name={org.name} src={org.logo_url} size="xl" />
           <div className="min-w-0">
@@ -216,9 +216,9 @@ export default async function EmpresaPerfilPage({
           label="Ganhas / perdidas"
           value={
             <span className="text-2xl">
-              <span className="text-emerald-600">{won}</span>
+              <span className="text-success-text">{won}</span>
               <span className="text-ink-faint"> / </span>
-              <span className="text-rose-600">{lost}</span>
+              <span className="text-destructive-text">{lost}</span>
             </span>
           }
           tone="green"
@@ -234,8 +234,8 @@ export default async function EmpresaPerfilPage({
 
       {/* Saúde da conta + resumo rápido */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader
+        <Card tint="violet">
+          <CardHeader tint="violet"
             title={
               <span className="flex items-center gap-2">
                 <Activity className="h-4 w-4 text-primary-500" />
@@ -289,8 +289,8 @@ export default async function EmpresaPerfilPage({
           </ul>
         </Card>
 
-        <Card>
-          <CardHeader
+        <Card tint="emerald">
+          <CardHeader tint="emerald"
             title={
               <span className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-primary-500" />
@@ -300,7 +300,7 @@ export default async function EmpresaPerfilPage({
           />
           <ul className="divide-y divide-line">
             <QuickRow
-              icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+              icon={<CheckCircle2 className="h-4 w-4 text-success-text" />}
               label="Empresa com leads ativos no funil"
               value={<Badge tone={open > 0 ? "green" : "slate"}>{open > 0 ? "Sim" : "Não"}</Badge>}
             />
@@ -318,7 +318,7 @@ export default async function EmpresaPerfilPage({
               icon={<Zap className="h-4 w-4 text-ink-faint" />}
               label="Total em negociação"
               value={
-                <span className="font-semibold text-emerald-600">
+                <span className="font-semibold text-success-text">
                   {formatCurrency(openValue)}
                 </span>
               }
@@ -334,8 +334,8 @@ export default async function EmpresaPerfilPage({
 
       {/* Evolução + últimos leads */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader
+        <Card tint="rose">
+          <CardHeader tint="rose"
             title="Evolução de leads"
             subtitle={`Novos leads por dia · ${period.label.toLowerCase()}`}
           />
@@ -344,8 +344,8 @@ export default async function EmpresaPerfilPage({
           </div>
         </Card>
 
-        <Card className="overflow-hidden">
-          <CardHeader
+        <Card tint="amber" className="overflow-hidden">
+          <CardHeader tint="amber"
             title="Últimos leads"
             subtitle="Cinco entradas mais recentes"
             action={
@@ -385,8 +385,8 @@ export default async function EmpresaPerfilPage({
       </div>
 
       {/* Pessoas */}
-      <Card className="mt-4">
-        <CardHeader title="Pessoas" subtitle={`${members.length} pessoa(s) vinculada(s)`} />
+      <Card tint="cyan" className="mt-4">
+        <CardHeader tint="cyan" title="Pessoas" subtitle={`${members.length} pessoa(s) vinculada(s)`} />
         <ul className="divide-y divide-line">
           {members.map((m) => (
             <li key={m.id} className="flex items-center gap-3 px-5 py-3.5">

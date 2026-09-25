@@ -50,7 +50,7 @@ export function ReportNav() {
               "shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
               ativo
                 ? "bg-primary-50 text-primary-700 ring-1 ring-primary-100"
-                : "text-ink-soft hover:bg-slate-50 hover:text-ink"
+                : "text-ink-soft hover:bg-muted/50 hover:text-ink"
             )}
           >
             {r.label}

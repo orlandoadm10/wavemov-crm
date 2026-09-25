@@ -75,10 +75,10 @@ export function SourceSettingsCard({
           <p className="mt-1 text-xs text-ink-faint">Pausada, a URL recusa as entregas.</p>
         </div>
 
-        <div className="rounded-lg bg-slate-50 p-3 text-xs text-ink-soft ring-1 ring-line">
+        <div className="rounded-lg bg-muted/50 p-3 text-xs text-ink-soft ring-1 ring-line">
           <p>
             Destino: <b className="text-ink">{form.name}</b>
-            {!form.isActive && <span className="text-rose-700"> (desativado — as entregas vão falhar)</span>}
+            {!form.isActive && <span className="text-destructive-text"> (desativado — as entregas vão falhar)</span>}
           </p>
           <Link href="/formularios" className="mt-1 inline-block font-medium text-primary-600 hover:text-primary-700">
             Editar funil, etapa ou campos em Formulários →
@@ -93,7 +93,7 @@ export function SourceSettingsCard({
             type="button"
             onClick={() => setConfirming("delete")}
             disabled={pending}
-            className={buttonClasses({ variant: "ghost", className: "text-rose-600 hover:bg-rose-50 hover:text-rose-700" })}
+            className={buttonClasses({ variant: "ghost", className: "text-destructive-text hover:bg-destructive/10 hover:text-destructive-text" })}
           >
             <Trash2 className="h-4 w-4" /> Excluir conexão
           </button>
@@ -104,8 +104,8 @@ export function SourceSettingsCard({
             role={feedback.error ? "alert" : "status"}
             className={
               feedback.error
-                ? "rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
-                : "rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+                ? "rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive-text"
+                : "rounded-lg bg-success/10 px-3 py-2 text-sm text-success-text"
             }
           >
             {feedback.error ?? feedback.success}

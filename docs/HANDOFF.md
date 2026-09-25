@@ -57,9 +57,10 @@ Plano aprovado pelo P.O., uma entrega por etapa:
    (256/72 px), cabeçalho translúcido com a pílula do usuário, rótulo de grupo
    no `PageHeader`.
 3. **Telas** — feitas no mesmo ramo, pelos prints `docs/printdesign1..11`
-   (pasta raiz do projeto): Kanban, detalhe do lead e Dashboard. Faltam
-   Atendimento, listas (Contatos, Tarefas, Empresas) e o restante, que ainda
-   usam só a base. O que ficou fora por exigir dado novo está no `CHANGELOG`.
+   (pasta raiz do projeto): Kanban, detalhe do lead e Dashboard (publicado,
+   PR #23); demais telas em `feat/design-jidianos-demais-telas` — varredura de
+   cores fixas em todo o app, indicadores e painéis tingidos, Atendimento,
+   listas e login. O que ficou fora por exigir dado novo está no `CHANGELOG`.
 4. **Varredura** dos critérios da seção 22, com `scrollWidth === 390`.
 
 Contratos da transição:
@@ -67,9 +68,11 @@ Contratos da transição:
 - **Código novo usa os tokens semânticos** (`bg-card`, `text-foreground`,
   `text-muted-foreground`, `border-border`, `bg-primary`…). Os nomes v1
   (`ink`, `line`, `primary-50…900`) são aliases e somem ao fim da etapa 3.
-- **Não ofereça a alternância de tema antes da etapa 4.** Cada tela migrada
-  sai sem `bg-white`/`slate-*`/`rose-*`/`emerald-*`/`amber-*` fixos; é isso
-  que a libera. Para conferir uma tela no escuro durante a migração:
+- **Não ofereça a alternância de tema antes da etapa 4.** A varredura das
+  cores fixas terminou (só ficaram as exceções intencionais listadas no
+  `CHANGELOG`); falta a alternância em si e conferir cada tela no escuro.
+  Código novo não pode reintroduzir `bg-white`/`slate-*`/`rose-*`/
+  `emerald-*`/`amber-*`. Para conferir uma tela no escuro durante a migração:
   `document.documentElement.classList.add('dark')` no console.
 - **`primary-700…900` como FUNDO escuro** (painel da tela de login, blocos da
   landing) clareia no modo escuro, porque o alias mistura o azul com o

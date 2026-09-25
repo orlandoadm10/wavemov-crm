@@ -19,22 +19,22 @@ export function DealActivityTimeline({ activities }: { activities: ActivityLog[]
           )}
           <span
             className={cn(
-              "relative mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-white ring-2",
+              "relative mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-card ring-2",
               activity.type === "deal_won"
-                ? "bg-emerald-500 ring-emerald-200"
+                ? "bg-success ring-success/35"
                 : activity.type === "deal_lost"
-                  ? "bg-rose-500 ring-rose-200"
+                  ? "bg-destructive ring-destructive/35"
                   : activity.type === "note"
-                    ? "bg-amber-400 ring-amber-200"
+                    ? "bg-warning ring-warning/35"
                     : activity.type.startsWith("ai_")
-                      ? "bg-violet-500 ring-violet-200"
+                      ? "bg-violet-500 ring-violet-200 dark:ring-violet-300/30"
                       : "bg-primary-500 ring-primary-200"
             )}
           />
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">{activity.title}</p>
             {activity.description && (
-              <p className="mt-0.5 rounded-lg bg-slate-50 px-3 py-2 text-sm whitespace-pre-wrap text-ink-soft">
+              <p className="mt-0.5 rounded-lg bg-muted/50 px-3 py-2 text-sm whitespace-pre-wrap text-ink-soft">
                 {activity.description}
               </p>
             )}
