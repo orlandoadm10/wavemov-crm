@@ -22,7 +22,7 @@ const PALETTE = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4
 
 const tooltipStyle = {
   borderRadius: 12,
-  border: "1px solid #e6eaf2",
+  border: "1px solid rgba(124, 138, 165, 0.3)",
   boxShadow: "0 8px 24px rgb(15 23 42 / 0.08)",
   fontSize: 12,
 };
@@ -230,6 +230,115 @@ function HorizontalCountChartContent({
           formatter={(v) => (currency ? formatCurrency(Number(v)) : v)}
         />
         <Bar dataKey="value" fill={color} radius={[0, 6, 6, 0]} maxBarSize={22} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ------------------------------------------------------------
+// Dashboard no design Jidianos (prints 9 e 11)
+// ------------------------------------------------------------
+
+/** Neutros que funcionam nos dois temas — atributo SVG não resolve `var()`. */
+const AXIS = "#7c8aa5";
+const GRID = "rgba(124, 138, 165, 0.25)";
+/** Paleta das barras por item (print 9). */
+const VIVID = ["#0ea5e9", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#f97316", "#6366f1"];
+
+const compact = (v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v));
+
+/** Barras mês a mês numa cor só (leads, vendas, valor vendido). */
+export function MonthlyBarChart({
+  data,
+  dataKey,
+  name,
+  color,
+  currency,
+}: {
+  data: object[];
+  dataKey: string;
+  name: string;
+  color: string;
+  currency?: boolean;
+}) {
+  const hasMounted = useHasMounted();
+  if (!hasMounted) return <ChartPlaceholder height={240} />;
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: currency ? 0 : -18, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="month" tick={{ fontSize: 11, fill: AXIS }} axisLine={{ stroke: GRID }} tickLine={false} />
+        <YAxis
+          tick={{ fontSize: 11, fill: AXIS }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
+          tickFormatter={currency ? compact : undefined}
+        />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          cursor={{ fill: "rgba(124, 138, 165, 0.12)" }}
+          formatter={(v) => (currency ? formatCurrency(Number(v)) : v)}
+        />
+        <Bar dataKey={dataKey} name={name} fill={color} radius={[6, 6, 0, 0]} maxBarSize={48} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Linha suave com pontos vazados (conversão mês a mês, print 11). */
+export function MonthlyLineChart({
+  data,
+  dataKey,
+  name,
+  color,
+}: {
+  data: object[];
+  dataKey: string;
+  name: string;
+  color: string;
+}) {
+  const hasMounted = useHasMounted();
+  if (!hasMounted) return <ChartPlaceholder height={240} />;
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <LineChart data={data} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="month" tick={{ fontSize: 11, fill: AXIS }} axisLine={{ stroke: GRID }} tickLine={false} />
+        <YAxis tick={{ fontSize: 11, fill: AXIS }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v) => `${v}%`} />
+        <Line
+          type="monotone"
+          dataKey={dataKey}
+          name={name}
+          stroke={color}
+          strokeWidth={2.5}
+          dot={{ r: 3.5, fill: "#fff", stroke: color, strokeWidth: 2 }}
+          activeDot={{ r: 5 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Barras horizontais com uma cor por item (valor vendido por campanha). */
+export function VividHorizontalChart({ data, currency }: { data: { name: string; value: number }[]; currency?: boolean }) {
+  const height = Math.max(160, data.length * 36);
+  const hasMounted = useHasMounted();
+  if (data.length === 0) return null;
+  if (!hasMounted) return <ChartPlaceholder height={height} />;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />
+        <XAxis type="number" tick={{ fontSize: 11, fill: AXIS }} axisLine={{ stroke: GRID }} tickLine={false} tickFormatter={currency ? compact : undefined} />
+        <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 10, fill: AXIS }} axisLine={{ stroke: GRID }} tickLine={false} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v) => (currency ? formatCurrency(Number(v)) : v)} />
+        <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={26}>
+          {data.map((_, i) => (
+            <Cell key={i} fill={VIVID[i % VIVID.length]} />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

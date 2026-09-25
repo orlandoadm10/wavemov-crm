@@ -7,7 +7,7 @@ import { DealTagsSelector } from "@/components/crm/deal-tags-selector";
 import { DealHistoryPanel } from "@/components/crm/deal-history-panel";
 import { TaskModal } from "@/components/crm/task-modal";
 import { Avatar } from "@/components/ui/avatar";
-import { DealStatusBadge, PriorityBadge, TemperatureBadge } from "@/components/ui/badge";
+import { PriorityBadge, TemperatureBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LeadInfoCard } from "@/components/crm/lead-info-card";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -30,18 +30,26 @@ import {
   Archive,
   ArrowLeft,
   ArrowRightLeft,
-  Check,
+  Building2,
+  CalendarClock,
   CheckSquare,
-  ChevronRight,
+  Mail,
+  Megaphone,
   MessageCircle,
+  Pencil,
+  Phone,
   Plus,
   StickyNote,
+  Tag as TagIcon,
   ThumbsDown,
   ThumbsUp,
+  Workflow,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+type DetailTab = "dados" | "lead" | "tarefas" | "notas" | "historico";
 
 interface Props {
   organizationId: string;
@@ -108,17 +116,11 @@ export function DealDetail({
   const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<DetailTab>("dados");
 
   const pipeline = pipelines.find((p) => p.id === deal.pipeline_id);
   const stages = [...(pipeline?.stages ?? [])].sort((a, b) => a.order_index - b.order_index);
   const journeyStages = stages.filter((s) => !s.is_won_stage && !s.is_lost_stage);
-  const currentIndex = journeyStages.findIndex((s) => s.id === deal.stage_id);
-  const progress =
-    deal.status === "won"
-      ? 100
-      : journeyStages.length > 1 && currentIndex >= 0
-        ? Math.round(((currentIndex + 1) / journeyStages.length) * 100)
-        : 0;
 
   async function log(type: string, title: string) {
     await supabase.from("activity_logs").insert({
@@ -234,268 +236,294 @@ export function DealDetail({
   }
 
   const pendingTasks = tasks.filter((t) => t.status === "pending");
+  const currentStage = stages.find((s) => s.id === deal.stage_id);
+  const phone = deal.contact?.whatsapp_phone ?? null;
+  const utm = [deal.utm_source, deal.utm_medium, deal.utm_campaign].filter(Boolean).join(" · ");
+
+  const TABS: { id: DetailTab; label: string }[] = [
+    { id: "dados", label: "Dados" },
+    { id: "lead", label: "Formulário e IA" },
+    { id: "tarefas", label: `Atividades (${pendingTasks.length})` },
+    { id: "notas", label: "Notas" },
+    { id: "historico", label: "Histórico e conversas" },
+  ];
 
   return (
     <div className="animate-fade-up space-y-4">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        <Link
-          href="/negociacoes"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:text-primary-700"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Voltar
-        </Link>
-        <span className="text-ink-faint">
-          Funil <span className="font-semibold text-ink">{pipeline?.name}</span>
-        </span>
-        <ChevronRight className="h-3.5 w-3.5 text-ink-faint" />
-        <span className="text-ink-faint">Negociação</span>
-      </div>
+      <Link
+        href="/negociacoes"
+        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Voltar ao funil {pipeline?.name}
+      </Link>
 
-      {/* Cabeçalho */}
-      <Card className="p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <Avatar name={deal.contact?.name ?? deal.title} size="lg" />
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-bold text-ink">{deal.title}</h1>
-                <DealStatusBadge status={deal.status} />
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-panel">
+        {/* Cabeçalho (seção 15; print 2): degradê sutil de azul para o cartão. */}
+        <header className="space-y-4 bg-[linear-gradient(180deg,color-mix(in_oklab,var(--primary)_9%,var(--card))_0%,var(--card)_100%)] p-5 sm:p-6">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-bold text-foreground sm:text-[1.7rem]">{deal.title}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                {currentStage && (
+                  <span
+                    className="rounded-full px-2.5 py-1 font-semibold text-white"
+                    style={{ background: currentStage.color || "var(--primary)" }}
+                  >
+                    {currentStage.name}
+                  </span>
+                )}
+                <DealStatusPill status={deal.status} />
                 <TemperatureBadge temperature={deal.temperature} />
-              </div>
-              <p className="mt-0.5 text-xs text-ink-faint">
-                Criado em {formatDate(deal.created_at)} · Responsável:{" "}
-                <span className="font-medium text-primary-600">
-                  {deal.responsible ? fullName(deal.responsible) : "—"}
+                <span className="text-muted-foreground">
+                  Criado em {formatDate(deal.created_at)} · Responsável:{" "}
+                  <span className="font-semibold text-foreground">
+                    {deal.responsible ? fullName(deal.responsible) : "—"}
+                  </span>
                 </span>
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-[10px] font-semibold tracking-wide text-ink-faint uppercase">
-                Valor do negócio
-              </p>
-              <p className="text-2xl font-bold text-emerald-600">
-                {formatCurrency(deal.value)}
-              </p>
-            </div>
-            {deal.status === "open" && (
-              <div className="flex gap-2">
-                <Button variant="success" size="sm" onClick={() => setWonOpen(true)}>
-                  <ThumbsUp className="h-4 w-4" />
-                  Ganho
-                </Button>
-                <Button variant="danger" size="sm" onClick={() => setLostOpen(true)}>
-                  <ThumbsDown className="h-4 w-4" />
-                  Perda
-                </Button>
               </div>
-            )}
+            </div>
+            <div className="min-w-32 rounded-2xl border border-primary/20 bg-card/80 px-4 py-2.5 text-right">
+              <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                Valor da negociação
+              </p>
+              <p className="font-display text-xl font-bold text-primary">
+                {Number(deal.value) > 0 ? formatCurrency(deal.value) : "—"}
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Stepper de etapas */}
-        <div className="mt-5">
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {journeyStages.map((stage, i) => {
+          {phone && (
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={`tel:+${phone}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-card px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
+              >
+                <Phone className="h-3.5 w-3.5" /> +{phone}
+              </a>
+              <Link
+                href={`/atendimento?telefone=${phone}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs font-semibold text-success-text hover:bg-success/15"
+              >
+                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+              </Link>
+            </div>
+          )}
+
+          {deal.status === "open" && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="success" onClick={() => setWonOpen(true)}>
+                <ThumbsUp className="h-4 w-4" />
+                Marcar venda
+              </Button>
+              <Button variant="danger" onClick={() => setLostOpen(true)}>
+                <ThumbsDown className="h-4 w-4" />
+                Marcar perda
+              </Button>
+            </div>
+          )}
+
+          {/* Etapas do funil, cada uma na própria cor. */}
+          <nav aria-label="Etapas do funil" className="flex gap-2 overflow-x-auto pb-1">
+            {journeyStages.map((stage) => {
               const isCurrent = stage.id === deal.stage_id;
-              const isPast = currentIndex >= 0 && i < currentIndex;
+              const color = stage.color || "var(--primary)";
               return (
                 <button
                   key={stage.id}
                   disabled={busy || deal.status !== "open"}
+                  aria-current={isCurrent ? "step" : undefined}
                   onClick={() => moveToStage(stage.id)}
+                  style={{ "--stage": color } as React.CSSProperties}
                   className={cn(
-                    "flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
+                    "shrink-0 rounded-xl border px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed",
                     isCurrent
-                      ? "border-primary-600 bg-primary-600 text-white shadow-sm"
-                      : isPast
-                        ? "border-primary-100 bg-primary-50 text-primary-700"
-                        : "border-line bg-white text-ink-faint hover:border-primary-200 hover:text-ink-soft"
+                      ? "border-transparent bg-(--stage) text-white shadow-sm"
+                      : "border-[color-mix(in_oklab,var(--stage)_35%,transparent)] bg-[color-mix(in_oklab,var(--stage)_9%,var(--card))] text-[color-mix(in_oklab,var(--stage)_80%,var(--foreground))] enabled:hover:bg-[color-mix(in_oklab,var(--stage)_16%,var(--card))]"
                   )}
                 >
-                  {isPast && <Check className="h-3 w-3" />}
                   {stage.name}
                 </button>
               );
             })}
-          </div>
-          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-primary-600 transition-all"
-              style={{ width: `${progress}%` }}
-            />
+          </nav>
+        </header>
+
+        {/* Abas (print 2): barra azul-clara, aba ativa em pílula branca. */}
+        <div className="border-t border-border px-4 pt-4 sm:px-6">
+          <div role="tablist" aria-label="Seções do lead" className="flex gap-1 overflow-x-auto rounded-2xl bg-secondary/70 p-1.5">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                role="tab"
+                id={`aba-${t.id}`}
+                aria-selected={tab === t.id}
+                aria-controls={`painel-${t.id}`}
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  "shrink-0 rounded-xl px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors",
+                  tab === t.id
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-secondary-foreground/80 hover:text-foreground"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
-      </Card>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Coluna esquerda: negócio + contato */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader
-              title="Negócio"
-              action={
-                <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                  Editar
-                </Button>
-              }
-            />
-            <dl className="divide-y divide-line text-sm">
-              {[
-                ["Nome", deal.title],
-                ["Valor", formatCurrency(deal.value)],
-                ["Fechamento", formatDate(deal.expected_close_date)],
-                ["Funil", pipeline?.name ?? "—"],
-                ["Etapa", stages.find((s) => s.id === deal.stage_id)?.name ?? "—"],
-                ["Origem", deal.source ?? "—"],
-                ["UTM Source", deal.utm_source ?? "—"],
-                ["UTM Medium", deal.utm_medium ?? "—"],
-                ["UTM Campaign", deal.utm_campaign ?? "—"],
-                ["Criada em", formatDateTime(deal.created_at)],
-              ].map(([label, value]) => (
-                <div key={label as string} className="flex items-center justify-between gap-3 px-5 py-3">
-                  <dt className="text-ink-faint">{label}</dt>
-                  <dd className="truncate text-right font-medium text-ink">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </Card>
-
-          <DealTagsSelector
-            dealId={deal.id}
-            organizationId={organizationId}
-            tags={tags}
-            selectedTags={selectedTags}
-            canEdit={canEditTags}
-            loadError={tagsError}
-          />
-
-          <DealContactCard
-            organizationId={organizationId}
-            contact={deal.contact ?? null}
-            canEdit={canEditContact}
-          />
-
-          {/* Ações rápidas */}
-          <Card className="space-y-2 p-4">
-            <Button variant="outline" className="w-full justify-start" onClick={() => setTaskOpen(true)}>
-              <Plus className="h-4 w-4 text-primary-600" />
-              Criar tarefa
-            </Button>
-            <Link
-              href={deal.contact?.whatsapp_phone ? `/atendimento?telefone=${deal.contact.whatsapp_phone}` : "/atendimento"}
-              className="block"
-            >
-              <Button variant="outline" className="w-full justify-start">
-                <MessageCircle className="h-4 w-4 text-emerald-600" />
-                Enviar mensagem WhatsApp
+        <div role="tabpanel" id={`painel-${tab}`} aria-labelledby={`aba-${tab}`} className="p-4 sm:p-6">
+          {tab === "dados" && (
+            <div className="space-y-5">
+              <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+                <DataItem icon={<Mail />} label="E-mail" value={deal.contact?.email} />
+                <DataItem icon={<Phone />} label="Telefone" value={phone ? `+${phone}` : deal.contact?.phone} />
+                <DataItem icon={<Building2 />} label="Contato" value={deal.contact?.name} />
+                <DataItem icon={<TagIcon />} label="Origem" value={deal.source} />
+                <DataItem icon={<CalendarClock />} label="Entrou em" value={formatDateTime(deal.created_at)} />
+                <DataItem icon={<CalendarClock />} label="Previsão de fechamento" value={formatDate(deal.expected_close_date)} />
+                <DataItem icon={<Workflow />} label="Funil · etapa" value={`${pipeline?.name ?? "—"} · ${currentStage?.name ?? "—"}`} />
+                <DataItem icon={<Megaphone />} label="Anúncio (UTM)" value={utm || null} />
+              </dl>
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-4 w-4" />
+                Editar informações
               </Button>
-            </Link>
-            <Button variant="outline" className="w-full justify-start" onClick={() => setTransferOpen(true)}>
-              <ArrowRightLeft className="h-4 w-4 text-violet-600" />
-              Transferir responsável
-            </Button>
-            <Button variant="outline" className="w-full justify-start" onClick={() => setArchiveOpen(true)}>
-              <Archive className="h-4 w-4 text-ink-faint" />
-              Arquivar negociação
-            </Button>
-          </Card>
-        </div>
 
-        {/* Coluna central/direita: informações do lead + tarefas + notas +
-            histórico segmentado */}
-        <div className="space-y-4 lg:col-span-2">
-          {/* Primeiro card da coluna, ao lado de Negócio: é o contexto que o
-              vendedor lê ANTES de qualquer decisão sobre o lead. Não renderiza
-              nada quando não há respostas nem permissão para escrevê-las. */}
-          <LeadInfoCard
-            dealId={deal.id}
-            metadata={leadInfo}
-            formExternalId={leadFormExternalId}
-            hasSubmission={hasSubmission}
-            canEdit={canEditLeadInfo}
-          />
-
-          <DealAiCard aiStatus={deal.ai_status} qualification={deal.ai_qualification} />
-
-          <Card>
-            <CardHeader
-              title="Próximas tarefas"
-              action={
-                <Button variant="secondary" size="sm" onClick={() => setTaskOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  Tarefa
-                </Button>
-              }
-            />
-            {pendingTasks.length === 0 ? (
-              <div className="flex items-center gap-3 px-5 py-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-500">
-                  <CheckSquare className="h-5 w-5" />
-                </span>
-                <p className="text-sm text-ink-faint">
-                  Nenhuma tarefa pendente.{" "}
-                  <button
-                    onClick={() => setTaskOpen(true)}
-                    className="font-semibold text-primary-600 hover:underline"
-                  >
-                    Criar tarefa
-                  </button>{" "}
-                  para acompanhar este lead.
-                </p>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <DealTagsSelector
+                  dealId={deal.id}
+                  organizationId={organizationId}
+                  tags={tags}
+                  selectedTags={selectedTags}
+                  canEdit={canEditTags}
+                  loadError={tagsError}
+                />
+                <DealContactCard
+                  organizationId={organizationId}
+                  contact={deal.contact ?? null}
+                  canEdit={canEditContact}
+                />
               </div>
-            ) : (
-              <ul className="divide-y divide-line">
-                {pendingTasks.map((t) => (
-                  <li key={t.id} className="flex items-center gap-3 px-5 py-3">
-                    <button
-                      onClick={() => toggleTask(t)}
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-line transition-colors hover:border-primary-500"
-                      aria-label="Concluir tarefa"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">{t.title}</p>
-                      {t.due_at && (
-                        <p className="text-xs text-ink-faint">{formatDateTime(t.due_at)}</p>
-                      )}
-                    </div>
-                    <PriorityBadge priority={t.priority} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
 
-          {/* Nota interna */}
-          <Card className="p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <StickyNote className="h-4 w-4 text-amber-500" />
-              <h3 className="text-sm font-semibold text-ink">Nota interna</h3>
+              <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+                <Button variant="outline" onClick={() => setTaskOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  Criar tarefa
+                </Button>
+                <Button variant="outline" onClick={() => setTransferOpen(true)}>
+                  <ArrowRightLeft className="h-4 w-4" />
+                  Transferir responsável
+                </Button>
+                <Button variant="outline" onClick={() => setArchiveOpen(true)}>
+                  <Archive className="h-4 w-4" />
+                  Arquivar negociação
+                </Button>
+              </div>
             </div>
-            <Textarea
-              placeholder="Registre uma observação sobre este lead…"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
+          )}
+
+          {tab === "lead" && (
+            <div className="space-y-4">
+              <LeadInfoCard
+                dealId={deal.id}
+                metadata={leadInfo}
+                formExternalId={leadFormExternalId}
+                hasSubmission={hasSubmission}
+                canEdit={canEditLeadInfo}
+              />
+              <DealAiCard aiStatus={deal.ai_status} qualification={deal.ai_qualification} />
+            </div>
+          )}
+
+          {tab === "tarefas" && (
+            <Card>
+              <CardHeader
+                title="Próximas tarefas"
+                action={
+                  <Button variant="secondary" size="sm" onClick={() => setTaskOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Tarefa
+                  </Button>
+                }
+              />
+              {pendingTasks.length === 0 ? (
+                <div className="flex items-center gap-3 px-5 py-6">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-primary">
+                    <CheckSquare className="h-5 w-5" />
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma tarefa pendente.{" "}
+                    <button onClick={() => setTaskOpen(true)} className="font-semibold text-primary hover:underline">
+                      Criar tarefa
+                    </button>{" "}
+                    para acompanhar este lead.
+                  </p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {pendingTasks.map((t) => (
+                    <li key={t.id} className="flex items-center gap-3 px-5 py-3">
+                      <button
+                        onClick={() => toggleTask(t)}
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-input transition-colors hover:border-primary"
+                        aria-label="Concluir tarefa"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">{t.title}</p>
+                        {t.due_at && <p className="text-xs text-muted-foreground">{formatDateTime(t.due_at)}</p>}
+                      </div>
+                      <PriorityBadge priority={t.priority} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
+
+          {tab === "notas" && (
+            <Card className="p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <StickyNote className="h-4 w-4 text-warning" />
+                <h3 className="text-sm font-semibold text-foreground">Nota interna</h3>
+              </div>
+              <Textarea
+                placeholder="Registre uma observação sobre este lead…"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+              <div className="mt-2 flex justify-end">
+                <Button size="sm" onClick={saveNote} loading={savingNote} disabled={!note.trim()}>
+                  Salvar nota
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {tab === "historico" && (
+            <DealHistoryPanel
+              organizationId={organizationId}
+              activities={activities}
+              activitiesError={activitiesError}
+              conversations={conversations}
+              conversationsError={conversationsError}
             />
-            <div className="mt-2 flex justify-end">
-              <Button size="sm" onClick={saveNote} loading={savingNote} disabled={!note.trim()}>
-                Salvar nota
-              </Button>
-            </div>
-          </Card>
-
-          <DealHistoryPanel
-            organizationId={organizationId}
-            activities={activities}
-            activitiesError={activitiesError}
-            conversations={conversations}
-            conversationsError={conversationsError}
-          />
+          )}
         </div>
+
+        <footer className="flex items-center gap-2.5 border-t border-border px-5 py-3 text-sm sm:px-6">
+          {deal.responsible ? (
+            <>
+              <Avatar name={fullName(deal.responsible)} src={deal.responsible.avatar_url} size="sm" />
+              <span className="text-muted-foreground">
+                Responsável: <b className="text-foreground">{fullName(deal.responsible)}</b>
+              </span>
+            </>
+          ) : (
+            <span className="text-muted-foreground">Sem responsável</span>
+          )}
+        </footer>
       </div>
 
       {/* Modais */}
@@ -577,6 +605,31 @@ export function DealDetail({
         danger
         loading={busy}
       />
+    </div>
+  );
+}
+
+const STATUS_PILL: Record<Deal["status"], { label: string; className: string }> = {
+  open: { label: "Em aberto", className: "border-primary/40 bg-primary/10 text-primary" },
+  won: { label: "Venda realizada", className: "border-success/40 bg-success/12 text-success-text" },
+  lost: { label: "Perdida", className: "border-destructive/40 bg-destructive/10 text-destructive-text" },
+  archived: { label: "Arquivada", className: "border-border bg-muted text-muted-foreground" },
+};
+
+function DealStatusPill({ status }: { status: Deal["status"] }) {
+  const pill = STATUS_PILL[status] ?? STATUS_PILL.open;
+  return <span className={cn("rounded-full border px-2.5 py-1 font-semibold", pill.className)}>{pill.label}</span>;
+}
+
+/** Um dado do lead na aba "Dados": ícone + rótulo pequeno, valor abaixo. */
+function DataItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | null | undefined }) {
+  return (
+    <div className="min-w-0">
+      <dt className="flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:h-3.5 [&_svg]:w-3.5">
+        {icon}
+        {label}
+      </dt>
+      <dd className="mt-0.5 truncate text-sm font-medium text-foreground">{value || "—"}</dd>
     </div>
   );
 }

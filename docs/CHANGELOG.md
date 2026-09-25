@@ -2,6 +2,55 @@
 
 Ordem cronológica inversa. Datas absolutas (AAAA-MM-DD).
 
+## 2026-09-25 — Design Jidianos, etapas 2 e 3: telas nos prints de referência
+
+O P.O. enviou 11 prints do Jidianos (`docs/printdesign1..11.jpeg` na pasta
+raiz do projeto) e pediu o front idêntico, **sem mudar funcionalidade**.
+
+**Entregue.**
+
+- **Moldura:** sidebar azul sólida (256 px / 72 px recolhida) com item ativo
+  translúcido e anel, rodapé com o papel da pessoa; cabeçalho translúcido de
+  64 px com a pílula do usuário (avatar, nome · papel) e botão de sair; margem
+  de 32 px no computador. `PageHeader` ganha o rótulo pequeno acima do título
+  (o grupo do menu: Vendas, Análise…), aplicado a todas as telas.
+- **Kanban (prints 1 e 3):** colunas na cor da etapa (faixa de 6 px, fundo e
+  borda tingidos, contador e soma em pílulas, 85vw no celular / 290 px);
+  cartão com faixa da situação, nome em duas linhas, contato, caixa de origem
+  (UTM), caixas de valor e qualificação (temperatura), andamento da IA,
+  telefone/data/responsável, tags e rodapé "Abrir lead" / "Conversa"; barra de
+  resumo em pílulas; filtros brancos de 40 px com **filtro ativo em âmbar**,
+  busca com borda azul, "x" e Esc. Cartão e coluna saíram de
+  `kanban-board.tsx` para `components/crm/kanban/`.
+- **Detalhe do lead (print 2):** cabeçalho com degradê, nome grande, pílulas de
+  etapa e situação, telefone e WhatsApp, "Marcar venda"/"Marcar perda", etapas
+  cada uma na própria cor e o conteúdo em **abas** (Dados, Formulário e IA,
+  Atividades, Notas, Histórico e conversas) numa barra azul-clara.
+- **Dashboard (prints 5–11):** 12 indicadores tingidos por cor; funil em
+  trapézios na cor de cada etapa; "Quem mais vendeu" em cartões; "Motivos de
+  perda" numerados com barra; "De qual anúncio vêm as vendas" (tabela + barras
+  coloridas); leads, conversão, número de vendas e valor vendido mês a mês.
+  Cálculos em `lib/features/dashboard/domain/dashboard-metrics.ts`, testados.
+
+**O que NÃO mudou (funcional).** Consultas, permissões, gravações e regras são
+as mesmas. Duas interações novas, ambas atalhos para ações existentes e
+pedidas pelo guia: **"Mover para…"** no menu "…" do cartão (a mesma função do
+arrastar — arrastar não pode ser a única forma de mover) e o botão **"Minhas
+negociações"**, que aplica o filtro de responsável já existente. A única
+consulta alterada é a de funis do Dashboard, que passou a trazer as etapas para
+desenhar o funil.
+
+**Fora do recorte, porque exigiriam dado ou funcionalidade que o CRM não
+tem:** o bloco "Melhor vendedor" do topo do Kanban (print 4), faturamento
+declarado e "sem contato há…" no cartão, "dias nesta etapa", avançaram/parados
+no funil e a tabela "Rotina de prospecção por SDR". O lead continua abrindo na
+página própria, não em gaveta. A alternância de tema segue desligada.
+
+**Validação.** `tsc`, `npm run test:unit` (212, 4 novos), `npm run build`,
+`git diff --check` e conferência visual contra os prints com páginas
+temporárias de dados de exemplo (removidas antes do commit) — as telas reais
+exigem login e o Supabase local estava desligado.
+
 ## 2026-09-25 — Design Jidianos, etapa 1: base visual
 
 O P.O. adotou o design do Jidianos (plataforma interna da JID) para a próxima

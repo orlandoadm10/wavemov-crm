@@ -144,17 +144,22 @@ export function DealFiltersPanel({
 
   return (
     <div ref={containerRef} className="relative">
+      {/* Filtro ativo fica âmbar (DESIGN_GUIDE, seção 11). */}
       <Button
         type="button"
-        variant={appliedCount > 0 ? "secondary" : "outline"}
         onClick={toggle}
         aria-expanded={open}
         aria-haspopup="dialog"
+        className={cn(
+          "h-10 rounded-xl",
+          appliedCount > 0 &&
+            "border border-warning/60 bg-warning/15 text-warning-text shadow-none hover:bg-warning/25"
+        )}
       >
         <Filter className="h-4 w-4" />
-        Filtros
+        Filtros personalizados
         {appliedCount > 0 && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-bold text-white tabular-nums">
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-warning px-1.5 text-[10px] font-bold text-warning-foreground tabular-nums">
             {appliedCount}
           </span>
         )}
@@ -172,12 +177,12 @@ export function DealFiltersPanel({
           // botão por `useAnchoredPosition`, invisível até ser medido.
           style={anchored ? (position ?? { top: 0, left: 0, visibility: "hidden" }) : undefined}
           className={cn(
-            "z-40 overflow-y-auto rounded-2xl border border-line bg-slate-50 p-4 shadow-(--shadow-pop)",
+            "z-40 overflow-y-auto rounded-2xl border border-border bg-popover p-4 text-popover-foreground shadow-lift",
             anchored ? "fixed w-72" : "fixed inset-x-4 top-20 max-h-[calc(100dvh-6rem)]",
             (!anchored || position) && "animate-fade-up"
           )}
         >
-          <p className="mb-4 text-xs font-semibold text-primary-700" aria-live="polite">
+          <p className="mb-4 text-xs font-semibold text-primary" aria-live="polite">
             Filtros aplicados: {appliedCount}
           </p>
 
@@ -187,14 +192,14 @@ export function DealFiltersPanel({
               const id = `filtro-${key}`;
               return (
                 <div key={key}>
-                  <Label htmlFor={id} className="text-ink">
+                  <Label htmlFor={id} className="text-foreground">
                     {label}
                   </Label>
                   <Select
                     id={id}
                     value={field.choice}
                     onChange={(e) => update(key, { choice: e.target.value as DraftField["choice"] })}
-                    className={cn(!field.choice && "text-ink-faint")}
+                    className={cn(!field.choice && "text-muted-foreground")}
                   >
                     <option value="">Selecionar</option>
                     {DATE_RANGE_PRESETS.map((p) => (
@@ -211,7 +216,7 @@ export function DealFiltersPanel({
                         value={field.from}
                         max={field.to || undefined}
                         onChange={(e) => update(key, { from: e.target.value })}
-                        className={cn("px-2", errors[key] && "border-rose-400")}
+                        className={cn("px-2", errors[key] && "border-destructive")}
                       />
                       <Input
                         type="date"
@@ -219,12 +224,12 @@ export function DealFiltersPanel({
                         value={field.to}
                         min={field.from || undefined}
                         onChange={(e) => update(key, { to: e.target.value })}
-                        className={cn("px-2", errors[key] && "border-rose-400")}
+                        className={cn("px-2", errors[key] && "border-destructive")}
                       />
                     </div>
                   )}
                   {errors[key] && (
-                    <p role="alert" className="mt-1 text-xs text-rose-600">
+                    <p role="alert" className="mt-1 text-xs text-destructive-text">
                       {errors[key]}
                     </p>
                   )}
@@ -233,7 +238,7 @@ export function DealFiltersPanel({
             })}
           </div>
 
-          <div className="mt-4 flex gap-2 rounded-xl bg-white p-3">
+          <div className="mt-4 flex gap-2 rounded-xl bg-muted/60 p-3">
             <Button type="button" variant="secondary" className="flex-1" onClick={clear}>
               Limpar
             </Button>

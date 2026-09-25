@@ -665,7 +665,7 @@ export function PipelineStagesClient({
       <>
         {/* A ação fica só no EmptyState: repetida no cabeçalho, viram dois
             botões idênticos a um palmo de distância. */}
-        <PageHeader title="Etapas do funil" />
+        <PageHeader eyebrow="Vendas" title="Etapas do funil" />
         <EmptyState
           icon={<Filter className="h-6 w-6" />}
           title="Nenhum funil cadastrado"
@@ -683,7 +683,7 @@ export function PipelineStagesClient({
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow="Vendas"
         title="Etapas do funil"
         subtitle={
           canEdit

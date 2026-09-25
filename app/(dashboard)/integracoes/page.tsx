@@ -34,7 +34,7 @@ export default async function IntegracoesPage() {
   if (!canManage) {
     return (
       <div className="animate-fade-up">
-        <PageHeader title="Integrações" subtitle="API, MCP, n8n e webhooks" />
+        <PageHeader eyebrow="Inteligência" title="Integrações" subtitle="API, MCP, n8n e webhooks" />
         <EmptyState
           icon={<Lock className="h-6 w-6" />}
           title="Restrito ao administrador da empresa"
@@ -74,7 +74,7 @@ export default async function IntegracoesPage() {
 
   return (
     <div className="animate-fade-up space-y-6">
-      <PageHeader title="Integrações" subtitle="Conecte o CRM ao n8n, a sistemas externos e a agentes via MCP" />
+      <PageHeader eyebrow="Inteligência" title="Integrações" subtitle="Conecte o CRM ao n8n, a sistemas externos e a agentes via MCP" />
 
       {error && (
         <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">

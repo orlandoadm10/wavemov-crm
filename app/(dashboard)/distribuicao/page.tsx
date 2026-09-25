@@ -30,7 +30,7 @@ export default async function DistribuicaoPage() {
   if (!canManage) {
     return (
       <div className="animate-fade-up">
-        <PageHeader
+        <PageHeader eyebrow="Vendas"
           title="Distribuição de leads"
           subtitle="Quem recebe cada lead que entra"
         />
@@ -112,7 +112,7 @@ export default async function DistribuicaoPage() {
 
   return (
     <div className="animate-fade-up space-y-4">
-      <PageHeader
+      <PageHeader eyebrow="Vendas"
         title="Distribuição de leads"
         subtitle="Quem recebe cada lead que entra, por origem e formulário"
         actions={

@@ -57,7 +57,7 @@ export default async function ConfiguracoesWhatsAppPage() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader eyebrow="Atendimento"
         title="Conexão WhatsApp"
         subtitle="Configure a UAZAPI, a API oficial da Meta e o webhook de mensagens"
         actions={

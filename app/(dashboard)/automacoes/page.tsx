@@ -19,7 +19,7 @@ export default async function AutomacoesPage() {
   if (!canManage) {
     return (
       <div className="animate-fade-up">
-        <PageHeader title="Automações" subtitle="Ações automáticas do funil e do WhatsApp" />
+        <PageHeader eyebrow="Inteligência" title="Automações" subtitle="Ações automáticas do funil e do WhatsApp" />
         <EmptyState
           icon={<Lock className="h-6 w-6" />}
           title="Restrito ao administrador da empresa"
@@ -75,7 +75,7 @@ export default async function AutomacoesPage() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader eyebrow="Inteligência"
         title="Automações"
         subtitle="Quando algo acontece no funil ou no WhatsApp, o CRM age sozinho"
         actions={

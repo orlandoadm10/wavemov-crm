@@ -8,7 +8,7 @@ import Link from "next/link";
 export function AdminOnlyNotice() {
   return (
     <div className="animate-fade-up">
-      <PageHeader title="Fontes de lead" />
+      <PageHeader eyebrow="Captação" title="Fontes de lead" />
       <EmptyState
         icon={<Lock className="h-6 w-6" />}
         title="Restrito ao administrador da empresa"

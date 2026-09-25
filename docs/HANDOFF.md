@@ -43,7 +43,7 @@ a `0020` ganhou prova em Postgres real, além do pglite.
 Isso importa: com o `.env.local` apontando para a nuvem, `npm run dev` escreve
 **nos dados reais do cliente**. Confira o arquivo antes de subir o app.
 
-## Design Jidianos — 25/09/2026, ramo `feat/design-jidianos-base`
+## Design Jidianos — 25/09/2026
 
 `DESIGN_GUIDE.md` é o guia novo (Jidianos). Leia a **seção 0** antes de tudo:
 ela diz o que se adota (a linguagem visual inteira) e o que não (menu,
@@ -51,13 +51,15 @@ telas e rótulos do Jidianos). O guia antigo está em `docs/DESIGN_GUIDE_v1.md`.
 
 Plano aprovado pelo P.O., uma entrega por etapa:
 
-1. **Base** — feita neste ramo: tokens claro/escuro, fontes, fundo, sombras e
-   `components/ui/`. Detalhe no `CHANGELOG` de 25/09.
-2. **Estrutura** — sidebar azul recolhível (256/72 px), cabeçalho translúcido,
-   barras roláveis no celular.
-3. **Telas**, da mais usada à menos: Kanban (colunas de 290 px / 85vw com a cor
-   da etapa, cartão, "Mover para…"), **gaveta do lead** no lugar da página
-   `/negociacoes/[id]`, visão em lista, Atendimento, restante.
+1. **Base** — publicada (PR #22): tokens claro/escuro, fontes, fundo,
+   sombras e `components/ui/`.
+2. **Estrutura** — feita em `feat/design-jidianos-telas`: sidebar azul
+   (256/72 px), cabeçalho translúcido com a pílula do usuário, rótulo de grupo
+   no `PageHeader`.
+3. **Telas** — feitas no mesmo ramo, pelos prints `docs/printdesign1..11`
+   (pasta raiz do projeto): Kanban, detalhe do lead e Dashboard. Faltam
+   Atendimento, listas (Contatos, Tarefas, Empresas) e o restante, que ainda
+   usam só a base. O que ficou fora por exigir dado novo está no `CHANGELOG`.
 4. **Varredura** dos critérios da seção 22, com `scrollWidth === 390`.
 
 Contratos da transição:

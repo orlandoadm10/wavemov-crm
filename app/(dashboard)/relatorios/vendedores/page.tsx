@@ -100,7 +100,7 @@ export default async function RendimentoPorVendedorPage({
   if (!canSeeTeam) {
     return (
       <div className="animate-fade-up">
-        <PageHeader
+        <PageHeader eyebrow="Análise"
           title="Rendimento por vendedor"
           subtitle="Distribuição e desempenho da equipe"
         />
@@ -261,7 +261,7 @@ export default async function RendimentoPorVendedorPage({
 
   return (
     <div className="animate-fade-up space-y-4">
-      <PageHeader
+      <PageHeader eyebrow="Análise"
         title="Rendimento por vendedor"
         subtitle={`Distribuição e desempenho da equipe · ${period.label}`}
         actions={

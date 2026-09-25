@@ -34,7 +34,7 @@ export function UnreadConversationsPill() {
 
   if (unreadConversations === 0) {
     return (
-      <span className="flex h-8 items-center gap-2 rounded-full bg-slate-100 px-3 text-xs font-medium text-slate-600">
+      <span className="flex h-8 items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 text-xs font-semibold whitespace-nowrap text-success-text">
         <Check className="h-4 w-4" aria-hidden="true" />
         {ATTENTION_LABELS.unreadEmpty}
       </span>
@@ -44,7 +44,7 @@ export function UnreadConversationsPill() {
   return (
     <Link
       href="/atendimento"
-      className="flex h-8 items-center gap-2 rounded-full bg-primary-50 px-3 text-xs font-medium text-primary-700 ring-1 ring-primary-100 transition-colors hover:bg-primary-100"
+      className="flex h-8 items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 text-xs font-semibold whitespace-nowrap text-primary transition-colors hover:bg-primary/15"
     >
       <MessageCircle className="h-4 w-4" aria-hidden="true" />
       <span className="tabular-nums">

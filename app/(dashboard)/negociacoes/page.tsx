@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/page-header";
 import { KanbanBoard } from "@/components/crm/kanban-board";
 import { parseDealSort } from "@/lib/features/deal-filters/domain/deal-filters";
 import {
@@ -80,6 +81,11 @@ export default async function NegociacoesPage({ searchParams }: { searchParams: 
 
   return (
     <div className="animate-fade-up">
+      <PageHeader
+        eyebrow="Vendas"
+        title="Negociações"
+        subtitle="Cada lead do primeiro contato até a venda, com origem, tarefas e histórico completo."
+      />
       <KanbanBoard
         organizationId={orgId}
         profileId={session.profile.id}
