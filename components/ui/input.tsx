@@ -2,11 +2,12 @@ import { cn } from "@/lib/utils";
 import { forwardRef } from "react";
 
 const base =
-  "w-full rounded-lg border border-line bg-white px-3.5 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-primary-400 focus:outline-2 focus:outline-primary-600/15 disabled:bg-slate-50 disabled:text-ink-faint";
+  // 36px, raio de 6px, borda azul translúcida e anel de 1px no foco (seção 18).
+  "w-full rounded-md border border-input bg-card px-3 text-sm text-foreground placeholder:text-ink-faint transition-colors duration-150 focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none disabled:bg-muted disabled:text-muted-foreground";
 
 export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
-    <input ref={ref} className={cn(base, "h-10", className)} {...props} />
+    <input ref={ref} className={cn(base, "h-9", className)} {...props} />
   )
 );
 Input.displayName = "Input";
@@ -23,7 +24,7 @@ export const Select = forwardRef<
   HTMLSelectElement,
   React.SelectHTMLAttributes<HTMLSelectElement>
 >(({ className, children, ...props }, ref) => (
-  <select ref={ref} className={cn(base, "h-10 appearance-none pr-8", className)} {...props}>
+  <select ref={ref} className={cn(base, "h-9 appearance-none pr-8", className)} {...props}>
     {children}
   </select>
 ));
@@ -56,7 +57,7 @@ export function Field({
     <div className={className}>
       {label && <Label>{label}</Label>}
       {children}
-      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
     </div>
   );
 }

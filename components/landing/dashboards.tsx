@@ -10,7 +10,7 @@ export function Dashboards() {
   return (
     <section
       id="dashboards"
-      className="scroll-mt-24 border-b border-line bg-surface py-20 lg:py-28"
+      className="scroll-mt-24 border-b border-line bg-background py-20 lg:py-28"
     >
       <div className="mx-auto w-full max-w-6xl px-5">
         <Reveal>

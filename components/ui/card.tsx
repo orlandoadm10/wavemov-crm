@@ -7,7 +7,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-line bg-card shadow-(--shadow-card)",
+        "rounded-2xl border border-border bg-card text-card-foreground shadow-panel",
         className
       )}
       {...props}
@@ -29,8 +29,8 @@ export function CardHeader({
   return (
     <div className={cn("flex items-start justify-between gap-4 border-b border-line px-5 py-4", className)}>
       <div>
-        <h3 className="text-sm font-semibold text-ink">{title}</h3>
-        {subtitle && <p className="mt-0.5 text-xs text-ink-faint">{subtitle}</p>}
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -55,11 +55,11 @@ export function StatCard({
   className?: string;
 }) {
   const dots: Record<string, string> = {
-    blue: "bg-primary-500",
-    green: "bg-emerald-500",
-    red: "bg-rose-500",
-    amber: "bg-amber-500",
-    slate: "bg-slate-400",
+    blue: "bg-primary",
+    green: "bg-success",
+    red: "bg-destructive",
+    amber: "bg-warning",
+    slate: "bg-muted-foreground",
   };
   return (
     <Card className={cn("p-5", className)}>
@@ -70,7 +70,7 @@ export function StatCard({
         </div>
         {icon ?? <span className={cn("mt-1 h-2.5 w-2.5 rounded-full", dots[tone])} />}
       </div>
-      <p className="mt-3 text-3xl font-bold tracking-tight text-ink">{value}</p>
+      <p className="font-display mt-3 text-3xl font-bold tracking-tight text-foreground">{value}</p>
       {hint && <div className="mt-2 text-xs text-ink-faint">{hint}</div>}
     </Card>
   );

@@ -29,7 +29,7 @@ export default async function PublicFormPage({
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-lg">
         <div className="mb-6 flex items-center justify-center gap-2 text-ink-faint">
           <BrandLogo size={32} />

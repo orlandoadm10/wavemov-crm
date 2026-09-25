@@ -90,7 +90,7 @@ export function AppPreview({ className }: { className?: string }) {
           <span className="h-6 w-6 rounded-full bg-slate-100" />
         </div>
 
-        <div className="grid grid-cols-2 gap-3 bg-surface p-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 bg-background p-3 sm:grid-cols-3">
           {COLUMNS.map((column, index) => (
             <div
               key={column.name}

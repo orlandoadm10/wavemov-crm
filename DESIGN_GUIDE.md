@@ -1,578 +1,616 @@
-# Guia de Design - CRM JID Mídia
+# Guia de estilo do CRM Jidianos
 
-## Identidade visual
+> Documento de transferência visual e de interação para reproduzir o CRM da JID Mídia em outro aplicativo com máxima fidelidade.
 
-- Produto: CRM JID Mídia (a JID Mídia é quem fornece o CRM às empresas clientes)
-- Logo: `public/jid.png`, sempre pelo componente `components/ui/brand-logo.tsx`
-- Estilo geral: CRM SaaS operacional, limpo, claro, denso e profissional
-- Personalidade visual: confiável, objetiva, moderna, com predominância de azul
-- Layout base: superfícies claras, cards brancos, bordas suaves, sombras leves
-- Biblioteca de ícones: Lucide
-- Fonte principal: Inter
+## 0. Como este guia se aplica ao CRM JID Mídia (leia primeiro)
 
-## Cores principais
+Este é o contrato visual do CRM a partir da versão com o design Jidianos
+(decisão do P.O. em 25/09/2026). O guia anterior está em
+`docs/DESIGN_GUIDE_v1.md`, só como histórico. O CSS de origem do Jidianos está
+em `docs/referencias/css-jidianos.css` — **referência de consulta, nunca
+importado**; o que vale no app é `app/globals.css`.
 
-- primary-50: #eff6ff
-- primary-100: #dbeafe
-- primary-200: #bfdbfe
-- primary-300: #93c5fd
-- primary-400: #60a5fa
-- primary-500: #3b82f6
-- primary-600: #2563eb
-- primary-700: #1d4ed8
-- primary-800: #1e40af
-- primary-900: #1e3a8a
+O documento abaixo descreve o Jidianos, a plataforma interna da JID. O CRM é
+um produto multiempresa usado pelas empresas clientes, então:
 
-## Cores de superfície
+1. **Adota-se a linguagem visual inteira**: tokens, tipografia, densidade,
+   fundo, sombras, sidebar azul recolhível, cabeçalho translúcido, cartões,
+   Kanban, gaveta do lead, filtros, estados, responsividade e modo escuro.
+2. **Mantêm-se o menu e as funcionalidades do CRM.** Os itens das seções 6 e 8
+   (Atlas, Calculadora de metas, Painel TV, Rotina SDR, Relacionamento,
+   Perdas, Origens…), o bloco "Melhor vendedor" (9) e as telas das seções 16 e
+   17 descrevem o Jidianos. Só entram no CRM como funcionalidade nova, com
+   pedido próprio — nunca como parte de um ajuste visual.
+3. **Marca: "CRM JID Mídia".** Nada de "MÓDULO · COMERCIAL" nem "jidianos · JID
+   Mídia" no rodapé: quem usa é a empresa cliente.
+4. A seção 23 é o prompt de quem gerou este guia e não se aplica aqui.
 
-- background da aplicação: #f5f7fb
-- card: #ffffff
-- linha/borda: #e6eaf2
-- superfície secundária clara: #f8fafc
-- superfície secundária translúcida: #f8fafc com opacidade aproximada de 60% a 80%
-- overlay modal: #0f172a com 40% de opacidade
-- scrollbar: #cbd5e1
+### Tokens no código
 
-## Cores de texto
+`app/globals.css` define os tokens semânticos da seção 3 (`bg-background`,
+`bg-card`, `text-foreground`, `text-muted-foreground`, `bg-primary`,
+`text-primary-foreground`, `border-border`, `bg-success`, `bg-warning`,
+`bg-destructive`, `bg-sidebar`…) e as fontes `font-sans` (Plus Jakarta Sans) e
+`font-display` (Space Grotesk, aplicada a `h1`–`h3`).
 
-- texto principal: #0f172a
-- texto secundário: #475569
-- texto fraco/placeholder/metadados: #94a3b8
-- texto sobre azul: #ffffff
-- texto de link/ação primária: #2563eb
-- texto de link hover: #1d4ed8
+**Transição.** As classes do guia v1 continuam funcionando e já apontam para os
+tokens novos: `text-ink` → `foreground`, `text-ink-soft` / `text-ink-faint` →
+tons de `muted-foreground`, `border-line` → `border`, `primary-50…900` → mistura
+do `primary` com o fundo. Código NOVO usa os tokens semânticos; o antigo migra
+tela a tela. Cores fixas (`bg-white`, `slate-*`, `rose-*`, `emerald-*`,
+`amber-*`) não têm tema escuro — por isso a alternância de tema só será
+oferecida ao usuário quando a varredura dessas cores terminar.
 
-## Cores semânticas
+## 1. Direção obrigatória
 
-- sucesso principal: #059669
-- sucesso médio: #10b981
-- sucesso fundo: emerald-50
-- sucesso texto: emerald-700
-- erro principal: #e11d48
-- erro hover: #be123c
-- erro fundo: rose-50
-- erro texto: rose-700
-- alerta principal: #f59e0b
-- alerta fundo: amber-50
-- alerta texto: amber-700
-- informação fria: cyan-50 / cyan-700
-- destaque violeta: violet-50 / violet-700
-- destaque laranja: orange-50 / orange-600
-- neutro: slate-100 / slate-600
+O CRM deve parecer uma ferramenta operacional corporativa da **JID Mídia**, e não um painel genérico.
 
-## Paleta para gráficos
+- Identidade dominante: **azul JID + branco**, com superfícies azul-claro no modo claro e azul-grafite no modo escuro.
+- Visual: tecnológico, limpo, denso e profissional.
+- Prioridade: leitura rápida de muitos leads, etapas e alertas sem perder hierarquia.
+- Personalidade: cantos suaves, bordas azuis discretas, sombras leves e ícones lineares.
+- Não redesenhar, simplificar ou “modernizar” livremente. Replicar estrutura, proporções, cores, densidade e comportamento.
+- Todo texto visível deve estar em **português do Brasil**.
 
-- azul: #2563eb
-- verde: #10b981
-- amarelo: #f59e0b
-- violeta: #8b5cf6
-- vermelho: #ef4444
-- ciano: #06b6d4
-- slate: #64748b
-- rosa: #ec4899
-- grid dos gráficos: #eef1f6
-- labels dos eixos: #94a3b8
-- labels secundários: #475569
-- tooltip background: #ffffff
-- tooltip border: #e6eaf2
-- tooltip radius: 12px
-- tooltip shadow: 0 8px 24px rgb(15 23 42 / 0.08)
+## 2. Tipografia
 
-## Tipografia
+### Famílias
 
-- Fonte: Inter
-- Fallback: ui-sans-serif, system-ui, sans-serif
-- Antialiasing: ativado
-- Feature settings: cv02, cv03, cv04
-- H1 de página: 20px, peso 700, tracking tight, cor #0f172a
-- Título de card: 14px, peso 600, cor #0f172a
-- Título de modal: 16px, peso 600, cor #0f172a
-- Texto padrão: 14px, peso 400, cor #0f172a
-- Texto secundário: 14px, cor #475569
-- Texto auxiliar: 12px, cor #94a3b8
-- Label de formulário: 13px, peso 500, cor #475569
-- Header de tabela: 11px, peso 600, uppercase, tracking wide, cor #94a3b8
-- Badge: 12px, peso 500
-- Contador pequeno: 10px, peso 700
-- Stat grande: 30px, peso 700, tracking tight
-- Hero de autenticação: 30px, peso 700, line-height tight, cor #ffffff
+- Interface e textos: **Plus Jakarta Sans** — pesos 400, 500, 600 e 700.
+- Títulos e números de destaque: **Space Grotesk** — pesos 500, 600 e 700.
+- Alternativas: `ui-sans-serif, system-ui, sans-serif`.
 
-## Espaçamento
+### Escala predominante
 
-- Container principal: max-width 1600px
-- Padding horizontal do app: 16px
-- Padding vertical do main: 24px
-- Gap padrão entre seções: 16px a 24px
-- Gap entre controles: 8px
-- Gap compacto: 4px a 6px
-- Padding de card padrão: 20px
-- Padding de card/form grande: 32px
-- Padding de toolbar: 12px
-- Padding de tabela: 20px horizontal, 14px vertical
-- Padding de modal: header 24px x 16px, body 24px x 20px
+| Uso | Tamanho | Peso |
+|---|---:|---:|
+| Nome do módulo no topo | 10 px, caixa alta | 600 |
+| Título da página | 18 px no celular / 20 px no computador | 700 |
+| Subtítulo da página | 12 px no celular / 14 px no computador | 400 |
+| Título de coluna | 14 px | 600 |
+| Nome do lead no cartão | 16 px | 700 |
+| Texto normal compacto | 12 px | 500 |
+| Metadados | 10–11 px | 500–600 |
+| Botões pequenos | 12 px | 500–700 |
+| Cabeçalho de tabela | 10 px, caixa alta | 600 |
 
-## Bordas e raios
+A interface é compacta. Não ampliar todos os textos nem criar grandes áreas vazias.
 
-- Border color padrão: #e6eaf2
-- Border width padrão: 1px
-- Radius pequeno: 6px
-- Radius botão/input: 8px
-- Radius dropdown: 12px
-- Radius card/painel/modal: 16px
-- Radius ícone grande: 16px
-- Radius badge/pill/avatar: 9999px
-- Radius modal mobile: topo 16px
-- Radius modal desktop: 16px
+## 3. Paleta e variáveis
 
-## Sombras
+Usar variáveis semânticas. Evitar espalhar valores de cor diretamente nos componentes.
 
-- Card: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px rgb(15 23 42 / 0.05)
-- Popover/modal/hover forte: 0 4px 12px rgb(15 23 42 / 0.08), 0 12px 32px rgb(15 23 42 / 0.12)
-- Botão primário: sombra pequena azul com 20% de opacidade
-- Botão danger: sombra pequena rose com 20% de opacidade
-- Botão success: sombra pequena emerald com 20% de opacidade
+### Modo claro — padrão principal
 
-## Ícones
+```css
+:root {
+  --radius: 0.9rem;
 
-- Biblioteca: Lucide React
-- Tamanho padrão em botões e navegação: 16px
-- Ícone em botão compacto: 14px
-- Ícone em toggle mobile: 20px
-- Ícone de empty state: 24px
-- Ícone de sucesso em formulário público: 32px
-- Ícone de marca no header: 18px
-- Ícone de marca em auth/onboarding: 20px a 24px
-- Peso visual: stroke padrão do Lucide
-- Uso: sempre acompanhado por texto quando a ação não for universal
+  --background: oklch(0.972 0.014 252);
+  --foreground: oklch(0.22 0.05 262);
+  --surface: oklch(1 0 0);
+  --surface-foreground: oklch(0.22 0.05 262);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.05 262);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.05 262);
 
-## Componentes base
+  --primary: oklch(0.53 0.23 262);
+  --primary-foreground: oklch(0.99 0.002 258);
+  --secondary: oklch(0.918 0.05 254);
+  --secondary-foreground: oklch(0.32 0.11 262);
+  --muted: oklch(0.93 0.04 253);
+  --muted-foreground: oklch(0.48 0.07 258);
+  --accent: oklch(0.86 0.085 256);
+  --accent-foreground: oklch(0.28 0.13 262);
+
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.56 0.13 165);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.72 0.15 70);
+  --warning-foreground: oklch(0.22 0.05 70);
+
+  --border: oklch(0.53 0.23 262 / 18%);
+  --input: oklch(0.53 0.23 262 / 24%);
+  --ring: oklch(0.55 0.21 262);
+
+  --sidebar: oklch(0.42 0.19 262);
+  --sidebar-foreground: oklch(0.99 0.002 262);
+  --sidebar-primary: oklch(0.66 0.18 262);
+  --sidebar-primary-foreground: oklch(0.99 0.002 262);
+  --sidebar-accent: oklch(1 0 0 / 13%);
+  --sidebar-accent-foreground: oklch(0.99 0.002 262);
+  --sidebar-border: oklch(1 0 0 / 15%);
+  --sidebar-ring: oklch(0.66 0.18 262 / 60%);
+}
+```
+
+### Modo escuro
+
+```css
+.dark {
+  --background: oklch(0.145 0.024 262);
+  --foreground: oklch(0.975 0.004 258);
+  --surface: oklch(0.185 0.028 262);
+  --surface-foreground: oklch(0.975 0.004 258);
+  --card: oklch(0.195 0.028 262);
+  --card-foreground: oklch(0.975 0.004 258);
+  --popover: oklch(0.2 0.03 262);
+  --popover-foreground: oklch(0.975 0.004 258);
+
+  --primary: oklch(0.63 0.185 258);
+  --primary-foreground: oklch(0.99 0.002 258);
+  --secondary: oklch(0.245 0.032 262);
+  --secondary-foreground: oklch(0.95 0.006 258);
+  --muted: oklch(0.235 0.03 262);
+  --muted-foreground: oklch(0.72 0.022 258);
+  --accent: oklch(0.28 0.05 260);
+  --accent-foreground: oklch(0.97 0.005 258);
+
+  --destructive: oklch(0.6 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.68 0.14 165);
+  --success-foreground: oklch(0.15 0.02 165);
+  --warning: oklch(0.78 0.14 75);
+  --warning-foreground: oklch(0.2 0.04 75);
+
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.63 0.185 258);
+
+  --sidebar: oklch(0.22 0.10 265);
+  --sidebar-foreground: oklch(0.99 0.002 265);
+  --sidebar-primary: oklch(0.60 0.18 265);
+  --sidebar-primary-foreground: oklch(0.99 0.002 265);
+  --sidebar-accent: oklch(1 0 0 / 10%);
+  --sidebar-accent-foreground: oklch(0.99 0.002 265);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.60 0.18 265 / 50%);
+}
+```
+
+### Cores de situação
+
+- Principal/ação/etapa padrão: azul JID.
+- Venda ganha, WhatsApp e resultado positivo: verde.
+- Aviso, pendência do dia e filtro ativo: âmbar/amarelo.
+- Perda, atraso grave e exclusão: vermelho.
+- Cada etapa do funil pode ter sua própria cor; essa cor aparece na faixa superior, borda, título, contador e valor da coluna.
+
+## 4. Fundo, bordas, sombras e raios
+
+### Fundo da área de trabalho
+
+Usar fundo azul-claro com brilho discreto no modo claro e azul-noite no modo escuro:
+
+```css
+.app-background {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(1000px 560px at 80% -12%, var(--app-glow-1), transparent 66%),
+    radial-gradient(820px 500px at 2% 104%, var(--app-glow-2), transparent 64%),
+    linear-gradient(180deg, var(--app-1) 0%, var(--app-2) 100%);
+  background-attachment: fixed;
+}
+```
+
+### Padrões de superfície
+
+- Cartões: `background: card`, borda fina semântica, raio entre 12 e 16 px.
+- Colunas e barras principais: raio de 16 px.
+- Botões e campos: raio de 6 a 12 px.
+- Pílulas e contadores: raio completo.
+- Sombra de painel: destaque interno de 1 px + sombra azul suave e baixa.
+- Não usar sombras pretas pesadas.
+
+```css
+--shadow-panel: 0 1px 0 var(--ink-hi) inset,
+                0 18px 40px -26px var(--ink-shadow);
+--shadow-lift: 0 1px 0 var(--ink-hi) inset,
+               0 28px 60px -30px var(--ink-shadow-strong);
+```
+
+## 5. Estrutura geral da tela
+
+### Computador
+
+```text
+┌───────────────┬──────────────────────────────────────────────────┐
+│ Sidebar azul  │ Cabeçalho fixo: módulo, título, ações, usuário  │
+│ 256 px        ├──────────────────────────────────────────────────┤
+│ recolhível    │ Navegação secundária do CRM                     │
+│ para 72 px    ├──────────────────────────────────────────────────┤
+│               │ Ranking / indicadores rápidos                   │
+│               ├──────────────────────────────────────────────────┤
+│               │ Resumo + filtros                                │
+│               ├──────────────────────────────────────────────────┤
+│               │ Quadro Kanban horizontal ou tabela              │
+└───────────────┴──────────────────────────────────────────────────┘
+```
+
+- Sidebar: fixa, altura total, 256 px aberta e 72 px recolhida.
+- Área principal: largura restante, sem rolagem horizontal no corpo.
+- Cabeçalho: fixo no topo, fundo translúcido com desfoque, borda inferior.
+- Conteúdo: 32 px de margem interna no computador; 16 px no celular.
+- O quadro Kanban tem sua própria rolagem horizontal.
+
+### Celular — 390 px
+
+- A sidebar desaparece.
+- O cabeçalho exibe título, subtítulo, tema, notificações, avatar e saída.
+- As ações da página ficam em uma segunda linha horizontal rolável.
+- A navegação do módulo fica abaixo do cabeçalho e também rola horizontalmente.
+- A navegação do CRM forma uma barra branca independente, com abas roláveis.
+- Filtros começam recolhidos no botão **Filtros**.
+- O corpo nunca ultrapassa 390 px; somente áreas intencionalmente roláveis podem ter conteúdo largo.
+
+## 6. Sidebar principal
+
+- Fundo azul sólido da marca.
+- Logotipo branco no topo.
+- Quando um módulo está aberto, mostrar um seletor destacado com ícone, rótulo “MÓDULO” e nome “Comercial”.
+- Links com ícone linear de 16 px e texto de 14 px.
+- Item ativo: fundo azul mais claro/translúcido, texto branco e anel fino azul.
+- Item inativo: branco com leve transparência; no hover recebe fundo branco translúcido.
+- Rodapé: cargo em caixa alta, depois “jidianos · JID Mídia”.
+- Permitir recolher; recolhida, mostrar somente logotipo e ícones.
+
+Itens visíveis no módulo Comercial:
+
+1. CRM JID
+2. Dados comerciais
+3. Atlas
+4. Calculadora de metas
+5. Metas da JID Mídia
+6. Indicadores comerciais
+7. Painel TV
+8. Propostas comerciais
+9. Controle de reuniões — selo “Em breve”
+10. Histórico de indicadores
+
+## 7. Cabeçalho da página
+
+- Eyebrow: `MÓDULO · COMERCIAL`, azul, 10 px, caixa alta.
+- Título: `CRM JID`, 18–20 px, negrito.
+- Subtítulo: `Cada lead do primeiro contato até a venda, com origem, tarefas e histórico completo.`
+- À direita: seletor quadro/lista, botão **Configurar funil**, botão primário **Criar negociação**, alternância de tema, notificações, avatar com nome/cargo e sair.
+- No celular, título e ícones ficam na primeira faixa; ações ficam na faixa rolável logo abaixo.
+
+## 8. Navegação interna do CRM
+
+Usar uma faixa branca com borda, sombra leve e rolagem horizontal. Cada item leva ícone de 16 px e texto de 12 px.
+
+Ordem:
+
+1. Negociações
+2. Rotina SDR
+3. Atividades
+4. Relacionamento
+5. Conversas
+6. Distribuição
+7. Contatos
+8. Empresas
+9. Perdas
+10. Origens
+
+Estado ativo:
+
+- Fundo azul principal.
+- Texto e ícone brancos.
+- Raio de 12 px.
+
+Atividades e Relacionamento podem mostrar:
+
+- contador amarelo para pendências de hoje;
+- contador vermelho para atrasos.
+
+## 9. Bloco “Melhor vendedor”
+
+- Painel em azul muito claro com borda âmbar discreta e raio de 16 px.
+- Cabeçalho com troféu e texto `MELHOR VENDEDOR`.
+- Controle de período em pílulas: `Todo o período`, `Este mês`, `Mês passado`, `Personalizado`.
+- Vencedor em cartão maior com avatar sobre medalha/coroa, nome em negrito e números em verde/azul.
+- Demais posições em pílulas com posição, avatar, nome, valor e conversão.
+- No celular, controles quebram em linhas organizadas e posições ficam empilhadas.
+
+## 10. Barra de resumo
+
+Faixa horizontal clara com rolagem própria no celular. Mostrar pílulas compactas:
+
+- total de negociações — azul sólido;
+- situação atual — lilás claro;
+- valor em aberto — azul claro;
+- vendas e valor vendido — verde;
+- conversão — âmbar;
+- tarefas atrasadas, de hoje e futuras — vermelho, âmbar e verde/azul.
+
+Nunca quebrar os indicadores dentro da pílula. No celular, permitir deslizar lateralmente.
+
+## 11. Filtros
+
+### Computador
+
+Filtros aparecem abertos em uma linha flexível com quebra quando necessário:
+
+- funil;
+- busca;
+- responsáveis;
+- botão “Minhas negociações”;
+- situação;
+- ordenação;
+- origem;
+- filtros personalizados.
+
+### Celular
+
+- Mostrar apenas o botão branco **Filtros** com ícone de ajustes e texto `Mostrar`.
+- Quando houver filtro ativo, usar borda/fundo/texto amarelos e um contador.
+- Ao abrir, os campos ficam empilhados ou quebram em linhas, ocupando até 92% da largura da tela.
+- Incluir ação vermelha **Limpar filtros**.
+
+### Busca
+
+- Altura de 40 px.
+- Borda azul de 2 px.
+- Lupa azul à esquerda.
+- Botão circular “x” à direita quando houver texto.
+- Placeholder: `Buscar lead, empresa, telefone…`.
+- Pressionar `Esc` limpa a busca.
+
+### Estado ativo
+
+Qualquer filtro diferente do padrão recebe:
+
+```text
+borda âmbar 60% + fundo âmbar 15% + texto âmbar
+```
+
+## 12. Quadro Kanban
+
+### Contêiner
+
+- Fundo azul muito claro/translúcido.
+- Borda fina, raio de 16 px e margem interna de 16 px.
+- Altura mínima aproximada de 416 px.
+- Colunas em linha com espaço de 16 px.
+- Rolagem horizontal independente.
+
+### Coluna
+
+- Largura no celular: **85vw**.
+- Largura a partir de 640 px: **290 px**.
+- Não encolher.
+- Raio de 16 px, borda e fundo derivados da cor da etapa com baixa opacidade.
+- Faixa superior colorida de 6 px.
+- Cabeçalho em grade `texto flexível + valor fixo`.
+- Nome e contador à esquerda; soma monetária à direita.
+- Lista interna com rolagem vertical própria e carregamento progressivo.
+
+Etapas atuais do funil principal:
+
+1. Novos Leads
+2. Em contato
+3. Nutrir
+4. Reunião agendada
+5. Reunião realizada
+6. No-show
+7. Follow Up
+8. Relacionamento
+9. Negociação
+10. Venda realizada
+
+### Arrastar e mover
+
+- Computador: cartão arrastável entre colunas.
+- Durante o arraste: leve rotação e opacidade de 40%.
+- Coluna de destino: escala de 1,01 e sombra elevada.
+- Celular e acessibilidade: menu `…` no cartão com **Mover para** e todas as etapas disponíveis.
+- Nunca depender exclusivamente de arrastar e soltar.
+
+## 13. Cartão do lead
+
+Estrutura visual, de cima para baixo:
+
+1. Faixa colorida da situação/etapa.
+2. Situação em 10 px, caixa alta e negrito.
+3. Menu `…` à direita.
+4. Nome do lead em até duas linhas, 16 px e negrito.
+5. Empresa com ícone de prédio, 12 px, caixa alta, truncada.
+6. Caixa de origem/UTM em azul claro com ícone de megafone.
+7. Duas caixas lado a lado: faturamento e qualificação.
+8. Alertas de tempo sem contato, tarefa vencida ou venda sem cadastro.
+9. Telefone, data, hora e avatar do responsável.
+10. Barra inferior dividida: próxima tarefa/criar tarefa e conversa.
+
+### Aparência
+
+- Fundo branco no modo claro.
+- Borda fina e sombra curta.
+- Raio de 12 px.
+- No hover do computador: subir 2 px e aumentar discretamente a sombra.
+- Perdido: borda e fundo vermelho muito suave.
+- Ganho: borda e fundo verde muito suave.
+
+### Alertas
+
+- Sem contato recente: azul até 2 horas, âmbar a partir de 2 horas e vermelho após 24 horas.
+- Tarefa atrasada: vermelho.
+- Venda sem cadastro: borda âmbar dupla, fundo âmbar claro e ícone pulsante.
+
+## 14. Visualização em lista
+
+- Alternância quadro/lista em controle segmentado de dois ícones.
+- Tabela dentro de contêiner com rolagem horizontal.
+- Largura interna mínima aproximada: 880 px.
+- Cabeçalho em 10 px, caixa alta, fundo de superfície.
+- Linhas clicáveis com hover azul-claro.
+- Colunas: seleção, negociação, empresa, etapa, responsável, situação e valor.
+- Permitir seleção em massa e exibir barra de ações para mover, definir responsável, alterar situação ou excluir.
+
+## 15. Painel lateral do lead
+
+Abrir ao clicar em qualquer lead, sem sair da tela.
+
+- Gaveta pela direita.
+- Largura total no celular.
+- Máximo de aproximadamente 768 px no computador.
+- Rolagem vertical interna.
+- Fundo escurecido sobre a página.
+
+### Cabeçalho do painel
+
+- Fundo com degradê muito sutil de azul para branco/cartão.
+- Nome do lead grande.
+- Etapa e situação em pílulas.
+- Quantidade de dias na etapa.
+- Valor da negociação em caixa à direita.
+- Ações rápidas de telefone, WhatsApp e e-mail em pílulas.
+- Botões: **Marcar venda** em verde e **Marcar perda** em vermelho.
+- Navegação horizontal das etapas do funil.
+- Abas roláveis com os dados, atividades, notas, histórico e conversas.
+
+### Comportamento
+
+- Ao marcar venda: feedback forte, celebração breve e encerramento das pendências.
+- Ao marcar perda: abrir confirmação com motivo obrigatório.
+- Toda ação mostra sucesso ou erro no canto superior direito.
+
+## 16. Atividades
+
+- Entra mostrando as tarefas do próprio usuário, exceto chefia comercial, que pode iniciar em visão geral.
+- Filtros: busca, situação, tipo e responsável.
+- Cada atividade é uma linha-cartão com checkbox, controle de conclusão, título, tipo/data, lead clicável, status, WhatsApp, editar/reprogramar, avatar e exclusão quando permitida.
+- Status em badges: `A fazer`, `Pendente hoje`, `Em atraso`, `Concluída`.
+- Título concluído fica riscado e com cor reduzida.
+- Lead abre no mesmo painel lateral usado no quadro.
+
+## 17. Relacionamento
+
+- Abre filtrado para o vendedor conectado.
+- Qualquer usuário do Comercial pode trocar para “Todos os vendedores”.
+- Cards de resumo em grade 2 colunas no celular e 4 no computador: leads na rotina, em atraso, hoje e próximos dias.
+- Um cartão por lead, com empresa, etapa, data de entrada na rotina, badge de situação, avatar, progresso de 4 contatos, vendedor, WhatsApp, última interação, próxima ação e situação.
+- Progresso: quatro barras curtas; concluídas em azul, futuras em cor neutra.
+- Ação principal: `Concluir contato X/4`.
+- Ao concluir, pedir resultado; o próximo contato é programado automaticamente.
+
+## 18. Componentes base
 
 ### Botões
 
-- Estilo base: inline-flex, centralizado, radius 8px, peso 500, transição de cor
-- Foco: outline 2px, offset 2px, cor #2563eb
-- Disabled: opacidade 50%, sem interação
-- Loading: ícone Loader2 girando, 16px
-- Primary: background #2563eb, texto #ffffff, hover #1d4ed8
-- Secondary: background #eff6ff, texto #1d4ed8, border #dbeafe, hover #dbeafe
-- Outline: background #ffffff, texto #475569, border #e6eaf2, hover border #93c5fd, hover texto #1d4ed8
-- Ghost: background transparente, texto #475569, hover #f1f5f9, hover texto #0f172a
-- Danger: background rose-600, texto #ffffff, hover rose-700
-- Success: background emerald-600, texto #ffffff, hover emerald-700
-- Tamanho sm: altura 32px, padding horizontal 12px, texto 12px
-- Tamanho md: altura 40px, padding horizontal 16px, texto 14px
-- Tamanho lg: altura 44px, padding horizontal 24px, texto 14px
-- Tamanho icon: 36px x 36px
+- Altura normal: 36 px; pequeno: 32 px; grande: 40 px.
+- Primário: azul sólido, texto branco e sombra curta.
+- Outline: fundo da página, borda do campo, hover azul-claro.
+- Destrutivo: vermelho sólido.
+- Ícones: 16 px, sempre sem deformar.
+- Botões somente com ícone: 32 ou 36 px quadrados e tooltip/`aria-label`.
 
-### Inputs, selects e textareas
+### Campos e seletores
 
-- Background: #ffffff
-- Border: #e6eaf2
-- Radius: 8px
-- Altura input/select: 40px
-- Padding horizontal: 14px
-- Texto: 14px, #0f172a
-- Placeholder: #94a3b8
-- Focus border: #60a5fa
-- Focus outline: #2563eb com 15% de opacidade
-- Disabled background: #f8fafc
-- Disabled text: #94a3b8
-- Textarea: altura mínima 96px, padding vertical 10px
-- Label: 13px, peso 500, #475569, margem inferior 6px
-- Erro de campo: 12px, #e11d48, margem superior 4px
-
-### Cards
-
-- Background: #ffffff
-- Border: #e6eaf2
-- Radius: 16px
-- Shadow: card
-- Header: display flex, justify-between, gap 16px, border-bottom #e6eaf2
-- Header padding: 20px horizontal, 16px vertical
-- Título: 14px, peso 600, #0f172a
-- Subtítulo: 12px, #94a3b8
-- Hover em cards clicáveis: shadow pop
-
-### Stat cards
-
-- Padding: 20px
-- Label: 14px, peso 600, #0f172a
-- Sublabel: 12px, #94a3b8
-- Valor: 30px, peso 700, #0f172a
-- Hint: 12px, #94a3b8
-- Indicador: bolinha 10px, radius full
-- Tons: azul, verde, vermelho, amber, slate
+- Altura: 36 px.
+- Raio: 6 px.
+- Borda fina azul translúcida.
+- Foco com anel azul de 1 px.
+- Texto: 12–14 px.
+- Menus e popovers: largura máxima `min(360px, 92vw)`.
 
 ### Badges
 
-- Formato: pill
-- Padding: 10px horizontal, 2px vertical
-- Texto: 12px, peso 500
-- Ring: 1px inset
-- Dot opcional: 6px x 6px, cor currentColor
-- Blue: background #eff6ff, texto #1d4ed8, ring #dbeafe
-- Green: emerald-50, emerald-700, emerald-100
-- Red: rose-50, rose-700, rose-100
-- Amber: amber-50, amber-700, amber-100
-- Slate: slate-100, slate-600, slate-200
-- Violet: violet-50, violet-700, violet-100
-- Cyan: cyan-50, cyan-700, cyan-100
-- Orange: orange-50, orange-600, orange-100
+- Compactos, 10–12 px, peso 600.
+- Badge comum: raio de 4–6 px.
+- Contadores e indicadores de resumo: pílula completa.
 
-### Tabelas
+### Diálogos
 
-- Container: scroll horizontal no mobile
-- Background: #ffffff
-- Border: #e6eaf2
-- Radius: 16px
-- Shadow: card
-- Tabela mínima: 640px
-- Texto da tabela: 14px
-- Header: background slate-50 com 80% de opacidade
-- Header texto: 11px, uppercase, peso 600, tracking wide, #94a3b8
-- Células: padding 20px horizontal, 14px vertical
-- Body: divisórias #e6eaf2
-- Hover de linha: primary-50 com 40% de opacidade
-- Linha clicável: cursor pointer
-- Footer: border-top #e6eaf2, padding 20px x 12px, texto 12px #94a3b8
+- Largura no celular: `calc(100% - 2rem)`.
+- Altura máxima: `90dvh`.
+- Rolagem vertical interna.
+- No computador, larguras extras começam em `sm:`.
+- Fundo externo preto a 80%.
+- Rodapé empilhado e invertido no celular; ações alinhadas à direita no computador.
 
-### Dropdowns
+### Ícones
 
-- Container: position absolute, z-index alto
-- Margin top: 6px
-- Min width: 176px
-- Background: #ffffff
-- Border: #e6eaf2
-- Radius: 12px
-- Padding interno: 6px
-- Shadow: pop
-- Animação: fade-up 250ms
-- Item: 14px, padding 12px x 8px, radius 8px
-- Item normal: texto #475569, hover #f8fafc, hover texto #0f172a
-- Item danger: texto rose-600, hover rose-50
+- Estilo linear consistente, semelhante ao Lucide.
+- Tamanho padrão: 16 px.
+- Nunca misturar ícones preenchidos pesados com ícones lineares.
 
-### Modais
+## 19. Movimento e feedback
 
-- Overlay: #0f172a com 40% de opacidade
-- Overlay blur: 2px
-- Z-index: 50
-- Desktop: centralizado, padding externo 24px
-- Mobile: alinhado ao fundo, sem padding externo
-- Background modal: #ffffff
-- Radius desktop: 16px
-- Radius mobile: topo 16px
-- Max height: 92vh
-- Shadow: pop
-- Header: border-bottom #e6eaf2, padding 24px x 16px
-- Título: 16px, peso 600, #0f172a
-- Subtítulo: 12px, #94a3b8
-- Body: padding 24px x 20px, scroll vertical
-- Botão fechar: 30px aproximado, radius 8px, texto #94a3b8, hover #f1f5f9
-- Tamanhos: sm 384px, md 512px, lg 672px, xl 896px
+- Transições de cor curtas, entre 150 e 200 ms.
+- Entrada de menus, diálogos e gavetas com fade + zoom/deslizamento suave.
+- Hover dos cartões: elevação de 2 px.
+- Feedback de venda pode usar pulso/confete curto.
+- Alertas realmente urgentes podem pulsar.
+- Respeitar `prefers-reduced-motion` e remover movimentos não essenciais.
+- Toasts ricos no canto superior direito para sucesso, erro e informação.
 
-### Empty states
+## 20. Regras de responsividade obrigatórias
 
-- Layout: coluna centralizada
-- Background: #ffffff com 60% de opacidade
-- Border: dashed #e6eaf2
-- Radius: 16px
-- Padding: 56px vertical, 24px horizontal
-- Ícone container: 56px x 56px, radius 16px, background #eff6ff, cor #3b82f6
-- Título: 14px, peso 600, #0f172a
-- Descrição: 14px, #94a3b8, largura máxima 384px
-- Ação: margem superior 20px
+1. Cabeçalhos com texto e ações usam grade `minmax(0, 1fr) + auto`.
+2. Todo bloco textual flexível recebe `min-width: 0`.
+3. Títulos longos usam truncamento ou no máximo duas linhas.
+4. Ícones e avatares nunca encolhem.
+5. Colunas Kanban usam `85vw` no celular e 290 px a partir de 640 px.
+6. O quadro tem rolagem horizontal própria.
+7. Toda ação de arrastar tem alternativa por toque em `Mover para…`.
+8. Tabelas ficam dentro de rolagem horizontal; a largura mínima pertence à tabela, não ao corpo.
+9. Filtros ficam recolhidos no celular.
+10. Diálogos têm margem lateral de 16 px e altura máxima de 90% da tela.
+11. Menus e popovers não ultrapassam 92vw.
+12. Em 390 px, `document.body.scrollWidth` deve ser exatamente `390`.
+13. Todas as ações principais precisam ser alcançáveis por toque.
 
-### Avatares
+## 21. Estados obrigatórios
 
-- Formato: circular
-- Ring: 2px branco
-- Imagem: object-cover
-- Fallback: background #dbeafe, texto #1d4ed8, peso 600
-- xs: 24px, texto 10px
-- sm: 32px, texto 12px
-- md: 40px, texto 14px
-- lg: 56px, texto 18px
-- xl: 80px, texto 24px
+Toda tela deve contemplar:
 
-### Switch
+- carregando;
+- vazio;
+- erro;
+- sem acesso;
+- somente leitura;
+- sucesso;
+- filtro sem resultados;
+- dados truncados com título acessível;
+- ação desabilitada;
+- conexão/recarregamento sem desmontar visualmente o quadro.
 
-- Container: inline-flex, gap 8px
-- Label: 14px, peso 500, #475569
-- Track: 44px x 24px, radius full
-- Track ativo: #2563eb
-- Track inativo: slate-300
-- Thumb: 20px x 20px, branco, sombra pequena
-- Thumb offset: 2px
-- Disabled: opacidade 50%
+## 22. Critérios de aceite visual
 
-### Skeleton
+A réplica só está pronta quando:
 
-- Radius padrão: 8px
-- Background: shimmer horizontal
-- Cores do shimmer: #eef1f6, #f7f9fc, #eef1f6
-- Duração: 1.4s linear infinito
-- Uso em tabelas: linhas com avatar 36px e barras de texto
-- Uso em cards: altura aproximada 128px
-- Uso em Kanban: colunas 288px, cards 112px
+- [ ] A sidebar, o cabeçalho e a navegação interna têm a mesma hierarquia do Jidianos.
+- [ ] O azul JID, os fundos claros e os estados semânticos usam os valores deste documento.
+- [ ] O quadro mostra colunas de 290 px no computador e 85vw no celular.
+- [ ] Os cartões mantêm a mesma densidade de informações.
+- [ ] O lead abre em painel lateral, não em nova página.
+- [ ] Há visão Kanban e visão de tabela.
+- [ ] Filtros ativos ficam amarelos.
+- [ ] A interface funciona em modo claro e escuro.
+- [ ] Não existe rolagem horizontal no corpo em 390 px.
+- [ ] Menus, filtros, diálogos e ações continuam utilizáveis por toque.
+- [ ] Drag-and-drop possui a opção “Mover para…” no próprio cartão.
+- [ ] O idioma visível é português do Brasil.
+- [ ] A interface não parece um template genérico ou um CRM de outra marca.
 
-## Layouts
+## 23. Prompt mestre para usar no outro aplicativo
 
-### App autenticado
+Copie o texto abaixo junto com este documento:
 
-- Background geral: #f5f7fb
-- Altura mínima: 100vh
-- Header fixo no topo: sticky, top 0, z-index 40
-- Header height: 56px
-- Header background: #ffffff com 90% de opacidade
-- Header blur: backdrop blur
-- Header border-bottom: #e6eaf2
-- Container do header: max-width 1600px, padding horizontal 16px
-- Main: max-width 1600px, padding horizontal 16px, padding vertical 24px
+```text
+Reproduza o CRM Jidianos da JID Mídia seguindo integralmente o guia de estilo anexado.
 
-### Navegação lateral
+A meta é fidelidade, não inspiração. Não redesenhe e não simplifique a estrutura. Mantenha a identidade azul e branca, Plus Jakarta Sans na interface, Space Grotesk nos títulos e números, sidebar azul recolhível, cabeçalho fixo translúcido, navegação interna rolável, ranking de vendedor, barra de resumo, filtros, quadro Kanban e painel lateral do lead.
 
-Desde 23/09/2026 a navegação principal é uma barra lateral
-(`components/layout/app-shell.tsx`, `sidebar.tsx`); o catálogo de itens,
-grupos e permissões fica em `components/layout/nav-links.ts`. O menu superior
-foi aposentado: comportava ~10 itens e obrigava a esconder telas atrás de
-botões.
+O CRM deve abrir na visão Kanban e oferecer visão em lista. Cada etapa deve ter faixa, borda e indicadores na própria cor. Os cartões precisam mostrar situação, lead, empresa, origem, faturamento, qualificação, alertas, responsável, tarefa e conversa. Clicar em qualquer lead abre a ficha completa em uma gaveta pela direita sem sair da tela.
 
-- Largura: 240px aberta, 64px recolhida (trilho só com ícones); `sticky`,
-  altura da tela, background #ffffff, border-right #e6eaf2
-- Preferência "recolhida" em cookie (`wavemov-sidebar-collapsed`), lida no
-  servidor para a primeira pintura não saltar
-- Topo da barra: 56px, logo da organização (ou fallback 32px, radius 12px,
-  #2563eb, ícone branco) + nome 14px peso 700
-- Grupo: rótulo 11px, peso 600, uppercase, #94a3b8, recolhível (preferência
-  por navegador em `localStorage`); o primeiro grupo não tem rótulo
-- Link: radius 8px, padding 12px x 8px, texto 14px, peso 500, ícone 16px
-- Link ativo: background #eff6ff, texto #1d4ed8, ícone #2563eb, `aria-current="page"`
-- Link inativo: texto #475569, ícone #94a3b8; hover background #f8fafc, texto #0f172a
-- Badges de atenção: `CountBadge` à direita do rótulo; no trilho, no canto do ícone
-- Rodapé: botão "Recolher menu"
-- Abaixo de `lg` (1024px): a barra some e vira gaveta à esquerda (288px,
-  overlay #0f172a a 40%, fecha com Esc, clique fora ou ao navegar)
-- Barra superior: 56px, só conta (menu do usuário com perfil, troca de
-  empresa e sair) e, no celular, o botão da gaveta e o nome da empresa
+No celular de 390 px, esconda a sidebar, torne as barras superiores roláveis, recolha os filtros, use colunas Kanban de 85vw e mantenha document.body.scrollWidth igual a 390. Toda interação de arrastar deve possuir “Mover para…” por toque.
 
-### Header de página
+Use os tokens semânticos e as medidas exatas do documento. Preserve os estados de sucesso, aviso, atraso, perda e venda. Todos os textos devem estar em português do Brasil. Não use estética genérica de painel, não use roxo como cor dominante e não substitua o azul JID.
+```
 
-- Margin bottom: 24px
-- Layout: flex, wrap, justify-between
-- Gap: 12px
-- Título: 20px, peso 700, #0f172a
-- Subtítulo: 14px, #94a3b8
-- Ações: flex wrap, gap 8px
+---
 
-### Auth
-
-- Layout desktop: duas colunas
-- Painel de marca: 45% da largura, background #1e3a8a, padding 40px
-- Painel de marca: oculto no mobile
-- Efeito visual: gradientes radiais azuis com 40% de opacidade
-- Logo auth: 40px x 40px, radius 16px, background branco 10%, texto branco
-- Título hero: 30px, peso 700, branco
-- Texto hero: 14px, line-height relaxed, #bfdbfe
-- Copyright: 12px, #93c5fd
-- Área de formulário: background #f5f7fb, centralizada
-- Card de login/register: max-width 448px, background branco, radius 16px, border #e6eaf2, padding 32px, shadow card
-
-### Onboarding
-
-- Background: #f5f7fb
-- Card: max-width 448px, padding 32px, radius 16px, border #e6eaf2, shadow card
-- Ícone de marca: 48px x 48px, radius 16px, background #2563eb, branco
-- Título: 20px, peso 700
-- Texto auxiliar: 14px, #94a3b8
-- CTA: botão primary grande full-width
-
-### Landing pública (`/`)
-
-A única tela de marketing do produto. Herda os tokens do app, mas usa uma
-escala maior — é apresentação, não densidade operacional. Toda exceção à
-escala do app está listada aqui; nada além disto se desvia.
-
-- Container: max-width 1152px, padding horizontal 20px
-- Ritmo vertical das seções: 80px no mobile, 112px a partir de `lg`
-- Alternância de fundo: branco → branco → azul #1e3a8a → #f5f7fb → branco
-- Header: sticky, altura 72px, transparente no topo e branco 85% com blur
-  depois do primeiro scroll; o CTA de acesso fica visível em toda largura
-- Botão da landing: pílula (radius 9999px), gradiente primary-600 → primary-500,
-  altura 44px (md) ou 52px (lg), sombra azul 20% — a mesma do botão primário do
-  app
-- Título hero: clamp(2.1rem, 4.2vw, 3.35rem), peso 700, tracking tight
-- Título de seção: clamp(1.75rem, 3.4vw, 2.5rem), peso 700
-- Rótulo de seção: 12px, peso 700, uppercase, tracking 0.18em, primary-600
-  (primary-300 sobre azul)
-- Card de recurso: radius 16px, padding 24px, shadow card, hover eleva 4px e
-  troca para shadow pop
-- Ícone de recurso: 20px em um bloco de 44px, radius 12px — **exceção** aos
-  16px padrão, restrita a esta rota
-- Seções escuras: primary-900 com halos radiais dos tokens primary-600/400
-  (classes `.landing-glow` e `.landing-glow-cta` em `app/globals.css`)
-- Texto sobre azul: branco no título, primary-200 no apoio
-- Nenhum texto de conteúdo usa #94a3b8: em página pública o mínimo é #475569
-- Entrada do hero: `.hero-in`, animação CSS pura de 700ms. O hero é o LCP da
-  página e nunca pode depender de JavaScript para aparecer
-- Entrada das seções abaixo da dobra: `.reveal` + IntersectionObserver, 600ms,
-  com a animação `reveal-failsafe` revelando sozinha em 3s caso o JS falhe
-- `prefers-reduced-motion` desliga as duas, e o reset é escopado a `.landing`:
-  não pode alcançar o spinner e o skeleton das telas autenticadas
-
-### Formulário público
-
-- Background: #f5f7fb
-- Layout: centralizado, min-height 100vh, padding 16px horizontal, 40px vertical
-- Container: max-width 512px
-- Marca superior: centralizada, gap 8px, texto #94a3b8
-- Logo: 32px x 32px, radius 12px, background #2563eb
-- Card: background branco, radius 16px, border #e6eaf2, padding 32px, shadow card
-- Título: 20px, peso 700
-- Descrição: 14px, #94a3b8
-- Form: margin-top 24px, gap vertical 16px
-- CTA: botão primary grande full-width
-- Mensagem de segurança: 12px, centralizada, #94a3b8
-- Estado de sucesso: ícone 64px, radius full, background emerald-50, cor emerald-500
-
-## Padrões por tela
-
-### Dashboard
-
-- Usa cards estatísticos em grid responsivo
-- Gráficos dentro de cards brancos
-- Altura padrão de gráficos: 220px a 240px
-- Barras com radius 6px
-- Linhas com stroke 2.5px
-- Labels de gráfico pequenos: 11px
-- Tooltips arredondados, borda clara e sombra suave
-
-### Kanban de negociações
-
-- Altura: viewport menos aproximadamente 136px
-- Toolbar/filtros: card branco, radius 16px, padding 12px
-- Colunas: largura 280px no mobile, 300px em telas maiores
-- Header da coluna: card branco, radius 12px, padding 14px x 10px
-- Área da coluna: radius 12px, padding 4px, scroll vertical
-- Drop ativo: background primary-50 com 80% de opacidade, ring primary-200
-- Card de negociação: background branco, radius 12px, border #e6eaf2, padding 14px, shadow card
-- Card hover: shadow pop
-- Card arrastando: opacidade 30%
-- Card overlay: rotação leve, shadow pop
-- Empty da coluna: altura 96px, border dashed #e6eaf2, texto 12px #94a3b8
-
-### Atendimento WhatsApp
-
-- Layout desktop: grid com 3 colunas, 320px / 1fr / 300px
-- Altura: viewport menos aproximadamente 120px
-- Painéis: background branco, radius 16px, border #e6eaf2, shadow card
-- Header do módulo: card branco compacto, padding 16px x 10px
-- Lista de conversas: border-bottom por item, padding 14px x 12px
-- Conversa selecionada: background primary-50 com 70% de opacidade
-- Conversa hover: background #f8fafc
-- Badge de não lidas: emerald-500, texto branco, 10px, peso 700
-- Área de mensagens: background slate-50 com 60% de opacidade, padding 16px
-- Balão enviado: background #2563eb, texto branco, radius 16px, canto inferior direito 6px
-- Balão recebido: background branco, texto #0f172a, border #e6eaf2, radius 16px, canto inferior esquerdo 6px
-- Largura máxima do balão: 75%
-- Hora/status: 10px
-- Composer: border-top #e6eaf2, padding 12px
-- Botões do composer: radius 12px, border #e6eaf2, padding 10px
-
-### Tarefas
-
-- Toolbar: card branco, radius 16px, padding 12px
-- Banner da próxima tarefa: background #1d4ed8, texto branco, radius 16px, padding 20px x 16px
-- Texto secundário no banner: primary-200
-- Chip do banner: background branco, texto #1d4ed8
-- Item de tarefa: background branco, radius 16px, border #e6eaf2, padding 16px x 12px, shadow card
-- Checkbox custom: 22px x 22px, radius 6px, border 2px
-- Checkbox concluído: emerald-500, texto branco
-- Ações rápidas: botões ghost de 32px a 36px, hover primary-50 ou rose-50
-
-### Pessoas, contatos, empresas, formulários e admin
-
-- Toolbar/filtros: card branco, radius 16px, padding 12px, gap 8px
-- Busca: input com ícone Search 16px à esquerda, padding-left 36px
-- Listagens principais: tabelas responsivas ou cards em grid
-- Grid de formulários: 1 coluna mobile, 2 colunas sm, 3 colunas lg
-- Cards de formulário: background branco, radius 16px, border #e6eaf2, padding 20px, shadow card, hover shadow pop
-- Ações em cards: grid de 2 colunas, gap 8px, border-top #e6eaf2
-
-### Perfil
-
-- Container: max-width 672px
-- Cards empilhados com gap 16px
-- Header do perfil: card com layout flex, padding 20px
-- Barra de completude: altura 12px, background slate-100, preenchimento emerald-500, radius full
-- Texto da porcentagem: 18px, peso 700
-- Formulário: grid 2 colunas em telas maiores, 1 coluna no mobile
-
-### Detalhe de negociação
-
-- Layout baseado em cards e listas
-- Indicadores de etapa: botões/pills com border e background azul quando ativo
-- Barra de progresso: altura 6px, background slate-100, preenchimento #2563eb
-- Atividades: linha temporal com bolinhas coloridas e ring suave
-- Tipos de atividade: emerald para sucesso/mensagem, rose para perda/erro, amber para nota/alerta, primary para padrão
-
-## Estados e feedback
-
-- Mensagem de erro: background rose-50, texto rose-700, radius 8px, padding 12px x 8px, texto 14px
-- Mensagem de sucesso: background emerald-50, texto emerald-700, radius 8px, padding 12px x 8px, texto 14px
-- Aviso/sistema: background amber-50, texto amber-700, ring amber-100, pill
-- Loading de botão: spinner 16px antes do texto
-- Loading de tela/lista: skeleton shimmer
-- Hover padrão em item clicável: #f8fafc ou primary-50 translúcido
-- Focus em controles: outline azul claro, não usar sombra pesada
-- Disabled: opacidade 50% ou surface #f8fafc com texto #94a3b8
-
-## Animações
-
-- Fade-up: duração 250ms, ease-out
-- Fade-up início: opacity 0, translateY 6px
-- Fade-up fim: opacity 1, translateY 0
-- Shimmer skeleton: duração 1.4s, linear, infinito
-- Transições padrão: color, background, border e shadow
-
-## Responsividade
-
-- Mobile first
-- Header desktop a partir de lg
-- Menu mobile abaixo do header, com links em bloco
-- Grids comuns: 1 coluna mobile, 2 colunas em sm, 3 ou 4 colunas em lg
-- Tabelas: manter largura mínima e scroll horizontal
-- Kanban: colunas horizontais com scroll
-- WhatsApp: alterna painéis no mobile; 3 colunas no desktop
-- Modais: bottom sheet no mobile, modal centralizado no desktop
-- Cards e toolbars: usar flex-wrap para evitar overflow
-
-## Conteúdo e linguagem visual
-
-- Tom do texto: direto, funcional e em português do Brasil
-- Labels curtos e claros
-- Subtítulos explicam contexto em uma frase curta
-- CTAs usam verbos de ação: Criar, Salvar, Enviar, Editar, Confirmar
-- Estados vazios sempre têm ícone, título, descrição curta e ação quando aplicável
-- Evitar excesso de texto explicativo dentro da interface
-- Usar emoji apenas pontualmente em mensagens leves de sucesso ou temperatura, sem depender dele como único indicador
-
-## Checklist para aplicar em outro app
-
-- Background geral: #f5f7fb
-- Fonte global: Inter
-- Texto principal: #0f172a
-- Texto secundário: #475569
-- Texto auxiliar: #94a3b8
-- Cor primária de ação: #2563eb
-- Hover primário: #1d4ed8
-- Cards: #ffffff, border #e6eaf2, radius 16px, shadow card
-- Inputs: altura 40px, radius 8px, border #e6eaf2, focus azul
-- Botões: radius 8px, altura 40px padrão, peso 500
-- Header: 56px, branco 90%, blur, border-bottom #e6eaf2
-- Container: max-width 1600px, padding 16px
-- Ícones: Lucide, 16px padrão
-- Badges: pill, 12px, cores semânticas suaves
-- Tabelas: header slate claro, texto uppercase 11px, hover primary-50 translúcido
-- Modais: overlay #0f172a 40%, blur 2px, radius 16px
-- Empty states: border dashed, ícone em bloco azul claro
-- Gráficos: azul #2563eb como série principal, paleta auxiliar multicolorida
+**Versão documentada:** CRM Jidianos em 25 de setembro de 2026.

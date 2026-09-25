@@ -19,8 +19,8 @@ import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 
 const TONES = {
-  primary: "bg-primary-600 text-white",
-  rose: "bg-rose-600 text-white",
+  primary: "bg-primary text-primary-foreground",
+  rose: "bg-destructive text-destructive-foreground",
 } as const;
 
 export function CountBadge({

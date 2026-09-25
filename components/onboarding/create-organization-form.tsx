@@ -12,7 +12,7 @@ export function CreateOrganizationForm() {
   const [state, formAction, pending] = useActionState(createOrgAction, null);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="animate-fade-up w-full max-w-md rounded-2xl border border-line bg-white p-8 shadow-(--shadow-card)">
         <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-600 text-white">
           <Waves className="h-6 w-6" />

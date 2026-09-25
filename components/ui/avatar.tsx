@@ -25,14 +25,14 @@ export function Avatar({
       <img
         src={src}
         alt={name ?? "avatar"}
-        className={cn("rounded-full object-cover ring-2 ring-white", sizeMap[size], className)}
+        className={cn("rounded-full object-cover ring-2 ring-card", sizeMap[size], className)}
       />
     );
   }
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center rounded-full bg-primary-100 font-semibold text-primary-700 ring-2 ring-white",
+        "inline-flex items-center justify-center rounded-full bg-secondary font-semibold text-secondary-foreground ring-2 ring-card",
         sizeMap[size],
         className
       )}

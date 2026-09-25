@@ -4,14 +4,15 @@ type Tone =
   | "blue" | "green" | "red" | "amber" | "slate" | "violet" | "cyan" | "orange";
 
 const tones: Record<Tone, string> = {
-  blue: "bg-primary-50 text-primary-700 ring-primary-100",
-  green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-  red: "bg-rose-50 text-rose-700 ring-rose-100",
-  amber: "bg-amber-50 text-amber-700 ring-amber-100",
-  slate: "bg-slate-100 text-slate-600 ring-slate-200",
-  violet: "bg-violet-50 text-violet-700 ring-violet-100",
-  cyan: "bg-cyan-50 text-cyan-700 ring-cyan-100",
-  orange: "bg-orange-50 text-orange-600 ring-orange-100",
+  blue: "bg-primary/10 text-primary ring-primary/25",
+  green: "bg-success/12 text-success-text ring-success/30",
+  red: "bg-destructive/10 text-destructive-text ring-destructive/25",
+  amber: "bg-warning/15 text-warning-text ring-warning/40",
+  slate: "bg-muted text-muted-foreground ring-border",
+  // Sem token semântico no guia: paleta do Tailwind com variante escura.
+  violet: "bg-violet-50 text-violet-700 ring-violet-100 dark:bg-violet-400/15 dark:text-violet-200 dark:ring-violet-300/25",
+  cyan: "bg-cyan-50 text-cyan-700 ring-cyan-100 dark:bg-cyan-400/15 dark:text-cyan-200 dark:ring-cyan-300/25",
+  orange: "bg-orange-50 text-orange-600 ring-orange-100 dark:bg-orange-400/15 dark:text-orange-200 dark:ring-orange-300/25",
 };
 
 export function Badge({
@@ -28,7 +29,9 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+        // Badge comum: compacto, raio de 6px, peso 600 (seção 18). Pílula
+        // completa fica para contadores e indicadores de resumo.
+        "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ring-1 ring-inset",
         tones[tone],
         className
       )}

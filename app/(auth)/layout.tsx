@@ -33,7 +33,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
 
       {/* Formulário */}
-      <div className="flex flex-1 items-center justify-center bg-surface px-4 py-10">
+      <div className="flex flex-1 items-center justify-center bg-background px-4 py-10">
         <div className="w-full max-w-md">{children}</div>
       </div>
     </div>

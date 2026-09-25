@@ -43,7 +43,7 @@ export function Pagination({
   return (
     <nav
       aria-label={ariaLabel}
-      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white px-4 py-3 shadow-(--shadow-card)"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-panel"
     >
       {/* `aria-live` aqui e não no botão: quem navega por teclado precisa ouvir
           onde chegou, e uma região só evita duas falas concorrentes. */}

@@ -80,7 +80,7 @@ function Toast({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string)
   return (
     <div
       className={cn(
-        "pointer-events-auto flex items-start gap-3 rounded-xl border border-line bg-white p-3.5 shadow-lg",
+        "pointer-events-auto flex items-start gap-3 rounded-xl border border-border bg-popover p-3.5 text-popover-foreground shadow-lift",
         "animate-toast-in"
       )}
     >
@@ -97,7 +97,7 @@ function Toast({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string)
         type="button"
         onClick={() => onDismiss(toast.id)}
         aria-label="Fechar aviso"
-        className="rounded-md p-1 text-ink-faint transition-colors hover:bg-slate-50 hover:text-ink"
+        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <X className="h-4 w-4" />
       </button>
